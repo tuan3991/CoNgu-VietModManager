@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "name": "// CỔ NGỮ PRO",
+  "release_date": "2026-10-19",
+  "min_required_version": "2.0.0",
+  "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest",
+  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest/download/CoNgu_Portable.zip",
+  "changelog": [
+    "Khởi chạy chính thức hệ thống quản lý & tự động cài đặt mod // CỔ NGỮ v2.0",
+    "Giao diện chuẩn phong cách Emerald Cyberpunk / Mecha tối ưu font Chakra Petch",
+    "Đồng bộ kho game trực tuyến qua GitHub CDN (cập nhật liên tục không cần cài lại app)",
+    "Tự động quét và phát hiện thư viện Steam qua Windows Registry & VDF parser",
+    "Hỗ trợ 7 cơ chế mod đa dạng: Unreal Engine (.pak), Unity, GameMaker, BepInEx, REDengine 3...",
+    "Cơ chế sao lưu an toàn tự động trước khi cài đặt (Safe Backup & Restore)"
+  ]
+}

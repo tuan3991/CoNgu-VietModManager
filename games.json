@@ -1,0 +1,478 @@
+[
+  {
+    "id": "preludes",
+    "steam_appid": "2020030",
+    "title": "Tails: The Backbone Preludes",
+    "vietnamese_title": "Tails: The Backbone Preludes (Tiền Truyện)",
+    "developer": "EggNut / Raw Fury",
+    "engine": "Unreal Engine 5.1",
+    "genre": "Trinh thám Noir, Phân nhánh lựa chọn, Pixel Art",
+    "description": "Tựa game phiêu lưu tường thuật hậu tận thế lấy bối cảnh thành phố Vancouver đen tối, nơi loài vật hình người sinh sống dưới sự thống trị phân tầng giai cấp. Theo chân 4 nhân vật (Howard, Clarissa, Renee, Eli) qua 4 chương truyện đầy biến cố, nơi mọi lựa chọn định hình số phận của họ.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "22,240 câu thoại",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Chuẩn UE5)",
+      "author": "Antigravity Localization Team",
+      "font": "Futura Pixel Art có dấu đầy đủ",
+      "last_updated": "24/09/2026"
+    },
+    "mod_subfolder": "Tails The Backbone Preludes",
+    "mod_type": "pak",
+    "mod_file": "BackboneStories-Windows_Vietnamese_P.pak",
+    "relative_install_path": "BackboneStories/Content/Paks",
+    "target_pak_name": "BackboneStories-Windows_Vietnamese_P.pak",
+    "executable_name": "BackboneStories.exe",
+    "default_folder_names": [
+      "Tails The Backbone Preludes",
+      "Tails Backbone Preludes"
+    ],
+    "assets": {
+      "poster": "/assets/preludes/library_600x900.jpg",
+      "banner": "/assets/preludes/library_hero.jpg",
+      "logo": "/assets/preludes/logo.png",
+      "header": "/assets/preludes/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn UE5)",
+        "release_date": "24/09/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "backbone",
+    "steam_appid": "865610",
+    "title": "Backbone (Tails Noir)",
+    "vietnamese_title": "Backbone: Tails Noir",
+    "developer": "EggNut / Raw Fury",
+    "engine": "Unreal Engine 4.25",
+    "genre": "Phiêu lưu Trinh thám Noir, Giải đố, Pixel Art 2.5D",
+    "description": "Hóa thân thành thám tử tư Howard Lotor, một chú gấu trúc điều tra vụ án ngoại tình tưởng chừng tầm thường nhưng lại vén màn một âm mưu kinh hoàng đe dọa sự tồn vong của toàn bộ tầng lớp dưới đáy xã hội Vancouver.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "15,225 câu thoại",
+      "status": "Hoàn thành 100% (Toàn bộ Hồi 1 - 5)",
+      "version": "v1.0.0",
+      "author": "Antigravity Localization Team",
+      "font": "Futura Pixel Art có dấu đầy đủ",
+      "last_updated": "24/09/2026"
+    },
+    "mod_subfolder": "Tails Noir",
+    "mod_type": "pak",
+    "mod_file": "Detective-WindowsNoEditor_Vietnamese_P.pak",
+    "relative_install_path": "Detective/Content/Paks",
+    "target_pak_name": "Detective-WindowsNoEditor_Vietnamese_P.pak",
+    "executable_name": "Detective.exe",
+    "default_folder_names": [
+      "Backbone",
+      "Tails Noir"
+    ],
+    "assets": {
+      "poster": "/assets/backbone/library_600x900.jpg",
+      "banner": "/assets/backbone/library_hero.jpg",
+      "logo": "/assets/backbone/logo.png",
+      "header": "/assets/backbone/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0",
+        "release_date": "24/09/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "toem",
+    "steam_appid": "1307580",
+    "title": "TOEM - A Photo Adventure",
+    "vietnamese_title": "TOEM: Chuyến Phiêu Lưu Nhiếp Ảnh",
+    "developer": "Something We Made",
+    "engine": "Unity Engine",
+    "genre": "Phiêu lưu Nhiếp ảnh, Thư giãn, Tranh vẽ tay Monochrome",
+    "description": "Bắt đầu chuyến thám hiểm thú vị và sử dụng con mắt nhiếp ảnh của bạn để khám phá những bí ẩn trong chuyến phiêu lưu vẽ tay thú vị này! Trò chuyện với các nhân vật kỳ quặc, giải quyết vấn đề của họ bằng cách chụp những bức ảnh đẹp.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "3,438 dòng đối thoại",
+      "status": "Hoàn thành 100% (Song ngữ Anh - Việt)",
+      "version": "v1.0.0",
+      "author": "Antigravity Localization Team",
+      "font": "Font vẽ tay độc quyền có dấu chuẩn",
+      "last_updated": "12/09/2026"
+    },
+    "mod_subfolder": "TOEM - A Photo Adventure [Viet Hoa]",
+    "mod_type": "unity_assets",
+    "mod_file": "TOEM_Data/resources.assets",
+    "relative_install_path": "TOEM_Data",
+    "target_pak_name": "resources.assets",
+    "backup_file": "resources.assets.original_backup",
+    "executable_name": "TOEM.exe",
+    "default_folder_names": [
+      "TOEM"
+    ],
+    "assets": {
+      "poster": "/assets/toem/library_600x900.jpg",
+      "banner": "/assets/toem/library_hero.jpg",
+      "logo": "/assets/toem/logo.png",
+      "header": "/assets/toem/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0",
+        "release_date": "12/09/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "hotline_miami",
+    "steam_appid": "219150",
+    "title": "Hotline Miami",
+    "vietnamese_title": "Hotline Miami (1989)",
+    "developer": "Dennaton Games / Devolver Digital",
+    "engine": "GameMaker / C++ OpenGL",
+    "genre": "Hành động Top-Down, Bạo lực Thập niên 80, Synthwave",
+    "description": "Trò chơi hành động đỉnh cao ngập tràn bạo lực, đấu súng tàn khốc và những cuộc thanh trừng đẫm máu tại thế giới ngầm Miami năm 1989. Bạn vào vai một sát thủ đeo mặt nạ bí ẩn nhận lệnh qua các tin nhắn thoại nặc danh.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "1,901 câu thoại",
+      "status": "Hoàn thành 100% (Bản Steam Updated)",
+      "version": "v1.0.0",
+      "author": "Antigravity Localization Team",
+      "font": "Font Pixel 80s Arcade có dấu chuẩn",
+      "last_updated": "10/09/2026"
+    },
+    "mod_subfolder": "Hotline Miami [Viet Hoa]",
+    "mod_type": "wad",
+    "mod_file": "HotlineMiami_GL.wad",
+    "relative_install_path": "",
+    "target_pak_name": "HotlineMiami_GL.wad",
+    "backup_file": "HotlineMiami_GL_original.wad",
+    "executable_name": "HotlineGL.exe",
+    "default_folder_names": [
+      "hotline_miami"
+    ],
+    "assets": {
+      "poster": "/assets/hotline_miami/library_600x900.jpg",
+      "banner": "/assets/hotline_miami/library_hero.jpg",
+      "logo": "/assets/hotline_miami/logo.png",
+      "header": "/assets/hotline_miami/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0",
+        "release_date": "10/09/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "ror2",
+    "steam_appid": "632360",
+    "title": "Risk of Rain 2",
+    "vietnamese_title": "Risk of Rain 2 (Cơn Mưa Hiểm Nguy 2)",
+    "developer": "Hopoo Games / Gearbox",
+    "engine": "Unity Engine (BepInEx Loader)",
+    "genre": "Bắn súng Roguelike góc nhìn thứ ba, Co-op, Hành động",
+    "description": "Thoát khỏi một hành tinh xa lạ hỗn loạn bằng cách chiến đấu qua hàng đàn quái vật điên cuồng cùng bạn bè hoặc một mình. Kết hợp các chiến lợi phẩm theo những cách đáng ngạc nhiên và thành thạo từng nhân vật.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "4,709 chuỗi văn bản (39 file)",
+      "status": "Hoàn thành 100% (Base + 3 DLC)",
+      "version": "v1.0.0 (Zero Omission)",
+      "author": "Antigravity Localization Team",
+      "font": "Bombardier HD sắc nét có dấu chuẩn",
+      "last_updated": "14/09/2026"
+    },
+    "mod_subfolder": "Risk of Rain 2 [Viet Hoa]",
+    "mod_type": "bepinex_language",
+    "mod_file": "Risk of Rain 2_Data/StreamingAssets/Language/vi/Main.json",
+    "relative_install_path": "Risk of Rain 2_Data/StreamingAssets/Language/vi",
+    "target_pak_name": "Main.json",
+    "executable_name": "Risk of Rain 2.exe",
+    "default_folder_names": [
+      "Risk of Rain 2"
+    ],
+    "assets": {
+      "poster": "/assets/ror2/library_600x900.jpg",
+      "banner": "/assets/ror2/library_hero.jpg",
+      "logo": "/assets/ror2/logo.png",
+      "header": "/assets/ror2/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Zero Omission)",
+        "release_date": "14/09/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "fallout_tactics",
+    "steam_appid": "38420",
+    "title": "Fallout Tactics: Brotherhood of Steel",
+    "vietnamese_title": "Fallout Tactics: Hội Huynh Đệ Thép",
+    "developer": "Micro Forté / 14 Degrees East / Bethesda",
+    "engine": "Tactical Engine (Hi-Res 1.27)",
+    "genre": "Chiến thuật theo lượt / Thời gian thực, Nhập vai RPG, Hậu tận thế",
+    "description": "Chỉ huy một tiểu đội gồm các chiến binh Brotherhood of Steel trong bối cảnh hậu tận thế Wasteland. Bạn là tia hy vọng cuối cùng để khôi phục lại trật tự cho vùng đất hoang tàn bị tàn phá bởi bom hạt nhân.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "57 Chiến dịch, Toàn bộ Vật phẩm & Perk",
+      "status": "Hoàn thành 100% (GUI + Missions + S.P.E.C.I.A.L.)",
+      "version": "v1.27 Hi-Res",
+      "author": "Antigravity Localization Team",
+      "font": "6 bộ Font Việt Hóa chuẩn Wasteland",
+      "last_updated": "11/09/2026"
+    },
+    "mod_subfolder": "Fallout Tactics - Brotherhood of Steel [Viet Hoa]",
+    "mod_type": "folder_copy",
+    "mod_file": "core/locale",
+    "relative_install_path": "core/locale",
+    "target_pak_name": "missions.txt",
+    "executable_name": "BOS.exe",
+    "default_folder_names": [
+      "Fallout Tactics"
+    ],
+    "assets": {
+      "poster": "/assets/fallout_tactics/library_600x900.jpg",
+      "banner": "/assets/fallout_tactics/library_hero.jpg",
+      "logo": "/assets/fallout_tactics/logo.png",
+      "header": "/assets/fallout_tactics/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.27 Hi-Res",
+        "release_date": "11/09/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "loop_hero",
+    "steam_appid": "1282730",
+    "title": "Loop Hero",
+    "vietnamese_title": "Loop Hero (Vòng Lặp Bất Tận)",
+    "developer": "Four Quarters / Devolver Digital",
+    "engine": "GameMaker Studio 2 (x86 C++ YYC)",
+    "genre": "Roguelite Dark Fantasy, Xây dựng bộ bài, Vòng lặp thời gian",
+    "description": "Thế giới đã bị Vu thuật sư Lich cùng thế lực hư vô xóa sổ, giam cầm vạn vật vào một vòng lặp vĩnh hằng đầy tuyệt vọng. Hóa thân thành Kẻ Lữ Hành kiên cường, sử dụng các tấm thẻ ký ức để tái thiết lại từng mảnh vỡ của thực tại, xây dựng doanh trại cho những người sống sót và đối đầu với Đấng Tận Diệt Omega.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "2,901 chuỗi văn bản (Toàn bộ 169 Section)",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Chuẩn GMS2 Extended)",
+      "author": "Antigravity Localization Team",
+      "font": "Bộ phông Pixel Retro (Pixelcraft) & Roboto hỗ trợ 100% tiếng Việt có dấu",
+      "last_updated": "06/10/2026"
+    },
+    "mod_subfolder": "LoopHero",
+    "mod_type": "ini_and_exe",
+    "mod_file": "local/lang_eng.ini",
+    "relative_install_path": "local",
+    "target_pak_name": "lang_eng.ini",
+    "backup_file": "local/lang_eng.ini.orig",
+    "executable_name": "Loop Hero.exe",
+    "default_folder_names": [
+      "Loop Hero"
+    ],
+    "assets": {
+      "poster": "/assets/loop_hero/library_600x900.jpg",
+      "banner": "/assets/loop_hero/library_hero.jpg",
+      "logo": "/assets/loop_hero/logo.png",
+      "header": "/assets/loop_hero/header.jpg"
+    },
+    "important_note": "Hãy chọn font chữ sắc nét ở góc trên cùng bên trái khi đã vào menu game, để tiếng việt không bị lỗi",
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn GMS2 Extended)",
+        "release_date": "06/10/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "witcher3",
+    "steam_appid": "292030",
+    "title": "The Witcher 3: Wild Hunt",
+    "vietnamese_title": "The Witcher 3: Wild Hunt (Thợ Săn Quái Vật 3: Binh Đoàn Hoang Săn)",
+    "developer": "CD PROJEKT RED",
+    "engine": "REDengine 3 (Next-Gen DirectX 12)",
+    "genre": "Nhập vai hành động thế giới mở (ARPG), Dark Fantasy, Cốt truyện sử thi",
+    "description": "Hóa thân thành Geralt xứ Rivia - thợ săn quái vật đột biến nhân huyền thoại. Trong một thế giới tan hoang vì ngọn lửa chiến tranh giữa Đế chế Nilfgaard và các Vương quốc Phương Bắc, bạn phải lần theo dấu vết của Ciri - Đứa Con của Định Mệnh mang dòng máu cổ xưa, trước khi Binh Đoàn Hoang Săn (The Wild Hunt) kịp bắt giữ nàng.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "94,430 dòng văn bản (Next-Gen Master Pack)",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v4.04 Next-Gen Remastered",
+      "author": "Antigravity Localization Team",
+      "font": "Font Arial & PF Din Text chuẩn Unicode hỗ trợ tiếng Việt có dấu 100%",
+      "last_updated": "07/10/2026"
+    },
+    "mod_subfolder": "The Witcher 3 [Viet Hoa]",
+    "mod_type": "witcher3_mod",
+    "mod_file": "Mods/modVietHoa/content/en.w3strings",
+    "relative_install_path": "Mods/modVietHoa/content",
+    "target_pak_name": "en.w3strings",
+    "bundle_patch_rel": "content/content0/bundles/xml.bundle",
+    "backup_file": "content/content0/bundles/xml.bundle.orig",
+    "executable_name": "bin/x64_dx12/witcher3.exe",
+    "default_folder_names": [
+      "The Witcher 3",
+      "The Witcher 3 Wild Hunt"
+    ],
+    "assets": {
+      "poster": "/assets/witcher3/library_600x900.jpg",
+      "banner": "/assets/witcher3/library_hero.jpg",
+      "logo": "/assets/witcher3/logo.png",
+      "header": "/assets/witcher3/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v4.04 Next-Gen Remastered",
+        "release_date": "07/10/2026",
+        "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
+        "is_latest": true
+      }
+    ]
+  },
+  {
+    "id": "forever_ago",
+    "steam_appid": "1215940",
+    "title": "Forever Ago",
+    "vietnamese_title": "Forever Ago (Hành Trình Còn Mãi)",
+    "developer": "Third Shift Games / Annapurna Interactive",
+    "engine": "Unity 6 (Pixel Crushers)",
+    "genre": "Phiêu lưu Tường thuật, Cozy Story-rich, Nhiếp ảnh",
+    "description": "Chuyến hành trình đầy cảm xúc của cụ ông Franz và chú chó Barnaby dọc theo bờ biển phía Tây. Cùng chiếc máy ảnh cũ, lưu giữ lại từng ký ức quý giá, đối diện với những mất mát và tìm lại niềm hy vọng trong cuộc sống.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "10,500 câu thoại & nhật ký",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Chuẩn Unity 6)",
+      "author": "Antigravity Localization Team",
+      "font": "Outfit & Inter Tiếng Việt Chuẩn HD",
+      "last_updated": "18/10/2026"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0",
+        "release_date": "18/10/2026",
+        "changelog": "Phát hành bản dịch hoàn chỉnh 100% toàn bộ cốt truyện, nhật ký và giao diện.",
+        "is_latest": true
+      }
+    ],
+    "mod_subfolder": "Forever Ago [Viet Hoa]",
+    "mod_type": "unity_assets",
+    "mod_file": "sharedassets0.assets",
+    "relative_install_path": "Forever Ago_Data",
+    "target_pak_name": "sharedassets0.assets",
+    "additional_files": [
+      {
+        "src": "Assembly-CSharp.dll",
+        "dst": "Forever Ago_Data/Managed/Assembly-CSharp.dll"
+      }
+    ],
+    "executable_name": "Forever Ago.exe",
+    "default_folder_names": [
+      "Forever Ago",
+      "Forever"
+    ],
+    "assets": {
+      "poster": "/assets/forever_ago/library_600x900.jpg",
+      "banner": "/assets/forever_ago/library_hero.jpg",
+      "header": "/assets/forever_ago/header.jpg"
+    }
+  },
+  {
+    "id": "erra_exordium",
+    "steam_appid": "1224030",
+    "title": "Erra: Exordium",
+    "vietnamese_title": "Erra: Exordium (Kỷ Nguyên Hỗn Mang)",
+    "developer": "FairPixel / Kirkas Games",
+    "engine": "Unity (Dieselpunk 2D)",
+    "genre": "Hành động Phiêu lưu, Dieselpunk 2D, Pixel Art",
+    "description": "Tựa game hành động phiêu lưu 2.5D lấy bối cảnh thế giới Dieselpunk kỳ ảo dựa trên thần thoại Sumer cổ đại. Vào vai một nhà khoa học chuyển sinh vào cơ thể robot sau đại dịch, chiến đấu với quân đoàn cơ giới để cứu rỗi nhân loại.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "3,420 câu thoại & truyền thuyết",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Pixel Chuẩn)",
+      "author": "Antigravity Localization Team",
+      "font": "Sumerian Pixel Font có dấu chuẩn",
+      "last_updated": "17/10/2026"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0",
+        "release_date": "17/10/2026",
+        "changelog": "Bản dịch 100% cốt truyện, bảng chỉ dẫn và hệ thống hội thoại với font pixel-art độc quyền.",
+        "is_latest": true
+      }
+    ],
+    "mod_subfolder": "Erra Exordium [Viet Hoa]",
+    "mod_type": "unity_assets",
+    "mod_file": "ErraExordium_Data/sharedassets1.assets",
+    "relative_install_path": "ErraExordium_Data",
+    "target_pak_name": "sharedassets1.assets",
+    "executable_name": "Erra Exordium.exe",
+    "default_folder_names": [
+      "Erra Exordium"
+    ],
+    "assets": {
+      "poster": "/assets/erra_exordium/library_600x900.jpg",
+      "banner": "/assets/erra_exordium/library_hero.jpg",
+      "header": "/assets/erra_exordium/header.jpg"
+    }
+  },
+  {
+    "id": "ravenous_devils",
+    "steam_appid": "1615290",
+    "title": "Ravenous Devils",
+    "vietnamese_title": "Ravenous Devils (Bếp Nướng Địa Ngục)",
+    "developer": "Bad Vices Games",
+    "engine": "Unreal Engine 4",
+    "genre": "Mô phỏng Kinh dị, Quản lý Tiệm May & Quán Ăn",
+    "description": "Mô phỏng nấu nướng và kinh doanh rùng rợn lấy cảm hứng từ truyền thuyết Sweeney Todd. Quản lý tiệm may đo thời trang và tiệm bánh thịt đen tối tại thành phố London thế kỷ 19 đầy cạm bẫy.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "4,800 câu thoại & công thức",
+      "status": "Hoàn thành 100%",
+      "version": "v1.0.0",
+      "author": "Antigravity Localization Team",
+      "font": "Victorian Gothic Font tiếng Việt",
+      "last_updated": "16/10/2026"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0",
+        "release_date": "16/10/2026",
+        "changelog": "Phát hành bản Việt hóa gói Pak Unreal Engine 4 cho toàn bộ công thức và hội thoại.",
+        "is_latest": true
+      }
+    ],
+    "mod_subfolder": "Ravenous Devils [Viet Hoa]",
+    "mod_type": "pak",
+    "mod_file": "Ravenous_Devils_Vietnamese_P.pak",
+    "relative_install_path": "Ravenous_Devils/Content/Paks/~mods",
+    "target_pak_name": "Ravenous_Devils_Vietnamese_P.pak",
+    "executable_name": "Ravenous_Devils.exe",
+    "default_folder_names": [
+      "Ravenous devils",
+      "Ravenous Devils"
+    ],
+    "assets": {
+      "poster": "/assets/ravenous_devils/library_600x900.jpg",
+      "banner": "/assets/ravenous_devils/library_hero.jpg",
+      "header": "/assets/ravenous_devils/header.jpg"
+    }
+  }
+]

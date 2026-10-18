@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CỔ NGỮ - Trình Quản Lý Game Việt Hóa Pro</title>
+  <link rel="icon" type="image/png" href="/static/app_icon.png">
+  <link rel="shortcut icon" type="image/x-icon" href="/app_icon.ico">
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            },
+            accent: {
+              500: '#3b82f6',
+              600: '#2563eb',
+            },
+            dark: {
+              950: '#05070d',
+              900: '#090d16',
+              850: '#0f1423',
+              800: '#151d30',
+              750: '#1c263e',
+              700: '#253352',
+              600: '#384b72',
+            }
+          },
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', 'sans-serif'],
+            display: ['"Chakra Petch"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+    <!-- Typography System: Chakra Petch (Display), Be Vietnam Pro (UI), JetBrains Mono (Tech) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --font-display: 'Chakra Petch', sans-serif;
+      --font-sans: 'Be Vietnam Pro', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    /* Ap dung cho toan bo giao dien mac dinh */
+    body {
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Quy chuan cho Logo chu CO NGU */
+    /* Quy chuẩn Vàng cho Logo chữ CỔ NGỮ */
+    .app-brand-title {
+      font-family: var(--font-display) !important;
+      font-weight: 700 !important;
+      font-size: 24px !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: #F8FAFC !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      line-height: 1 !important;
+    }
+
+    .brand-slashes {
+      color: #10B981 !important;
+      font-family: var(--font-mono) !important;
+      font-weight: 800 !important;
+      font-size: 21px !important;
+      letter-spacing: -0.06em !important;
+      margin-right: 7px !important;
+      text-shadow: 0 0 12px rgba(16, 185, 129, 0.6), 0 0 20px rgba(16, 185, 129, 0.3) !important;
+      display: inline-block !important;
+      transform: translateY(-1px);
+    }
+
+    .brand-name {
+      color: #F8FAFC !important;
+      font-family: var(--font-display) !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.08em !important;
+      text-shadow: 0 0 15px rgba(248, 250, 252, 0.25), 0 0 25px rgba(16, 185, 129, 0.25) !important;
+    }
+
+    /* Quy chuan cho cac Badge ky thuat (Version, Engine, Duong dan, Steam Protocol) */
+    .tech-badge, .file-path, .protocol-text, .engine-tag {
+      font-family: var(--font-mono) !important;
+      font-size: 11.5px !important;
+      letter-spacing: 0.02em !important;
+    }
+
+    .font-display {
+      font-family: var(--font-display);
+    }
+
+    .font-mono-tech {
+      font-family: var(--font-mono);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #253352; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #384b72; }
+
+    .glass {
+      background: rgba(15, 20, 35, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-card {
+      background: rgba(21, 29, 48, 0.75);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .card-hover-effect {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card-hover-effect:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 16px 36px -12px rgba(34, 197, 94, 0.25);
+      border-color: rgba(74, 222, 128, 0.4);
+    }
+
+    .active-filter-tab {
+      background: #16a34a;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+    }
+
+    .pulse-glow {
+      animation: pulseGlow 2s infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.75; transform: scale(1.05); }
+    }
+  </style>
+</head>
+<body class="bg-dark-900 text-slate-100 min-h-screen font-sans selection:bg-brand-500 selection:text-white flex flex-col">
+
+  <!-- TOP HEADER NAVBAR -->
+  <header class="sticky top-0 z-40 glass border-b border-dark-700/60 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center space-x-3.5 cursor-pointer" onclick="refreshData()">
+      <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-500/30 border border-emerald-500/50 bg-dark-950 flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-300">
+        <img src="/static/app_icon.png" alt="CO NGU Icon" class="w-full h-full object-cover rounded-lg" />
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="app-brand-title">
+            <span class="brand-slashes">//</span>
+            <span class="brand-name">CỔ NGỮ</span>
+          </h1>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">PRO v2.0</span>
+        </div>
+        <p class="text-xs text-slate-400">Hệ Thống Quản Lý & Tự Động Cài Đặt Game Việt Hóa</p>
+      </div>
+    </div>
+
+    <!-- Center Search Bar (Fuzzy Search Tiếng Việt) -->
+    <div class="flex items-center space-x-3 flex-1 max-w-lg mx-6">
+      <div class="relative w-full">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input 
+          id="searchInput" 
+          type="text" 
+          placeholder="Tìm game, tên Việt hóa, từ khóa, engine (Unreal, Unity...)..." 
+          class="w-full pl-10 pr-9 py-2 bg-dark-800/90 border border-dark-700/80 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-100 placeholder-slate-400 transition"
+        />
+        <button id="clearSearchBtn" onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 hidden">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Quick Controls -->
+    <div class="flex items-center space-x-2.5">
+      <button id="syncCloudBtn" onclick="syncCloudCatalog()" class="px-3 py-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-emerald-500/40 shadow-sm shadow-emerald-500/10" title="Đồng bộ kho game mới từ Cloud GitHub">
+        <i id="syncCloudIcon" data-lucide="cloud-download" class="w-4 h-4 text-emerald-400"></i>
+        <span class="hidden sm:inline font-bold">Đồng bộ Cloud</span>
+      </button>
+      <button onclick="openGameRequestModal()" class="px-3 py-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Gửi yêu cầu dịch game mới">
+        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+        <span class="hidden lg:inline">Yêu cầu game</span>
+      </button>
+
+      <button onclick="openRepoFolder()" class="px-3 py-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Mở thư mục kho Viethoagame">
+        <i data-lucide="folder-archive" class="w-4 h-4 text-emerald-400"></i>
+        <span class="hidden md:inline">Kho Viethoagame</span>
+      </button>
+
+      <button onclick="refreshData()" class="p-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Quét lại toàn bộ thư viện game">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Quét lại</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- APP UPDATE NOTIFICATION BANNER -->
+  <div id="updateNotificationBanner" class="hidden bg-gradient-to-r from-emerald-950/90 via-dark-900 to-emerald-950/90 border-b border-emerald-500/40 px-6 py-2.5 flex items-center justify-between text-xs text-slate-200">
+    <div class="flex items-center space-x-2.5">
+      <span class="flex h-2 w-2 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      </span>
+      <span class="font-bold text-emerald-400" id="updateBannerVersion">// BẢN CẬP NHẬT MỚI:</span>
+      <span id="updateBannerTitle" class="text-slate-300">Đã có phiên bản phần mềm mới</span>
+    </div>
+    <div class="flex items-center space-x-3">
+      <button onclick="openUpdateModal()" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-md shadow-emerald-600/30 flex items-center space-x-1">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        <span>Xem & Tải bản mới</span>
+      </button>
+      <button onclick="closeUpdateBanner()" class="text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- REPOSITORY & AUTO-DETECT STATUS BAR -->
+  <div class="bg-dark-850/90 border-b border-dark-700/50 px-6 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
+    <div class="flex items-center space-x-2">
+      <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-brand-400"></i>
+      <span>Kho bản dịch:</span>
+      <code id="repoPathDisplay" class="file-path tech-badge bg-dark-800 px-2.5 py-0.5 rounded text-slate-200 border border-dark-700/80">
+        Đang nạp đường dẫn kho lưu trữ...
+      </code>
+      <button onclick="changeRepoFolder()" class="px-2 py-0.5 rounded-lg bg-dark-750 hover:bg-dark-700 text-brand-300 hover:text-white border border-dark-600 text-[10px] font-bold transition flex items-center space-x-1" title="Đổi hoặc chọn thư mục kho Viethoagame khác">
+        <i data-lucide="folder-cog" class="w-3 h-3"></i>
+        <span>Đổi kho...</span>
+      </button>
+    </div>
+    <div class="flex items-center space-x-4">
+      <span class="flex items-center space-x-1.5 text-emerald-400 font-medium">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+        <span id="syncStatusText">Bản sao lưu ngoài (%APPDATA%) bảo vệ an toàn</span>
+      </span>
+      <span class="hidden sm:flex items-center space-x-1.5 text-slate-400">
+        <i data-lucide="steam" class="w-3.5 h-3.5 text-accent-500"></i>
+        <span class="protocol-text tech-badge text-slate-300">Steam Protocol: steam://rungameid</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- HERO SPOTLIGHT BANNER -->
+    <div id="heroBanner" class="relative rounded-2xl overflow-hidden border border-dark-700/80 bg-dark-850 shadow-2xl min-h-[320px] flex items-end p-8 transition-all duration-500">
+      <div id="heroBg" class="absolute inset-0 bg-cover bg-center opacity-35 transition-all duration-700 scale-100 hover:scale-105" style="background-image: url('/assets/preludes/library_hero.jpg');"></div>
+      <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-900/70 to-transparent"></div>
+
+      <!-- Spotlight Shuffle Button -->
+      <button onclick="shuffleHeroSpotlight()" class="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-xl bg-dark-900/80 hover:bg-dark-800 text-slate-300 hover:text-white border border-dark-700 text-xs flex items-center space-x-1.5 transition backdrop-blur-md">
+        <i data-lucide="shuffle" class="w-3.5 h-3.5 text-brand-400"></i>
+        <span>Đổi Game Nổi Bật</span>
+      </button>
+
+      <div class="relative z-10 max-w-3xl space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- 3-State Hero Badge -->
+          <span id="heroBadge" class="px-2.5 py-1 rounded-md text-xs font-bold flex items-center space-x-1.5">
+            <span id="heroBadgeDot" class="w-2 h-2 rounded-full animate-pulse"></span>
+            <span id="heroStatusText">ĐÃ CÀI ĐẶT VIỆT HÓA</span>
+          </span>
+          <span id="heroEngine" class="engine-tag tech-badge px-2.5 py-1 rounded-md bg-dark-800/90 text-slate-300 border border-dark-700">Unreal Engine</span>
+          <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">100% Hoàn Thành (Zero Omission)</span>
+        </div>
+
+        <h2 id="heroTitle" class="font-display text-3xl sm:text-4xl font-bold text-white tracking-wide drop-shadow-md">
+          Tails: The Backbone Preludes (Tiền Truyện)
+        </h2>
+        <p id="heroDesc" class="text-sm text-slate-300 line-clamp-2 leading-relaxed">
+          Tựa game trinh thám noir phân nhánh lựa chọn sâu sắc với 22,240 câu thoại đã được bản địa hóa chuẩn văn học, hỗ trợ đầy đủ font pixel-art tiếng Việt có dấu.
+        </p>
+
+        <!-- Hero Important Note (Cảnh Báo Chữ Đỏ Nổi Bật) -->
+        <div id="heroNoteContainer" class="hidden p-3 rounded-xl bg-gradient-to-r from-red-950/95 via-rose-950/90 to-red-950/95 border-2 border-red-500/80 shadow-lg shadow-red-950/50 flex items-start space-x-2.5">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 mt-0.5 animate-pulse"></i>
+          <div class="text-xs leading-relaxed">
+            <span class="text-red-400 uppercase tracking-wide mr-1.5 font-extrabold">[LƯU Ý QUAN TRỌNG]:</span>
+            <span id="heroNoteText" class="text-red-200 font-semibold"></span>
+          </div>
+        </div>
+
+        <!-- Hero Actions -->
+        <div class="pt-2 flex flex-wrap items-center gap-3">
+          <button id="heroActionBtn" onclick="onHeroMainAction()" class="px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-lg transition flex items-center space-x-2">
+            <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+            <span>Chơi Ngay (Launch)</span>
+          </button>
+          <button id="heroDetailBtn" onclick="openGameModal(heroGameId)" class="px-4 py-2.5 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-200 hover:text-white font-semibold text-sm border border-dark-600 transition flex items-center space-x-1.5">
+            <i data-lucide="info" class="w-4 h-4 text-brand-400"></i>
+            <span>Chi Tiết & Phiên Bản</span>
+          </button>
+          <button onclick="openGameFolder(heroGameId)" class="px-3.5 py-2.5 rounded-xl bg-dark-800/80 hover:bg-dark-700 text-slate-300 hover:text-white text-sm border border-dark-700 transition" title="Mở thư mục cài đặt game">
+            <i data-lucide="folder" class="w-4 h-4"></i>
+          </button>
+          <button onclick="openModFolder(heroGameId)" class="px-3.5 py-2.5 rounded-xl bg-dark-800/80 hover:bg-dark-700 text-amber-300 hover:text-white text-sm border border-dark-700 transition" title="Mở thư mục mod trong Viethoagame">
+            <i data-lucide="package-search" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER BAR: 3-STATE TABS + ENGINE DROPDOWN -->
+    <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+      <!-- State Filter Tabs -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="setFilter('all')" id="filter-all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold active-filter-tab transition">
+          Tất cả (<span id="count-all">0</span>)
+        </button>
+        <button onclick="setFilter('installed')" id="filter-installed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700">
+          Đã cài Việt Hóa (<span id="count-installed">0</span>)
+        </button>
+        <button onclick="setFilter('uninstalled')" id="filter-uninstalled" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700">
+          Chưa cài mod (<span id="count-uninstalled">0</span>)
+        </button>
+        <button onclick="setFilter('missing')" id="filter-missing" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700">
+          Chưa có game (<span id="count-missing">0</span>)
+        </button>
+      </div>
+
+      <!-- Engine Filter Dropdown -->
+      <div class="flex items-center space-x-3 text-xs">
+        <div class="flex items-center space-x-2 bg-dark-800 px-3 py-1.5 rounded-xl border border-dark-700">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span class="text-slate-400">Engine:</span>
+          <select id="engineFilter" onchange="onEngineFilterChange()" class="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer">
+            <option value="all" class="bg-dark-800 text-slate-200">Tất cả engine</option>
+            <option value="unreal" class="bg-dark-800 text-slate-200">Unreal Engine</option>
+            <option value="unity" class="bg-dark-800 text-slate-200">Unity</option>
+            <option value="gamemaker" class="bg-dark-800 text-slate-200">GameMaker</option>
+            <option value="redengine" class="bg-dark-800 text-slate-200">REDengine (Witcher)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAMES GRID (2:3 Portrait Cards) -->
+    <div id="gamesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <!-- Game Cards Generated Dynamically via JS -->
+    </div>
+
+  </main>
+
+  <!-- MODAL: GAME DETAILS & SETTINGS -->
+  <div id="gameModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden transition-opacity">
+    <div class="relative w-full max-w-3xl bg-dark-850 border border-dark-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      
+      <!-- Modal Header Banner -->
+      <div class="relative h-52 bg-dark-900 overflow-hidden flex items-end p-6">
+        <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-dark-850 via-dark-850/70 to-transparent"></div>
+        
+        <button onclick="closeGameModal()" class="absolute top-4 right-4 p-2 rounded-xl bg-dark-900/80 hover:bg-dark-700 text-slate-400 hover:text-white border border-dark-700 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+
+        <div class="relative z-10 space-y-1">
+          <div class="flex items-center space-x-2">
+            <span id="modalStatusBadge" class="px-2.5 py-0.5 rounded-md text-[11px] font-bold"></span>
+            <span id="modalEngineBadge" class="engine-tag tech-badge px-2.5 py-0.5 rounded-md bg-dark-800 text-slate-300 border border-dark-700"></span>
+            <span id="modalVersionBadge" class="tech-badge px-2.5 py-0.5 rounded-md font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30"></span>
+          </div>
+          <h3 id="modalTitle" class="font-display text-2xl font-bold text-white tracking-wide"></h3>
+          <p id="modalOrigTitle" class="text-xs text-slate-400"></p>
+        </div>
+      </div>
+
+      <!-- Modal Tabs Navigation -->
+      <div class="flex border-b border-dark-700 px-6 bg-dark-800/80 text-xs font-bold">
+        <button onclick="switchModalTab('overview')" id="tabBtn-overview" class="py-3 px-4 text-emerald-400 border-b-2 border-emerald-500 flex items-center space-x-1.5 transition">
+          <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+          <span>Tổng quan & Cài đặt</span>
+        </button>
+        <button onclick="switchModalTab('versions')" id="tabBtn-versions" class="py-3 px-4 text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center space-x-1.5 transition">
+          <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+          <span>Phiên bản & Cập nhật</span>
+        </button>
+        <button onclick="switchModalTab('feedback')" id="tabBtn-feedback" class="py-3 px-4 text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center space-x-1.5 transition">
+          <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Đánh giá & Báo lỗi</span>
+        </button>
+      </div>
+
+      <!-- Modal Tab Contents (Scrollable) -->
+      <div class="p-6 space-y-5 overflow-y-auto flex-1">
+
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tabContent-overview" class="space-y-5">
+          <!-- Important Note (Cảnh Báo Chữ Đỏ Viền Đỏ) -->
+          <div id="modalNoteContainer" class="hidden rounded-xl p-4 bg-gradient-to-r from-red-950/95 via-rose-950/90 to-red-950/95 border-2 border-red-500/80 shadow-xl shadow-red-950/50 space-y-1.5">
+            <div class="flex items-center space-x-2 text-red-400 font-extrabold text-xs uppercase tracking-wider">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 animate-bounce"></i>
+              <span>GHI CHÚ ĐẶC BIỆT:</span>
+            </div>
+            <p id="modalNoteText" class="text-xs text-red-100 font-medium leading-relaxed pl-6"></p>
+          </div>
+
+          <!-- Translation Statistics Card -->
+          <div class="glass-card rounded-xl p-4 space-y-3">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="award" class="w-4 h-4 text-brand-400"></i>
+              <span>Thông Số Bản Dịch Việt Hóa</span>
+            </h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
+                <span class="block text-[11px] text-slate-400">Tiến độ</span>
+                <span id="modalStatProgress" class="text-sm font-bold text-emerald-400">100%</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
+                <span class="block text-[11px] text-slate-400">Khối lượng</span>
+                <span id="modalStatLines" class="text-xs font-bold text-white"></span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
+                <span class="block text-[11px] text-slate-400">Phiên bản</span>
+                <span id="modalStatVersion" class="text-xs font-bold text-brand-300"></span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
+                <span class="block text-[11px] text-slate-400">Font chữ</span>
+                <span id="modalStatFont" class="text-xs font-semibold text-amber-300">Có dấu chuẩn</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="space-y-1.5">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cốt truyện & Bối cảnh</h4>
+            <p id="modalDesc" class="text-xs leading-relaxed text-slate-300"></p>
+          </div>
+
+          
+          <!-- Google Drive Cloud Download Link Setting -->
+          <div class="space-y-1.5 p-3.5 rounded-xl bg-dark-800/90 border border-dark-700">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="cloud" class="w-4 h-4 text-cyan-400"></i>
+                <span>Tự Động Tải Từ Google Drive (Khi Chuyển Sang Máy Khác)</span>
+              </h4>
+              <span id="cloudStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-dark-700 text-slate-400">Chưa gắn link</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              Dán link chia sẻ file mod trên Google Drive (chế độ "Bất kỳ ai có đường liên kết"). Khi bạn mang app sang máy tính mới không có sẵn thư mục mod, app sẽ tự động tải từ link này về cài đặt 1-click!
+            </p>
+            <div class="flex items-center space-x-2 pt-1">
+              <input 
+                id="modalCloudInput" 
+                type="text" 
+                placeholder="Ví dụ: https://drive.google.com/file/d/1a2B3c4D5e.../view?usp=sharing" 
+                class="flex-1 px-3 py-1.5 bg-dark-750 border border-dark-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 font-mono"
+              />
+              <button onclick="saveCloudUrlForActiveGame()" class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center space-x-1 shrink-0 shadow-md">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                <span>Lưu Link Drive</span>
+              </button>
+            </div>
+          </div>
+
+<!-- Game Installation Path -->
+          <div class="space-y-2">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Đường Dẫn Cài Đặt Game Trên Máy Tính</span>
+              <span id="modalPathStatus" class="text-[11px] font-normal"></span>
+            </h4>
+            <div class="flex items-center space-x-2">
+              <input 
+                id="modalPathInput" class="file-path tech-badge flex-1 px-3.5 py-2 bg-dark-800 border border-dark-700 rounded-xl text-slate-200 focus:outline-none" 
+                type="text" 
+                readonly 
+                class="flex-1 px-3.5 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-slate-200 font-mono focus:outline-none"
+              />
+              <button onclick="chooseFolderForActiveGame()" class="px-3.5 py-2 rounded-xl bg-dark-750 hover:bg-dark-700 text-white text-xs font-semibold border border-dark-600 transition flex items-center space-x-1.5">
+                <i data-lucide="folder-search" class="w-4 h-4"></i>
+                <span>Chọn Thư Mục</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Actions & QA Verification -->
+          <div class="pt-2 flex flex-wrap gap-2 text-xs">
+            <button onclick="openGameFolder(activeModalGameId)" class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white border border-dark-700 transition flex items-center space-x-1.5">
+              <i data-lucide="folder" class="w-3.5 h-3.5"></i>
+              <span>Mở thư mục Game</span>
+            </button>
+            <button onclick="openModFolder(activeModalGameId)" class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-amber-300 hover:text-white border border-dark-700 transition flex items-center space-x-1.5">
+              <i data-lucide="package-search" class="w-3.5 h-3.5"></i>
+              <span>Mở kho mod Viethoagame</span>
+            </button>
+            <button onclick="verifyModIntegrity(activeModalGameId)" class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white border border-dark-700 transition flex items-center space-x-1.5">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-brand-400"></i>
+              <span>Kiểm tra tính toàn vẹn (SHA256)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: VERSIONS & CHANGELOG -->
+        <div id="tabContent-versions" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Lịch Sử Các Bản Cập Nhật</h4>
+            <button onclick="checkGameUpdates(activeModalGameId)" class="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition flex items-center space-x-1.5">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Kiểm tra bản mới</span>
+            </button>
+          </div>
+          <div id="modalVersionsList" class="space-y-3">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- TAB 3: FEEDBACK & BUG REPORT -->
+        <div id="tabContent-feedback" class="hidden space-y-5">
+          <!-- Rating Section -->
+          <div class="glass-card rounded-xl p-4 space-y-3">
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="star" class="w-4 h-4 text-amber-400"></i>
+              <span>Đánh Giá Chất Lượng Bản Dịch</span>
+            </h4>
+            <div class="flex items-center space-x-2">
+              <div id="starRatingContainer" class="flex items-center space-x-1 cursor-pointer">
+                <!-- 5 Stars generated -->
+              </div>
+              <span id="starRatingLabel" class="text-xs font-bold text-amber-300 ml-2">5/5 Tuyệt vời</span>
+            </div>
+            <textarea 
+              id="userCommentInput" 
+              placeholder="Chia sẻ cảm nghĩ của bạn về bản dịch (tùy chọn)..." 
+              rows="2" 
+              class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500"
+            ></textarea>
+            <button onclick="submitUserRating()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">
+              Lưu Đánh Giá
+            </button>
+          </div>
+
+          <!-- Bug Report Section -->
+          <div class="glass-card rounded-xl p-4 space-y-3">
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="bug" class="w-4 h-4 text-rose-400"></i>
+              <span>Báo Lỗi Dịch Thuật / Đóng Góp</span>
+            </h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Nếu bạn phát hiện câu thoại dịch chưa chuẩn, sai ngữ cảnh hoặc tràn chữ ra ngoài màn hình, vui lòng gửi phản hồi tại đây:
+            </p>
+            <textarea 
+              id="bugReportInput" 
+              placeholder="Mô tả lỗi câu thoại, đoạn hội thoại hoặc vị trí xuất hiện trong game..." 
+              rows="3" 
+              class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+            ></textarea>
+            <button onclick="submitBugReport()" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition flex items-center space-x-1.5">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Gửi Báo Cáo Lỗi</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-6 bg-dark-800 border-t border-dark-700 flex items-center justify-between">
+        <div>
+          <span id="modalModInfo" class="text-xs text-slate-400"></span>
+        </div>
+        <div class="flex items-center space-x-3">
+          <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="px-5 py-2.5 rounded-xl font-bold text-sm transition flex items-center space-x-2">
+            <!-- Dynamic button -->
+          </button>
+          <button onclick="launchGame(activeModalGameId)" class="px-4 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-bold text-sm shadow-md transition flex items-center space-x-1.5">
+            <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+            <span>Chơi Game</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PROGRESS MODAL (Real-time Install/Restore Tracking) -->
+  <div id="progressModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
+    <div class="w-full max-w-md bg-dark-850 border border-dark-700 rounded-2xl shadow-2xl p-6 space-y-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-600/20 text-brand-400 border border-brand-500/30 flex items-center justify-center">
+          <i id="progressIcon" data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+        </div>
+        <div>
+          <h3 id="progressTitle" class="text-base font-bold text-white">Đang thực hiện cài đặt...</h3>
+          <p id="progressSubTitle" class="text-xs text-slate-400">Vui lòng không tắt ứng dụng</p>
+        </div>
+      </div>
+
+      <!-- Progress Bar Track -->
+      <div class="space-y-1.5">
+        <div class="w-full bg-dark-800 h-2.5 rounded-full overflow-hidden border border-dark-700">
+          <div id="progressBarFill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-300 rounded-full"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-slate-400">
+          <span id="progressStepText">Đang chuẩn bị...</span>
+          <span id="progressPercentText" class="font-bold text-emerald-400">0%</span>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button id="progressCloseBtn" onclick="closeProgressModal()" class="px-4 py-2 rounded-xl bg-dark-750 hover:bg-dark-700 text-white text-xs font-semibold hidden transition">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUEST GAME MODAL -->
+  <div id="requestModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+    <div class="w-full max-w-md bg-dark-850 border border-dark-700 rounded-2xl shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="sparkles" class="w-5 h-5 text-amber-400"></i>
+          <h3 class="text-base font-bold text-white">Yêu Cầu Việt Hóa Tựa Game Mới</h3>
+        </div>
+        <button onclick="closeGameRequestModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400">
+        Hãy gửi tên tựa game Steam bạn muốn được dịch sang tiếng Việt. Đội ngũ Antigravity sẽ ưu tiên nghiên cứu và đưa vào lịch trình!
+      </p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-300 uppercase mb-1">Tên tựa game:</label>
+          <input id="reqGameName" type="text" placeholder="Ví dụ: Hades II, Silksong, Disco Elysium..." class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-300 uppercase mb-1">Ghi chú thêm (tùy chọn):</label>
+          <textarea id="reqGameNote" rows="2" placeholder="Lý do yêu thích hoặc phiên bản Steam..." class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeGameRequestModal()" class="px-4 py-2 rounded-xl bg-dark-750 text-slate-300 hover:text-white text-xs font-semibold">Hủy</button>
+        <button onclick="submitGameRequest()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md">Gửi Yêu Cầu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- FOOTER -->
+  <footer class="mt-auto border-t border-dark-700/60 py-4 px-6 text-center text-xs text-slate-400 font-medium">
+    CỔ NGỮ v2.0 &bull; Hệ Thống Quản Lý Game Việt Hóa &bull; Tự Động Sao Lưu & Bảo Vệ An Toàn
+  </footer>
+
+  <script>
+    let gamesList = [];
+    let activeFilter = 'all';
+    let activeEngineFilter = 'all';
+    let heroGameId = 'preludes';
+    let activeModalGameId = null;
+    let selectedRating = 5;
+    let progressInterval = null;
+
+    // Toast notification utility
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-600/95 text-white border-emerald-500/40 shadow-emerald-600/25',
+        error: 'bg-rose-600/95 text-white border-rose-500/40 shadow-rose-600/25',
+        info: 'bg-brand-600/95 text-white border-brand-500/40 shadow-brand-600/25',
+        warning: 'bg-amber-600/95 text-white border-amber-500/40 shadow-amber-600/25'
+      };
+
+      const icons = {
+        success: 'check-circle-2',
+        error: 'alert-circle',
+        info: 'info',
+        warning: 'alert-triangle'
+      };
+
+      toast.className = `flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl backdrop-blur-md text-xs font-medium transition-all duration-300 pointer-events-auto transform translate-y-2 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <i data-lucide="${icons[type] || 'info'}" class="w-4 h-4 shrink-0"></i>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-4');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Helper: Normalize string for fuzzy unaccented search
+    function removeVietnameseTones(str) {
+      if (!str) return '';
+      str = str.toLowerCase();
+      str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+      str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+      str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+      str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+      str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+      str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+      str = str.replace(/đ/g, "d");
+      return str;
+    }
+
+    // Fetch games from backend API
+    async function fetchGames() {
+      try {
+        const [resGames, resRepo] = await Promise.all([
+          fetch('/api/games'),
+          fetch('/api/repo_dir')
+        ]);
+        gamesList = await resGames.json();
+        const repoData = await resRepo.json();
+        document.getElementById('repoPathDisplay').innerText = repoData.repo_dir || 'C:\\Users\\tuan3\\Documents\\antigravity google\\Viethoagame';
+        updateUI();
+      } catch (err) {
+        console.error('Lỗi nạp dữ liệu:', err);
+        showToast('Không thể kết nối đến máy chủ quản lý game!', 'error');
+      }
+    }
+
+    function refreshData() {
+      fetchGames();
+      showToast('Đã quét và làm mới trạng thái thư viện!', 'info');
+    }
+
+    function updateUI() {
+      renderCounts();
+      renderHero();
+      renderGrid();
+      if (activeModalGameId) {
+        const cur = gamesList.find(g => g.id === activeModalGameId);
+        if (cur) openGameModal(cur.id);
+      }
+    }
+
+    function renderCounts() {
+      const allCount = gamesList.length;
+      const installedCount = gamesList.filter(g => g.status_code === 'INSTALLED').length;
+      const uninstalledCount = gamesList.filter(g => g.status_code === 'NOT_INSTALLED').length;
+      const missingCount = gamesList.filter(g => g.status_code === 'GAME_MISSING').length;
+
+      document.getElementById('count-all').innerText = allCount;
+      document.getElementById('count-installed').innerText = installedCount;
+      document.getElementById('count-uninstalled').innerText = uninstalledCount;
+      document.getElementById('count-missing').innerText = missingCount;
+    }
+
+    function setFilter(filter) {
+      activeFilter = filter;
+      ['all', 'installed', 'uninstalled', 'missing'].forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (f === filter) {
+          btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold active-filter-tab transition';
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700';
+        }
+      });
+      renderGrid();
+    }
+
+    function onEngineFilterChange() {
+      activeEngineFilter = document.getElementById('engineFilter').value;
+      renderGrid();
+    }
+
+    function shuffleHeroSpotlight() {
+      if (gamesList.length === 0) return;
+      const otherGames = gamesList.filter(g => g.id !== heroGameId);
+      const nextGame = otherGames[Math.floor(Math.random() * otherGames.length)] || gamesList[0];
+      heroGameId = nextGame.id;
+      renderHero();
+    }
+
+    function renderHero() {
+      const game = gamesList.find(g => g.id === heroGameId) || gamesList[0];
+      if (!game) return;
+
+      heroGameId = game.id;
+      document.getElementById('heroBg').style.backgroundImage = `url('${game.assets.banner}')`;
+      document.getElementById('heroTitle').innerText = game.vietnamese_title;
+      document.getElementById('heroDesc').innerText = game.description;
+      document.getElementById('heroEngine').innerText = game.engine;
+
+      // Important note
+      const heroNote = document.getElementById('heroNoteContainer');
+      const heroNoteText = document.getElementById('heroNoteText');
+      if (game.important_note) {
+        heroNoteText.innerText = game.important_note;
+        heroNote.classList.remove('hidden');
+      } else {
+        heroNote.classList.add('hidden');
+      }
+
+      // Hero 3-state badge & main action
+      const badge = document.getElementById('heroBadge');
+      const badgeDot = document.getElementById('heroBadgeDot');
+      const statusText = document.getElementById('heroStatusText');
+      const actionBtn = document.getElementById('heroActionBtn');
+
+      if (game.status_code === 'INSTALLED') {
+        badge.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 flex items-center space-x-1.5';
+        badgeDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        statusText.innerText = 'ĐÃ CÀI ĐẶT VIỆT HÓA';
+        actionBtn.className = 'px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition flex items-center space-x-2';
+        actionBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-white"></i><span>Chơi Ngay (Launch)</span>`;
+      } else if (game.status_code === 'GAME_MISSING') {
+        badge.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center space-x-1.5';
+        badgeDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+        statusText.innerText = 'CHƯA TÌM THẤY GAME';
+        actionBtn.className = 'px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-600/30 transition flex items-center space-x-2';
+        actionBtn.innerHTML = `<i data-lucide="folder-search" class="w-4 h-4"></i><span>Chọn Đường Dẫn Game</span>`;
+      } else {
+        badge.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-slate-700/80 text-slate-200 border border-slate-600 flex items-center space-x-1.5';
+        badgeDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+        statusText.innerText = 'CHƯA CÀI MOD';
+        actionBtn.className = 'px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-lg shadow-brand-600/30 transition flex items-center space-x-2';
+        actionBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Cài Đặt Việt Hóa (1-Click)</span>`;
+      }
+
+      lucide.createIcons();
+    }
+
+    function onHeroMainAction() {
+      const game = gamesList.find(g => g.id === heroGameId);
+      if (!game) return;
+
+      if (game.status_code === 'INSTALLED') {
+        launchGame(game.id);
+      } else if (game.status_code === 'GAME_MISSING') {
+        openGameModal(game.id);
+      } else {
+        toggleMod(game.id);
+      }
+    }
+
+    // Render 2:3 Portrait Cards Grid
+    function renderGrid() {
+      const container = document.getElementById('gamesGrid');
+      container.innerHTML = '';
+
+      let filtered = gamesList;
+
+      // 1. Status Filter
+      if (activeFilter === 'installed') {
+        filtered = filtered.filter(g => g.status_code === 'INSTALLED');
+      } else if (activeFilter === 'uninstalled') {
+        filtered = filtered.filter(g => g.status_code === 'NOT_INSTALLED');
+      } else if (activeFilter === 'missing') {
+        filtered = filtered.filter(g => g.status_code === 'GAME_MISSING');
+      }
+
+      // 2. Engine Filter
+      if (activeEngineFilter !== 'all') {
+        filtered = filtered.filter(g => {
+          const eng = (g.engine || '').toLowerCase();
+          if (activeEngineFilter === 'unreal') return eng.includes('unreal');
+          if (activeEngineFilter === 'unity') return eng.includes('unity');
+          if (activeEngineFilter === 'gamemaker') return eng.includes('gamemaker') || eng.includes('game maker');
+          if (activeEngineFilter === 'redengine') return eng.includes('redengine') || eng.includes('witcher');
+          return true;
+        });
+      }
+
+      // 3. Search Filter (Fuzzy Tiếng Việt)
+      const q = document.getElementById('searchInput').value.trim();
+      if (q) {
+        const normQ = removeVietnameseTones(q);
+        filtered = filtered.filter(g => {
+          const matchTitle = removeVietnameseTones(g.title).includes(normQ);
+          const matchVnTitle = removeVietnameseTones(g.vietnamese_title).includes(normQ);
+          const matchGenre = removeVietnameseTones(g.genre).includes(normQ);
+          const matchEngine = removeVietnameseTones(g.engine).includes(normQ);
+          const matchDev = removeVietnameseTones(g.developer).includes(normQ);
+          return matchTitle || matchVnTitle || matchGenre || matchEngine || matchDev;
+        });
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-500 space-y-2">
+            <i data-lucide="search-x" class="w-10 h-10 mx-auto text-slate-600"></i>
+            <p class="text-sm">Không tìm thấy tựa game nào phù hợp với bộ lọc hiện tại!</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      filtered.forEach(game => {
+        const card = document.createElement('div');
+        card.className = 'group relative rounded-2xl bg-dark-850 border border-dark-700/80 overflow-hidden shadow-lg card-hover-effect flex flex-col';
+
+        // 3-State Badge HTML
+        let statusBadgeHtml = '';
+        if (game.status_code === 'INSTALLED') {
+          statusBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/90 text-white backdrop-blur-md shadow-md flex items-center space-x-1"><span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
+        } else if (game.status_code === 'GAME_MISSING') {
+          statusBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/95 text-white backdrop-blur-md shadow-md flex items-center space-x-1"><i data-lucide="folder-x" class="w-2.5 h-2.5"></i><span>CHƯA CÓ GAME</span></span>`;
+        } else {
+          statusBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700/95 text-slate-200 backdrop-blur-md shadow-md">CHƯA CÀI MOD</span>`;
+        }
+
+        const noteBadgeHtml = game.important_note 
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white shadow-md flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i><span>LƯU Ý</span></span>` 
+          : '';
+
+        card.innerHTML = `
+          <!-- Poster Thumbnail Image (2:3 Standard Steam Grid) -->
+          <div class="relative aspect-[2/3] w-full overflow-hidden bg-dark-900 cursor-pointer" onclick="selectGameSpotlight('${game.id}')">
+            <img src="${game.assets.poster}" alt="${game.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-transparent to-black/40"></div>
+            
+            <div class="absolute top-3 left-3 right-3 flex items-center justify-between">
+              <span class="engine-tag tech-badge px-2 py-0.5 rounded-md bg-dark-950/80 text-brand-300 border border-brand-500/30 backdrop-blur-md">${game.engine.split(' ')[0]}</span>
+              <div class="flex items-center space-x-1.5">
+                ${noteBadgeHtml}
+                ${statusBadgeHtml}
+              </div>
+            </div>
+
+            <div class="absolute bottom-3 left-3 right-3">
+              <span class="tech-badge px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md inline-block mb-1">
+                ${game.translation_stats.total_lines} &bull; 100%
+              </span>
+              <h3 class="font-display text-base font-bold text-white tracking-wide leading-snug line-clamp-1 drop-shadow-md">${game.vietnamese_title}</h3>
+              <p class="text-xs text-slate-400 line-clamp-1">${game.title}</p>
+            </div>
+          </div>
+
+          ${game.important_note ? `
+          <!-- Ghi chú nổi bật trên Card -->
+          <div class="mx-3 mt-2.5 p-2 rounded-xl bg-red-950/85 border border-red-500/60 shadow-sm flex items-start space-x-2">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5 animate-pulse"></i>
+            <div class="text-[11px] leading-snug">
+              <span class="font-bold text-red-400 uppercase mr-1">Lưu ý:</span>
+              <span class="text-red-200 font-medium line-clamp-2">${game.important_note}</span>
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Bottom Action Buttons -->
+          <div class="p-3 bg-dark-800/80 border-t border-dark-700 flex items-center justify-between gap-2 mt-auto">
+            ${game.status_code === 'INSTALLED'
+              ? `<button onclick="launchGame('${game.id}')" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center justify-center space-x-1.5">
+                   <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i>
+                   <span>Chơi Ngay</span>
+                 </button>
+                 <button onclick="toggleMod('${game.id}')" class="p-2 rounded-xl bg-dark-750 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 border border-dark-700 transition" title="Gỡ bỏ bản Việt hóa an toàn">
+                   <i data-lucide="trash-2" class="w-4 h-4"></i>
+                 </button>`
+              : (game.status_code === 'GAME_MISSING'
+                ? `<button onclick="openGameModal('${game.id}')" class="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition flex items-center justify-center space-x-1.5">
+                     <i data-lucide="folder-search" class="w-3.5 h-3.5"></i>
+                     <span>Chọn Thư Mục</span>
+                   </button>`
+                : `<button onclick="toggleMod('${game.id}')" class="flex-1 py-2 px-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-md shadow-brand-600/20 transition flex items-center justify-center space-x-1.5">
+                     <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                     <span>Cài Việt Hóa</span>
+                   </button>`
+                )
+            }
+            <button onclick="openGameModal('${game.id}')" class="p-2 rounded-xl bg-dark-750 hover:bg-dark-700 text-slate-300 hover:text-white border border-dark-700 transition" title="Chi tiết bản dịch & phiên bản">
+              <i data-lucide="info" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function selectGameSpotlight(gameId) {
+      heroGameId = gameId;
+      renderHero();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Modal Details Functions & Tab Switcher
+    function openGameModal(gameId) {
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game) return;
+
+      activeModalGameId = game.id;
+      document.getElementById('modalBannerBg').style.backgroundImage = `url('${game.assets.banner}')`;
+      document.getElementById('modalTitle').innerText = game.vietnamese_title;
+      document.getElementById('modalOrigTitle').innerText = `${game.title} &bull; ${game.developer}`;
+      document.getElementById('modalEngineBadge').innerText = game.engine;
+      document.getElementById('modalVersionBadge').innerText = game.latest_version || 'v1.0.0';
+      document.getElementById('modalDesc').innerText = game.description;
+
+      // Google Drive Cloud URL
+      const cloudInput = document.getElementById('modalCloudInput');
+      const cloudBadge = document.getElementById('cloudStatusBadge');
+      cloudInput.value = game.download_url || '';
+      if (game.download_url) {
+        cloudBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center space-x-1';
+        cloudBadge.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i><span>Đã có Link Cloud Drive</span>';
+      } else {
+        cloudBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-dark-700 text-slate-400';
+        cloudBadge.innerText = 'Chưa gắn link';
+      }
+
+      // Important Note
+      const noteContainer = document.getElementById('modalNoteContainer');
+      const noteText = document.getElementById('modalNoteText');
+      if (game.important_note) {
+        noteText.innerText = game.important_note;
+        noteContainer.classList.remove('hidden');
+      } else {
+        noteContainer.classList.add('hidden');
+      }
+
+      // Stats
+      document.getElementById('modalStatProgress').innerText = `${game.translation_stats.progress}%`;
+      document.getElementById('modalStatLines').innerText = game.translation_stats.total_lines;
+      document.getElementById('modalStatVersion').innerText = game.translation_stats.version;
+      document.getElementById('modalStatFont').innerText = game.translation_stats.font;
+
+      // Status Badge
+      const statusBadge = document.getElementById('modalStatusBadge');
+      if (game.status_code === 'INSTALLED') {
+        statusBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40';
+        statusBadge.innerText = 'ĐÃ CÀI ĐẶT VIỆT HÓA';
+      } else if (game.status_code === 'GAME_MISSING') {
+        statusBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40';
+        statusBadge.innerText = 'CHƯA CÓ GAME TRÊN MÁY';
+      } else {
+        statusBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-700 text-slate-200';
+        statusBadge.innerText = 'CHƯA CÀI ĐẶT MOD';
+      }
+
+      // Path
+      const pathInput = document.getElementById('modalPathInput');
+      const pathStatus = document.getElementById('modalPathStatus');
+      pathInput.value = game.game_path || 'Chưa tìm thấy thư mục cài đặt game trên máy';
+      if (game.is_game_found) {
+        pathStatus.innerHTML = '<span class="text-emerald-400 font-bold flex items-center space-x-1"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Thư mục hợp lệ</span></span>';
+      } else {
+        pathStatus.innerHTML = '<span class="text-amber-400 font-bold flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Chưa phát hiện</span></span>';
+      }
+
+      // Mod Info
+      const modInfo = document.getElementById('modalModInfo');
+      if (game.status_code === 'INSTALLED') {
+        modInfo.innerHTML = `Trạng thái: <span class="text-emerald-400 font-bold">Đang hoạt động trong game</span> &bull; Cập nhật: ${game.translation_stats.last_updated}`;
+      } else {
+        modInfo.innerHTML = `Nguồn: <span class="text-slate-300 font-mono">${game.mod_subfolder}</span>`;
+      }
+
+      // Action Button in Modal
+      const installBtn = document.getElementById('modalInstallBtn');
+      if (game.status_code === 'INSTALLED') {
+        installBtn.className = 'px-4 py-2.5 rounded-xl bg-dark-750 hover:bg-rose-900/50 text-rose-300 hover:text-white border border-dark-600 transition flex items-center space-x-1.5 font-bold';
+        installBtn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Gỡ Bỏ Việt Hóa</span>`;
+      } else {
+        installBtn.className = 'px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-md transition flex items-center space-x-2';
+        installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Cài Đặt Việt Hóa</span>`;
+      }
+
+      // Populate Versions Tab
+      renderVersionsTab(game);
+
+      // Populate Feedback Tab
+      initRatingStars(game.user_rating || 5);
+      document.getElementById('userCommentInput').value = game.user_comment || '';
+
+      switchModalTab('overview');
+      document.getElementById('gameModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeGameModal() {
+      document.getElementById('gameModal').classList.add('hidden');
+      activeModalGameId = null;
+    }
+
+    function switchModalTab(tabName) {
+      ['overview', 'versions', 'feedback'].forEach(t => {
+        const btn = document.getElementById(`tabBtn-${t}`);
+        const content = document.getElementById(`tabContent-${t}`);
+        if (t === tabName) {
+          btn.className = 'py-3 px-4 text-emerald-400 border-b-2 border-emerald-500 flex items-center space-x-1.5 transition font-bold';
+          content.classList.remove('hidden');
+        } else {
+          btn.className = 'py-3 px-4 text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center space-x-1.5 transition font-bold';
+          content.classList.add('hidden');
+        }
+      });
+      lucide.createIcons();
+    }
+
+    function renderVersionsTab(game) {
+      const container = document.getElementById('modalVersionsList');
+      container.innerHTML = '';
+      const versions = game.versions || [];
+
+      if (versions.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400">Chưa có thông tin phiên bản mở rộng.</p>';
+        return;
+      }
+
+      versions.forEach((v, idx) => {
+        const vCard = document.createElement('div');
+        vCard.className = 'p-3.5 rounded-xl bg-dark-800/90 border border-dark-700 space-y-1.5';
+        vCard.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded text-xs font-bold ${idx === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-dark-700 text-slate-300'}">${v.version}</span>
+              ${idx === 0 ? '<span class="text-[10px] font-bold text-brand-400 uppercase">Mới nhất</span>' : ''}
+            </div>
+            <span class="text-[11px] text-slate-400 font-mono">${v.release_date}</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">${v.changelog}</p>
+        `;
+        container.appendChild(vCard);
+      });
+    }
+
+    // Rating Star Component
+    function initRatingStars(stars) {
+      selectedRating = stars;
+      const container = document.getElementById('starRatingContainer');
+      container.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        const star = document.createElement('i');
+        star.setAttribute('data-lucide', 'star');
+        star.className = `w-5 h-5 cursor-pointer ${i <= stars ? 'text-amber-400 fill-amber-400' : 'text-slate-600'} transition hover:scale-110`;
+        star.onclick = () => {
+          initRatingStars(i);
+        };
+        container.appendChild(star);
+      }
+      const labels = ['', '1/5 Cần cải thiện', '2/5 Tạm được', '3/5 Khá tốt', '4/5 Rất tốt', '5/5 Tuyệt vời hoàn hảo'];
+      document.getElementById('starRatingLabel').innerText = labels[stars] || `${stars}/5`;
+      lucide.createIcons();
+    }
+
+    async function submitUserRating() {
+      if (!activeModalGameId) return;
+      const comment = document.getElementById('userCommentInput').value.trim();
+      try {
+        const res = await fetch('/api/rate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: activeModalGameId, stars: selectedRating, comment })
+        });
+        const data = await res.json();
+        showToast(data.message, 'success');
+      } catch (err) {
+        showToast('Lỗi khi lưu đánh giá!', 'error');
+      }
+    }
+
+    async function submitBugReport() {
+      if (!activeModalGameId) return;
+      const desc = document.getElementById('bugReportInput').value.trim();
+      if (!desc) {
+        showToast('Vui lòng nhập nội dung lỗi câu thoại!', 'warning');
+        return;
+      }
+      try {
+        const res = await fetch('/api/bug_report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: activeModalGameId, description: desc })
+        });
+        const data = await res.json();
+        showToast(data.message, 'success');
+        document.getElementById('bugReportInput').value = '';
+      } catch (err) {
+        showToast('Lỗi khi gửi báo cáo lỗi!', 'error');
+      }
+    }
+
+    async function checkGameUpdates(gameId) {
+      try {
+        const res = await fetch('/api/check_updates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Bản Việt hóa hiện tại (${data.latest_version}) đã là phiên bản mới nhất!`, 'success');
+        }
+      } catch (err) {
+        showToast('Không thể kiểm tra cập nhật!', 'error');
+      }
+    }
+
+    // Modern Progress Modal
+    function showProgressModal(title, subTitle) {
+      document.getElementById('progressTitle').innerText = title;
+      document.getElementById('progressSubTitle').innerText = subTitle;
+      document.getElementById('progressBarFill').style.width = '10%';
+      document.getElementById('progressPercentText').innerText = '10%';
+      document.getElementById('progressStepText').innerText = 'Đang khởi chạy...';
+      document.getElementById('progressCloseBtn').classList.add('hidden');
+      document.getElementById('progressIcon').setAttribute('data-lucide', 'loader-2');
+      document.getElementById('progressIcon').classList.add('animate-spin');
+      document.getElementById('progressModal').classList.remove('hidden');
+      lucide.createIcons();
+
+      // Poll progress API
+      if (progressInterval) clearInterval(progressInterval);
+      progressInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/progress');
+          const p = await res.json();
+          if (p.percent) {
+            document.getElementById('progressBarFill').style.width = `${p.percent}%`;
+            document.getElementById('progressPercentText').innerText = `${p.percent}%`;
+          }
+          if (p.message) {
+            document.getElementById('progressStepText').innerText = p.message;
+          }
+          if (p.status === 'success' || p.status === 'error' || p.percent >= 100) {
+            clearInterval(progressInterval);
+            document.getElementById('progressIcon').classList.remove('animate-spin');
+            if (p.status === 'success') {
+              document.getElementById('progressIcon').setAttribute('data-lucide', 'check-circle-2');
+              document.getElementById('progressIcon').className = 'w-5 h-5 text-emerald-400';
+            } else {
+              document.getElementById('progressIcon').setAttribute('data-lucide', 'alert-triangle');
+              document.getElementById('progressIcon').className = 'w-5 h-5 text-rose-400';
+            }
+            document.getElementById('progressCloseBtn').classList.remove('hidden');
+            lucide.createIcons();
+          }
+        } catch (e) {}
+      }, 400);
+    }
+
+    function closeProgressModal() {
+      document.getElementById('progressModal').classList.add('hidden');
+      if (progressInterval) clearInterval(progressInterval);
+    }
+
+    // Install / Uninstall Trigger
+    async function toggleMod(gameId) {
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game) return;
+
+      if (game.status_code === 'GAME_MISSING') {
+        showToast('Vui lòng chọn đường dẫn game trước khi cài đặt!', 'warning');
+        openGameModal(game.id);
+        return;
+      }
+
+      if (game.status_code === 'INSTALLED') {
+        // Uninstall
+        showProgressModal('Đang Gỡ Bỏ Việt Hóa', `Khôi phục nguyên bản tiếng Anh cho ${game.title}`);
+        try {
+          const res = await fetch('/api/uninstall', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: game.id })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message, 'success');
+            gamesList = data.games;
+            updateUI();
+          } else {
+            showToast(data.message, 'error');
+          }
+        } catch (err) {
+          showToast('Lỗi khi gỡ bỏ bản mod!', 'error');
+        }
+      } else {
+        // Install
+        showProgressModal('Đang Cài Đặt Việt Hóa', `Áp dụng gói dịch và font chuẩn cho ${game.title}`);
+        try {
+          const res = await fetch('/api/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: game.id })
+          });
+          const data = await res.json();
+          if (data.success) {
+            let msg = data.message;
+            if (game.important_note) msg += ` (Lưu ý: ${game.important_note})`;
+            showToast(msg, 'success');
+            gamesList = data.games;
+            updateUI();
+          } else {
+            showToast(data.message, 'error');
+          }
+        } catch (err) {
+          showToast('Lỗi khi cài đặt bản mod!', 'error');
+        }
+      }
+    }
+
+    async function launchGame(gameId) {
+      try {
+        const res = await fetch('/api/launch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await res.json();
+        showToast(data.message, data.success ? 'success' : 'error');
+      } catch (err) {
+        showToast('Không thể gửi lệnh mở game!', 'error');
+      }
+    }
+
+    
+    async function changeRepoFolder() {
+      try {
+        const res = await fetch('/api/select_repo_folder', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('repoPathDisplay').innerText = data.repo_dir;
+          showToast(`Đã đổi kho bản dịch: ${data.repo_dir}`, 'success');
+          gamesList = data.games;
+          updateUI();
+        } else if (data.message) {
+          showToast(data.message, 'info');
+        }
+      } catch (err) {
+        showToast('Lỗi khi đổi thư mục kho bản dịch!', 'error');
+      }
+    }
+
+    
+    async function saveCloudUrlForActiveGame() {
+      if (!activeModalGameId) return;
+      const url = document.getElementById('modalCloudInput').value.trim();
+      try {
+        const res = await fetch('/api/set_cloud_url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: activeModalGameId, download_url: url })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          gamesList = data.games;
+          updateUI();
+        }
+      } catch (err) {
+        showToast('Lỗi khi lưu link Google Drive!', 'error');
+      }
+    }
+
+    async function chooseFolderForActiveGame() {
+      if (!activeModalGameId) return;
+      try {
+        const res = await fetch('/api/select_folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: activeModalGameId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Đã chọn thư mục: ${data.path}`, 'success');
+          gamesList = data.games;
+          updateUI();
+        } else if (data.message) {
+          showToast(data.message, 'info');
+        }
+      } catch (err) {
+        showToast('Lỗi mở hộp thoại chọn thư mục!', 'error');
+      }
+    }
+
+    async function openGameFolder(gameId) {
+      try {
+        const res = await fetch('/api/open_game_folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await res.json();
+        if (!data.success) showToast(data.message, 'error');
+      } catch (err) {}
+    }
+
+    async function openModFolder(gameId) {
+      try {
+        const res = await fetch('/api/open_mod_folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await res.json();
+        if (!data.success) showToast(data.message, 'error');
+      } catch (err) {}
+    }
+
+    async function openRepoFolder() {
+      try {
+        const res = await fetch('/api/open_repo', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) showToast(data.message, 'error');
+      } catch (err) {}
+    }
+
+    async function verifyModIntegrity(gameId) {
+      try {
+        const res = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await res.json();
+        showToast(data.message, data.is_valid ? 'success' : 'warning');
+      } catch (err) {
+        showToast('Lỗi kiểm tra tính toàn vẹn!', 'error');
+      }
+    }
+
+    // Game Request Modal
+    function openGameRequestModal() {
+      document.getElementById('requestModal').classList.remove('hidden');
+    }
+
+    function closeGameRequestModal() {
+      document.getElementById('requestModal').classList.add('hidden');
+    }
+
+    async function submitGameRequest() {
+      const gname = document.getElementById('reqGameName').value.trim();
+      const gnote = document.getElementById('reqGameNote').value.trim();
+      if (!gname) {
+        showToast('Vui lòng nhập tên tựa game mong muốn!', 'warning');
+        return;
+      }
+      try {
+        const res = await fetch('/api/request_game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_name: gname, note: gnote })
+        });
+        const data = await res.json();
+        showToast(data.message, 'success');
+        document.getElementById('reqGameName').value = '';
+        document.getElementById('reqGameNote').value = '';
+        closeGameRequestModal();
+      } catch (err) {
+        showToast('Lỗi khi gửi yêu cầu!', 'error');
+      }
+    }
+
+    // Search events
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (e.target.value) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+      renderGrid();
+    });
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      renderGrid();
+    }
+
+    // Close modal on Escape
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeGameModal();
+        closeProgressModal();
+        closeGameRequestModal();
+      }
+    });
+
+    // Start
+    fetchGames();
+  </script>
+
+  <!-- MODAL: APP UPDATE DETAILS -->
+  <div id="updateModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass border border-emerald-500/40 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+      <button onclick="closeUpdateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg bg-dark-800">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="updateModalTitle" class="font-display font-bold text-lg text-slate-100">Bản Cập Nhật Mới</h3>
+          <p id="updateModalVersion" class="text-xs text-emerald-400 font-mono">Phiên bản: v2.1.0</p>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Điểm mới trong bản này:</p>
+        <div id="updateModalChangelog" class="bg-dark-900/80 border border-dark-700/80 rounded-xl p-3 text-xs text-slate-300 space-y-1.5 max-h-48 overflow-y-auto">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <div class="pt-2 flex items-center justify-end space-x-3">
+        <button onclick="closeUpdateModal()" class="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 text-xs font-medium">
+          Để sau
+        </button>
+        <a id="updateModalDownloadBtn" href="#" target="_blank" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center space-x-1.5 transition">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          <span>Tải bản mới trên GitHub</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
