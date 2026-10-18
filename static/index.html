@@ -930,11 +930,19 @@
 
         card.innerHTML = `
           <!-- Poster Thumbnail Image (2:3 Standard Steam Grid) -->
-          <div class="relative aspect-[2/3] w-full overflow-hidden bg-dark-900 cursor-pointer" onclick="selectGameSpotlight('${game.id}')">
+          <div class="relative aspect-[2/3] w-full overflow-hidden bg-dark-900 cursor-pointer group" onclick="openGameModal('${game.id}')" title="Nhấp vào ảnh để xem chi tiết & cài đặt">
             <img src="${game.assets.poster}" alt="${game.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-transparent to-black/40"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-transparent to-black/50"></div>
             
-            <div class="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <!-- Sleek Hover Cue: Xem Chi Tiết -->
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none z-10">
+              <span class="px-3.5 py-1.5 rounded-xl bg-dark-900/95 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-2xl flex items-center space-x-1.5 backdrop-blur-md transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Xem Chi Tiết</span>
+              </span>
+            </div>
+
+            <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
               <span class="engine-tag tech-badge px-2 py-0.5 rounded-md bg-dark-950/80 text-brand-300 border border-brand-500/30 backdrop-blur-md">${game.engine.split(' ')[0]}</span>
               <div class="flex items-center space-x-1.5">
                 ${noteBadgeHtml}
@@ -942,7 +950,7 @@
               </div>
             </div>
 
-            <div class="absolute bottom-3 left-3 right-3">
+            <div class="absolute bottom-3 left-3 right-3 z-10">
               <span class="tech-badge px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md inline-block mb-1">
                 ${game.translation_stats.total_lines} &bull; 100%
               </span>
@@ -1006,6 +1014,8 @@
       const game = gamesList.find(g => g.id === gameId);
       if (!game) return;
 
+      heroGameId = game.id;
+      renderHero();
       activeModalGameId = game.id;
       document.getElementById('modalBannerBg').style.backgroundImage = `url('${game.assets.banner}')`;
       document.getElementById('modalTitle').innerText = game.vietnamese_title;
