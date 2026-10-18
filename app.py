@@ -94,7 +94,7 @@ APPDATA_DIR = os.path.join(os.environ.get("APPDATA", APP_DIR), "VietModHub")
 BACKUP_ROOT = os.path.join(APPDATA_DIR, "backups")
 USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
 
-CURRENT_VERSION = "2.0.0"
+CURRENT_VERSION = "2.0.1"
 GITHUB_REPO = "tuan3991/CoNgu-VietModManager"
 REMOTE_CATALOG_URLS = [
     f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/games.json",

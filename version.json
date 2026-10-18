@@ -1,16 +1,15 @@
 {
-  "version": "2.0.0",
-  "name": "// CỔ NGỮ PRO",
+  "version": "2.0.1",
+  "name": "// CỔ NGỮ PRO v2.0.1",
   "release_date": "2026-10-19",
   "min_required_version": "2.0.0",
   "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest",
-  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest/download/CoNgu_Portable.zip",
+  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest/download/CoNgu_v2.0.1_Portable.zip",
   "changelog": [
-    "Khởi chạy chính thức hệ thống quản lý & tự động cài đặt mod // CỔ NGỮ v2.0",
-    "Giao diện chuẩn phong cách Emerald Cyberpunk / Mecha tối ưu font Chakra Petch",
-    "Đồng bộ kho game trực tuyến qua GitHub CDN (cập nhật liên tục không cần cài lại app)",
-    "Tự động quét và phát hiện thư viện Steam qua Windows Registry & VDF parser",
-    "Hỗ trợ 7 cơ chế mod đa dạng: Unreal Engine (.pak), Unity, GameMaker, BepInEx, REDengine 3...",
-    "Cơ chế sao lưu an toàn tự động trước khi cài đặt (Safe Backup & Restore)"
+    "Nút 'Cài Việt Hóa' chuyển sang màu Vàng Cyberpunk (Nền Vàng Chữ Đen) nổi bật và phân biệt 100% với 'Chơi Ngay'",
+    "Banner Game Nổi Bật tự động chuyển đổi mượt mà sau mỗi 5 giây (kèm tính năng tạm dừng thông minh khi rê chuột)",
+    "Bấm trực tiếp vào ảnh đại diện (avatar / poster) của bất kỳ game nào để mở ngay cửa sổ Chi Tiết & Bối Cảnh",
+    "Tối ưu thanh Cloud Status Bar trực tuyến chuyên nghiệp cho người dùng",
+    "Sửa triệt để lỗi file .bat trên hệ điều hành Windows"
   ]
 }
