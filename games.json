@@ -41,7 +41,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsTheBackbonePreludes.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsTheBackbonePreludes.congu"
   },
   {
     "id": "backbone",
@@ -85,7 +85,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsNoir.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsNoir.congu"
   },
   {
     "id": "toem",
@@ -129,7 +129,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TOEM.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TOEM.congu"
   },
   {
     "id": "hotline_miami",
@@ -173,7 +173,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/HotlineMiami.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/HotlineMiami.congu"
   },
   {
     "id": "ror2",
@@ -216,7 +216,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RiskOfRain2.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RiskOfRain2.congu"
   },
   {
     "id": "fallout_tactics",
@@ -259,7 +259,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FalloutTactics.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FalloutTactics.congu"
   },
   {
     "id": "loop_hero",
@@ -304,7 +304,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/LoopHero.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/LoopHero.congu"
   },
   {
     "id": "witcher3",
@@ -350,7 +350,7 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TheWitcher3.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TheWitcher3.congu"
   },
   {
     "id": "forever_ago",
@@ -399,7 +399,7 @@
       "banner": "/assets/forever_ago/library_hero.jpg",
       "header": "/assets/forever_ago/header.jpg"
     },
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ForeverAgo.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ForeverAgo.congu"
   },
   {
     "id": "erra_exordium",
@@ -441,7 +441,7 @@
       "banner": "/assets/erra_exordium/library_hero.jpg",
       "header": "/assets/erra_exordium/header.jpg"
     },
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ErraExordium.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ErraExordium.congu"
   },
   {
     "id": "ravenous_devils",
@@ -484,6 +484,6 @@
       "banner": "/assets/ravenous_devils/library_hero.jpg",
       "header": "/assets/ravenous_devils/header.jpg"
     },
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RavenousDevils.zip"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RavenousDevils.congu"
   }
 ]

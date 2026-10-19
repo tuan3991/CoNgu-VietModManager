@@ -1,3 +1,4 @@
+import security
 
 def download_file_with_progress(url, dest_path, progress_callback=None):
     """
@@ -788,12 +789,14 @@ class ModManagerAPI:
                     return {"success": False, "message": f"Không tìm thấy thư mục mod tại {source_mod_dir} và tựa game chưa được cấu hình link tải Cloud!"}
 
                 os.makedirs(cache_dir, exist_ok=True)
-                cache_archive = os.path.join(cache_dir, "mod_package.zip")
 
                 download_success = False
                 last_err = ""
 
                 for source_name, dl_url in download_candidates:
+                    ext = ".congu" if dl_url.lower().endswith(".congu") else ".zip"
+                    cache_archive = os.path.join(cache_dir, f"mod_package{ext}")
+                    
                     set_progress(15, f"Đang kết nối Cloud: {source_name}...", status="running", game_id=game_id)
 
                     def on_dl_progress(d, t, pct, spd):
@@ -801,13 +804,20 @@ class ModManagerAPI:
                         mb_t = t / (1024 * 1024) if t > 0 else 0
                         spd_mb = spd / 1024
                         msg = f"Đang tải ({source_name}): {pct}% ({mb_d:.1f}/{mb_t:.1f} MB - {spd_mb:.1f} MB/s)" if t > 0 else f"Đang tải: {mb_d:.1f} MB ({spd_mb:.1f} MB/s)"
-                        set_progress(15 + int(pct * 0.45), msg, status="running", game_id=game_id)
+                        set_progress(15 + int(pct * 0.40), msg, status="running", game_id=game_id)
 
                     try:
                         download_file_with_progress(dl_url, cache_archive, on_dl_progress)
 
+                        # Support both encrypted .congu packages and legacy zip
+                        import security
                         import zipfile
-                        if zipfile.is_zipfile(cache_archive):
+                        if security.is_congu_package(cache_archive):
+                            set_progress(58, "Đang xác thực & giải mã gói bảo mật CỔ NGỮ (AES-256)...", status="running", game_id=game_id)
+                            def on_dec_progress(pct, msg):
+                                set_progress(58 + int(pct * 0.08), msg, status="running", game_id=game_id)
+                            security.extract_congu_package(cache_archive, cache_dir, on_dec_progress)
+                        elif zipfile.is_zipfile(cache_archive):
                             set_progress(62, "Đang giải nén gói Việt Hóa...", status="running", game_id=game_id)
                             with zipfile.ZipFile(cache_archive, 'r') as zf:
                                 zf.extractall(cache_dir)
@@ -820,7 +830,7 @@ class ModManagerAPI:
                         break
                     except Exception as dl_err:
                         last_err = str(dl_err)
-                        print(f"Error downloading from {source_name}: {dl_err}")
+                        print(f"Error downloading/decrypting from {source_name}: {dl_err}")
                         if os.path.exists(cache_archive):
                             try:
                                 os.remove(cache_archive)
