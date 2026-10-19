@@ -658,8 +658,8 @@
             </h4>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
               <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
-                <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wider">Tiến độ</span>
-                <span id="modalStatProgress" class="text-sm font-pixel font-bold text-[#00FF9D]">100%</span>
+                <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wider">Dung lượng</span>
+                <span id="modalStatSize" class="text-sm font-pixel font-bold text-[#00FF9D]">~15 MB</span>
               </div>
               <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
                 <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wider">Khối lượng</span>
@@ -712,10 +712,7 @@
               <span>Mở thư mục Game</span>
             </button>
 
-            <button onclick="verifyModIntegrity(activeModalGameId)" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-[#00F0FF] hover:text-white border border-[#2b2f52] hover:border-[#00F0FF] flex items-center space-x-1.5">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
-              <span>Kiểm tra tính toàn vẹn (SHA256)</span>
-            </button>
+
           </div>
         </div>
 
@@ -1292,7 +1289,8 @@
       }
 
       // Stats
-      document.getElementById('modalStatProgress').innerText = `${game.translation_stats.progress}%`;
+      const statSizeElem = document.getElementById('modalStatSize');
+      if (statSizeElem) statSizeElem.innerText = game.mod_size || (game.translation_stats && game.translation_stats.mod_size) || '~15 MB';
       document.getElementById('modalStatLines').innerText = game.translation_stats.total_lines;
       document.getElementById('modalStatVersion').innerText = game.translation_stats.version;
       document.getElementById('modalStatFont').innerText = game.translation_stats.font;

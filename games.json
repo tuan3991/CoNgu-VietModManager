@@ -15,7 +15,8 @@
       "version": "v1.0.0 (Bản Chuẩn UE5)",
       "author": "Antigravity Localization Team",
       "font": "Futura Pixel Art có dấu đầy đủ",
-      "last_updated": "24/09/2026"
+      "last_updated": "24/09/2026",
+      "mod_size": "~2.6 MB"
     },
     "mod_subfolder": "Tails The Backbone Preludes",
     "mod_type": "pak",
@@ -41,7 +42,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsTheBackbonePreludes.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsTheBackbonePreludes.congu",
+    "mod_size": "~2.6 MB"
   },
   {
     "id": "backbone",
@@ -59,7 +61,8 @@
       "version": "v1.0.0",
       "author": "Antigravity Localization Team",
       "font": "Futura Pixel Art có dấu đầy đủ",
-      "last_updated": "24/09/2026"
+      "last_updated": "24/09/2026",
+      "mod_size": "~1.2 MB"
     },
     "mod_subfolder": "Tails Noir",
     "mod_type": "pak",
@@ -85,7 +88,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsNoir.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsNoir.congu",
+    "mod_size": "~1.2 MB"
   },
   {
     "id": "toem",
@@ -103,7 +107,8 @@
       "version": "v1.0.0",
       "author": "Antigravity Localization Team",
       "font": "Font vẽ tay độc quyền có dấu chuẩn",
-      "last_updated": "12/09/2026"
+      "last_updated": "12/09/2026",
+      "mod_size": "~3.2 MB"
     },
     "mod_subfolder": "TOEM - A Photo Adventure [Viet Hoa]",
     "mod_type": "unity_assets",
@@ -129,7 +134,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TOEM.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TOEM.congu",
+    "mod_size": "~3.2 MB"
   },
   {
     "id": "hotline_miami",
@@ -147,7 +153,8 @@
       "version": "v1.0.0",
       "author": "Antigravity Localization Team",
       "font": "Font Pixel 80s Arcade có dấu chuẩn",
-      "last_updated": "10/09/2026"
+      "last_updated": "10/09/2026",
+      "mod_size": "~346 MB"
     },
     "mod_subfolder": "Hotline Miami [Viet Hoa]",
     "mod_type": "wad",
@@ -173,7 +180,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/HotlineMiami.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/HotlineMiami.congu",
+    "mod_size": "~346 MB"
   },
   {
     "id": "ror2",
@@ -191,7 +199,8 @@
       "version": "v1.0.0 (Zero Omission)",
       "author": "Antigravity Localization Team",
       "font": "Bombardier HD sắc nét có dấu chuẩn",
-      "last_updated": "14/09/2026"
+      "last_updated": "14/09/2026",
+      "mod_size": "~3.4 MB"
     },
     "mod_subfolder": "Risk of Rain 2 [Viet Hoa]",
     "mod_type": "bepinex_language",
@@ -216,7 +225,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RiskOfRain2.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RiskOfRain2.congu",
+    "mod_size": "~3.4 MB"
   },
   {
     "id": "fallout_tactics",
@@ -234,7 +244,8 @@
       "version": "v1.27 Hi-Res",
       "author": "Antigravity Localization Team",
       "font": "6 bộ Font Việt Hóa chuẩn Wasteland",
-      "last_updated": "11/09/2026"
+      "last_updated": "11/09/2026",
+      "mod_size": "~7.9 MB"
     },
     "mod_subfolder": "Fallout Tactics - Brotherhood of Steel [Viet Hoa]",
     "mod_type": "folder_copy",
@@ -259,7 +270,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FalloutTactics.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FalloutTactics.congu",
+    "mod_size": "~7.9 MB"
   },
   {
     "id": "loop_hero",
@@ -277,7 +289,8 @@
       "version": "v1.0.0 (Bản Chuẩn GMS2 Extended)",
       "author": "Antigravity Localization Team",
       "font": "Bộ phông Pixel Retro (Pixelcraft) & Roboto hỗ trợ 100% tiếng Việt có dấu",
-      "last_updated": "06/10/2026"
+      "last_updated": "06/10/2026",
+      "mod_size": "~24.8 MB"
     },
     "mod_subfolder": "LoopHero",
     "mod_type": "ini_and_exe",
@@ -304,7 +317,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/LoopHero.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/LoopHero.congu",
+    "mod_size": "~24.8 MB"
   },
   {
     "id": "witcher3",
@@ -322,7 +336,8 @@
       "version": "v4.04 Next-Gen Remastered",
       "author": "Antigravity Localization Team",
       "font": "Font Arial & PF Din Text chuẩn Unicode hỗ trợ tiếng Việt có dấu 100%",
-      "last_updated": "07/10/2026"
+      "last_updated": "07/10/2026",
+      "mod_size": "~15.4 MB"
     },
     "mod_subfolder": "The Witcher 3 [Viet Hoa]",
     "mod_type": "witcher3_mod",
@@ -350,7 +365,8 @@
         "is_latest": true
       }
     ],
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TheWitcher3.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TheWitcher3.congu",
+    "mod_size": "~15.4 MB"
   },
   {
     "id": "forever_ago",
@@ -368,7 +384,8 @@
       "version": "v1.0.0 (Bản Chuẩn Unity 6)",
       "author": "Antigravity Localization Team",
       "font": "Outfit & Inter Tiếng Việt Chuẩn HD",
-      "last_updated": "18/10/2026"
+      "last_updated": "18/10/2026",
+      "mod_size": "~35.6 MB"
     },
     "versions": [
       {
@@ -399,7 +416,8 @@
       "banner": "/assets/forever_ago/library_hero.jpg",
       "header": "/assets/forever_ago/header.jpg"
     },
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ForeverAgo.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ForeverAgo.congu",
+    "mod_size": "~35.6 MB"
   },
   {
     "id": "erra_exordium",
@@ -417,7 +435,8 @@
       "version": "v1.0.0 (Bản Pixel Chuẩn)",
       "author": "Antigravity Localization Team",
       "font": "Sumerian Pixel Font có dấu chuẩn",
-      "last_updated": "17/10/2026"
+      "last_updated": "17/10/2026",
+      "mod_size": "~66.5 MB"
     },
     "versions": [
       {
@@ -441,7 +460,8 @@
       "banner": "/assets/erra_exordium/library_hero.jpg",
       "header": "/assets/erra_exordium/header.jpg"
     },
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ErraExordium.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ErraExordium.congu",
+    "mod_size": "~66.5 MB"
   },
   {
     "id": "ravenous_devils",
@@ -459,7 +479,8 @@
       "version": "v1.0.0",
       "author": "Antigravity Localization Team",
       "font": "Victorian Gothic Font tiếng Việt",
-      "last_updated": "16/10/2026"
+      "last_updated": "16/10/2026",
+      "mod_size": "~1.3 MB"
     },
     "versions": [
       {
@@ -484,6 +505,7 @@
       "banner": "/assets/ravenous_devils/library_hero.jpg",
       "header": "/assets/ravenous_devils/header.jpg"
     },
-    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RavenousDevils.congu"
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RavenousDevils.congu",
+    "mod_size": "~1.3 MB"
   }
 ]
