@@ -568,17 +568,19 @@
         </button>
       </div>
 
-      <!-- Engine Filter Dropdown (Cyber Frame) -->
+      <!-- Genre Filter Dropdown (Cyber Frame) -->
       <div class="flex items-center space-x-3 text-xs">
-        <div class="flex items-center space-x-2 bg-[#111326] px-3 py-1.5 rounded-[2px] border border-[#232747] shadow-[3px_3px_0px_#05050a]">
-          <i data-lucide="cpu" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
-          <span class="text-slate-400 font-pixel text-xs font-bold uppercase tracking-wider">Engine:</span>
-          <select id="engineFilter" onchange="onEngineFilterChange()" class="bg-transparent text-[#00F0FF] font-semibold focus:outline-none cursor-pointer font-mono text-xs">
-            <option value="all" class="bg-[#0b0c1a] text-slate-200">Tất cả engine</option>
-            <option value="unreal" class="bg-[#0b0c1a] text-slate-200">Unreal Engine</option>
-            <option value="unity" class="bg-[#0b0c1a] text-slate-200">Unity</option>
-            <option value="gamemaker" class="bg-[#0b0c1a] text-slate-200">GameMaker</option>
-            <option value="redengine" class="bg-[#0b0c1a] text-slate-200">REDengine (Witcher)</option>
+        <div class="flex items-center space-x-2 bg-[#111326] px-3 py-1.5 rounded-[2px] border border-[#00F0FF]/40 shadow-[3px_3px_0px_#05050a] hover:border-[#00F0FF] transition">
+          <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+          <span class="text-slate-400 font-pixel text-xs font-bold uppercase tracking-wider">Thể loại:</span>
+          <select id="genreFilter" onchange="onGenreFilterChange()" class="bg-transparent text-[#00F0FF] font-semibold focus:outline-none cursor-pointer text-xs">
+            <option value="all" data-name="Tất cả thể loại" class="bg-[#0b0c1a] text-slate-200">Tất cả thể loại</option>
+            <option value="rpg_story" data-name="⚔️ Nhập vai & Cốt truyện" class="bg-[#0b0c1a] text-slate-200">⚔️ Nhập vai & Cốt truyện</option>
+            <option value="action_shooter" data-name="💥 Hành động & Bắn súng" class="bg-[#0b0c1a] text-slate-200">💥 Hành động & Bắn súng</option>
+            <option value="detective_adventure" data-name="🔍 Trinh thám & Phiêu lưu" class="bg-[#0b0c1a] text-slate-200">🔍 Trinh thám & Phiêu lưu</option>
+            <option value="roguelike_strategy" data-name="🃏 Roguelike & Chiến thuật" class="bg-[#0b0c1a] text-slate-200">🃏 Roguelike & Chiến thuật</option>
+            <option value="cozy_casual" data-name="☕ Thư giãn & Cozy" class="bg-[#0b0c1a] text-slate-200">☕ Thư giãn & Cozy</option>
+            <option value="horror_dark" data-name="🩸 Kinh dị & Hắc ám" class="bg-[#0b0c1a] text-slate-200">🩸 Kinh dị & Hắc ám</option>
           </select>
         </div>
       </div>
@@ -862,7 +864,7 @@
   <script>
     let gamesList = [];
     let activeFilter = 'all';
-    let activeEngineFilter = 'all';
+    let activeGenreFilter = 'all';
     let heroGameId = 'preludes';
     let activeModalGameId = null;
     let selectedRating = 5;
@@ -976,6 +978,31 @@
       document.getElementById('count-installed').innerText = installedCount;
       document.getElementById('count-uninstalled').innerText = uninstalledCount;
       document.getElementById('count-missing').innerText = missingCount;
+
+      // Update genre options with exact counts
+      const optAll = document.querySelector('#genreFilter option[value="all"]');
+      if (optAll) optAll.innerText = `Tất cả thể loại (${allCount})`;
+
+      const genreDefs = {
+        'rpg_story': ['nhập vai', 'rpg', 'cốt truyện', 'story', 'tường thuật', 'lựa chọn'],
+        'action_shooter': ['hành động', 'bắn súng', 'action', 'top-down'],
+        'detective_adventure': ['trinh thám', 'phiêu lưu', 'giải đố', 'noir'],
+        'roguelike_strategy': ['roguelike', 'roguelite', 'chiến thuật', 'bộ bài', 'vòng lặp'],
+        'cozy_casual': ['thư giãn', 'nhiếp ảnh', 'cozy', 'thư thái'],
+        'horror_dark': ['kinh dị', 'quản lý', 'dark fantasy', 'bạo lực', 'hắc ám']
+      };
+
+      for (const [key, kws] of Object.entries(genreDefs)) {
+        const count = gamesList.filter(g => {
+          const txt = ((g.genre || '') + ' ' + (g.title || '') + ' ' + (g.vietnamese_title || '')).toLowerCase();
+          return kws.some(k => txt.includes(k));
+        }).length;
+        const opt = document.querySelector(`#genreFilter option[value="${key}"]`);
+        if (opt) {
+          const baseName = opt.getAttribute('data-name') || opt.innerText.split(' (')[0];
+          opt.innerText = `${baseName} (${count})`;
+        }
+      }
     }
 
     function setFilter(filter) {
@@ -991,8 +1018,8 @@
       renderGrid();
     }
 
-    function onEngineFilterChange() {
-      activeEngineFilter = document.getElementById('engineFilter').value;
+    function onGenreFilterChange() {
+      activeGenreFilter = document.getElementById('genreFilter').value;
       renderGrid();
     }
 
@@ -1104,14 +1131,28 @@
         filtered = filtered.filter(g => g.status_code === 'GAME_MISSING');
       }
 
-      // 2. Engine Filter
-      if (activeEngineFilter !== 'all') {
+      // 2. Genre Filter
+      if (activeGenreFilter !== 'all') {
         filtered = filtered.filter(g => {
-          const eng = (g.engine || '').toLowerCase();
-          if (activeEngineFilter === 'unreal') return eng.includes('unreal');
-          if (activeEngineFilter === 'unity') return eng.includes('unity');
-          if (activeEngineFilter === 'gamemaker') return eng.includes('gamemaker') || eng.includes('game maker');
-          if (activeEngineFilter === 'redengine') return eng.includes('redengine') || eng.includes('witcher');
+          const genreText = ((g.genre || '') + ' ' + (g.title || '') + ' ' + (g.vietnamese_title || '')).toLowerCase();
+          if (activeGenreFilter === 'rpg_story') {
+            return ['nhập vai', 'rpg', 'cốt truyện', 'story', 'tường thuật', 'lựa chọn'].some(k => genreText.includes(k));
+          }
+          if (activeGenreFilter === 'action_shooter') {
+            return ['hành động', 'bắn súng', 'action', 'top-down'].some(k => genreText.includes(k));
+          }
+          if (activeGenreFilter === 'detective_adventure') {
+            return ['trinh thám', 'phiêu lưu', 'giải đố', 'noir'].some(k => genreText.includes(k));
+          }
+          if (activeGenreFilter === 'roguelike_strategy') {
+            return ['roguelike', 'roguelite', 'chiến thuật', 'bộ bài', 'vòng lặp'].some(k => genreText.includes(k));
+          }
+          if (activeGenreFilter === 'cozy_casual') {
+            return ['thư giãn', 'nhiếp ảnh', 'cozy', 'thư thái'].some(k => genreText.includes(k));
+          }
+          if (activeGenreFilter === 'horror_dark') {
+            return ['kinh dị', 'quản lý', 'dark fantasy', 'bạo lực', 'hắc ám'].some(k => genreText.includes(k));
+          }
           return true;
         });
       }
