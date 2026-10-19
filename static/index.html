@@ -425,23 +425,14 @@
 
     <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors) -->
     <div class="flex items-center space-x-2.5">
-      <button id="syncCloudBtn" onclick="syncCloudCatalog()" class="pixel-btn btn-neon-cyan px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Đồng bộ kho game mới từ Cloud GitHub">
-        <i id="syncCloudIcon" data-lucide="cloud-download" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline font-bold">Đồng bộ Cloud</span>
+      <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs flex items-center space-x-1.5" title="Quét và làm mới danh sách game mới nhất">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline font-bold">Làm Mới Danh Sách Game</span>
       </button>
 
       <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Gửi yêu cầu dịch game mới">
         <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
         <span class="hidden lg:inline">Yêu cầu game</span>
-      </button>
-
-      <button onclick="openRepoFolder()" class="pixel-btn px-3 py-1.5 text-xs bg-[#13152c] text-emerald-300 border border-emerald-400/50 hover:border-emerald-400 hover:text-white flex items-center space-x-1.5" title="Mở thư mục kho Viethoagame">
-        <i data-lucide="folder-archive" class="w-3.5 h-3.5 text-emerald-400"></i>
-        <span class="hidden md:inline">Kho Game</span>
-      </button>
-
-      <button onclick="refreshData()" class="pixel-btn px-2.5 py-1.5 text-xs bg-[#13152c] text-slate-300 border border-[#2b3054] hover:border-[#00F0FF] hover:text-[#00F0FF] flex items-center space-x-1" title="Quét lại toàn bộ thư viện game">
-        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
       </button>
 
       <button onclick="quitApp()" class="pixel-btn btn-retro-crimson px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Thoát hoàn toàn ứng dụng">
@@ -981,9 +972,26 @@
       }
     }
 
-    function refreshData() {
-      fetchGames();
-      showToast('Đã quét và làm mới trạng thái thư viện!', 'info');
+    async function refreshData() {
+      const btn = document.querySelector('button[onclick="refreshData()"]');
+      const icon = btn ? btn.querySelector('svg, i') : null;
+      if (icon) icon.classList.add('animate-spin');
+      
+      showToast('Đang làm mới và cập nhật danh sách game...', 'info');
+      try {
+        const syncRes = await fetch('/api/catalog/sync', { method: 'POST' });
+        const syncData = await syncRes.json();
+        if (syncData && syncData.updated) {
+          showToast(syncData.message, 'success');
+        } else {
+          showToast('Đã làm mới danh sách game!', 'success');
+        }
+      } catch (e) {
+        showToast('Đã làm mới danh sách game!', 'info');
+      } finally {
+        await fetchGames();
+        if (icon) setTimeout(() => icon.classList.remove('animate-spin'), 600);
+      }
     }
 
     function updateUI() {
