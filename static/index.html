@@ -381,11 +381,14 @@
   </style>
 </head>
 <body class="min-h-screen selection:bg-[#00F0FF] selection:text-black flex flex-col relative">
-  <!-- PIXEL NIGHT CITY BACKDROP LAYER (TOP HEADER & STATUS AREA) -->
-  <div class="pointer-events-none fixed top-0 left-0 right-0 h-80 z-0 overflow-hidden select-none">
-    <div class="w-full h-full bg-cover bg-top opacity-20 mix-blend-screen"
-         style="background-image: url('/static/pixel_city_bg.png'); filter: saturate(1.4) contrast(1.15);"></div>
-    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#0b0c1a]/70 to-[#0b0c1a]"></div>
+  <!-- PIXEL NIGHT CITY ARCADE FULL-APP BACKDROP (HƠI MỜ & HUYỀN ẢO) -->
+  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none">
+    <div class="w-full h-full bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
+         style="background-image: url('/static/pixel_city_bg.png'); 
+                opacity: 0.26; 
+                filter: blur(1.5px) saturate(1.2) contrast(1.1);"></div>
+    <!-- Soft dark gradient overlay for crystal clear contrast -->
+    <div class="absolute inset-0 bg-gradient-to-b from-[#0b0c1a]/70 via-[#0b0c1a]/40 to-[#0b0c1a]/85"></div>
   </div>
 
 
@@ -488,7 +491,7 @@
   </div>
 
   <!-- MAIN CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6 relative z-10">
 
     <!-- HERO SPOTLIGHT BANNER (CYBER-PIXEL ARCADE FRAME WITH CRT SCANLINES) -->
     <div id="heroBanner" onmouseenter="isHeroHovered = true" onmouseleave="isHeroHovered = false" class="relative rounded-[2px] overflow-hidden hero-arcade-frame bg-[#0d0e1f] min-h-[320px] flex items-end p-8 transition-all duration-500">
@@ -894,7 +897,7 @@
   <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
 
   <!-- FOOTER (CYBER-PIXEL ARCADE) -->
-  <footer class="mt-auto border-t border-[#00F0FF]/20 py-4 px-6 text-center text-xs text-slate-400 font-pixel tracking-wider bg-[#080914]/85">
+  <footer class="mt-auto border-t border-[#00F0FF]/20 py-4 px-6 text-center text-xs text-slate-400 font-pixel tracking-wider bg-[#080914]/90 relative z-10">
     <span class="text-[#00F0FF]">CỔ NGỮ</span> <span class="text-[#FF2A85]">v2.0.2</span> &bull; <span class="text-slate-400">CYBER-PIXEL NIGHT CITY ARCADE</span> &bull; <span class="text-[#00FF9D]">ONLINE</span>
   </footer>
 
