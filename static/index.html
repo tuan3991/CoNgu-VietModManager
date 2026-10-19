@@ -45,32 +45,62 @@
       }
     }
   </script>
-    <!-- Typography System: Chakra Petch (Display), Be Vietnam Pro (UI), JetBrains Mono (Tech) -->
+    <!-- Typography System: Silkscreen (Pixel), Press Start 2P, Chakra Petch (Arcade Display), Be Vietnam Pro (UI), JetBrains Mono (Tech) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Chakra+Petch:wght@600;700;800&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
     :root {
+      --font-pixel: 'Silkscreen', 'Press Start 2P', monospace;
       --font-display: 'Chakra Petch', sans-serif;
       --font-sans: 'Be Vietnam Pro', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
+
+      /* 4 Core Neon Colors */
+      --neon-cyan: #00F0FF;
+      --neon-magenta: #FF2A85;
+      --neon-amber: #FFB800;
+      --neon-green: #00FF9D;
+      --neon-crimson: #FF3344;
+
+      --bg-deep: #0b0c1a;
+      --bg-night: #161129;
+      --bg-card: #111224;
+      --shadow-pixel: 4px 4px 0px #05050a;
+      --shadow-pixel-sm: 2px 2px 0px #05050a;
+      --shadow-pixel-lg: 6px 6px 0px #05050a;
     }
 
-    /* Ap dung cho toan bo giao dien mac dinh */
     body {
       font-family: var(--font-sans);
+      background: 
+        radial-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(135deg, #0b0c1a 0%, #161129 50%, #0d0e1a 100%);
+      background-size: 16px 16px, 100% 100%;
+      background-attachment: fixed;
+      color: #F1F5F9;
+      min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
-    /* Quy chuan cho Logo chu CO NGU */
-    /* Quy chuẩn Vàng cho Logo chữ CỔ NGỮ */
+    /* Font Utilities */
+    .font-pixel { font-family: var(--font-pixel) !important; }
+    .font-display { font-family: var(--font-display) !important; }
+    .font-mono-tech { font-family: var(--font-mono) !important; }
+
+    /* Custom Retro Pixel Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #070812; border-left: 1px solid #1a1d36; }
+    ::-webkit-scrollbar-thumb { background: #00F0FF; border: 1px solid #05050a; }
+    ::-webkit-scrollbar-thumb:hover { background: #FF2A85; }
+
+    /* Brand Title Cyber Neon */
     .app-brand-title {
       font-family: var(--font-display) !important;
-      font-weight: 700 !important;
+      font-weight: 800 !important;
       font-size: 24px !important;
-      letter-spacing: 0.08em !important;
+      letter-spacing: 0.1em !important;
       text-transform: uppercase !important;
       color: #F8FAFC !important;
       display: inline-flex !important;
@@ -79,89 +109,237 @@
     }
 
     .brand-slashes {
-      color: #10B981 !important;
-      font-family: var(--font-mono) !important;
+      color: #00F0FF !important;
+      font-family: var(--font-pixel) !important;
       font-weight: 800 !important;
-      font-size: 21px !important;
-      letter-spacing: -0.06em !important;
-      margin-right: 7px !important;
-      text-shadow: 0 0 12px rgba(16, 185, 129, 0.6), 0 0 20px rgba(16, 185, 129, 0.3) !important;
+      font-size: 18px !important;
+      margin-right: 6px !important;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.4) !important;
       display: inline-block !important;
-      transform: translateY(-1px);
     }
 
     .brand-name {
-      color: #F8FAFC !important;
+      color: #FFFFFF !important;
       font-family: var(--font-display) !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.08em !important;
-      text-shadow: 0 0 15px rgba(248, 250, 252, 0.25), 0 0 25px rgba(16, 185, 129, 0.25) !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.1em !important;
+      text-shadow: 0 0 14px rgba(255, 255, 255, 0.3), 0 0 25px rgba(0, 240, 255, 0.3) !important;
     }
 
-    /* Quy chuan cho cac Badge ky thuat (Version, Engine, Duong dan, Steam Protocol) */
-    .tech-badge, .file-path, .protocol-text, .engine-tag {
-      font-family: var(--font-mono) !important;
-      font-size: 11.5px !important;
-      letter-spacing: 0.02em !important;
+    /* Pixel Badge */
+    .tech-badge, .file-path, .protocol-text {
+      font-family: var(--font-pixel) !important;
+      font-size: 10px !important;
+      letter-spacing: 0.05em !important;
     }
 
-    .font-display {
-      font-family: var(--font-display);
-    }
-
-    .font-mono-tech {
-      font-family: var(--font-mono);
-    }
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 7px; height: 7px; }
-    ::-webkit-scrollbar-track { background: #090d16; }
-    ::-webkit-scrollbar-thumb { background: #253352; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #384b72; }
-
+    /* Glass Effect with Cyber Border */
     .glass {
-      background: rgba(15, 20, 35, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(13, 15, 30, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.25);
     }
 
-    .glass-card {
-      background: rgba(21, 29, 48, 0.75);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+    /* Tactile Pixel Buttons */
+    .pixel-btn {
+      border-radius: 2px !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+      transition: all 0.12s ease-in-out !important;
+      font-family: var(--font-display) !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+      position: relative !important;
+    }
+    .pixel-btn:hover {
+      transform: translate(-1px, -1px) !important;
+      box-shadow: 4px 4px 0px #05050a !important;
+    }
+    .pixel-btn:active {
+      transform: translate(2px, 2px) !important;
+      box-shadow: 1px 1px 0px #05050a !important;
     }
 
-    .card-hover-effect {
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    /* Neon Color Button Variants */
+    .btn-neon-green {
+      background: #00FF9D !important;
+      color: #05050a !important;
+      border: 1px solid #00FF9D !important;
+      font-weight: 800 !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 12px rgba(0, 255, 157, 0.35) !important;
     }
-    .card-hover-effect:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 16px 36px -12px rgba(34, 197, 94, 0.25);
-      border-color: rgba(74, 222, 128, 0.4);
-    }
-
-    .active-filter-tab {
-      background: #16a34a;
-      color: #ffffff;
-      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+    .btn-neon-green:hover {
+      background: #33FFAE !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 18px rgba(0, 255, 157, 0.55) !important;
     }
 
-    .pulse-glow {
-      animation: pulseGlow 2s infinite;
+    .btn-arcade-amber {
+      background: #FFB800 !important;
+      color: #05050a !important;
+      border: 1px solid #FFE600 !important;
+      font-weight: 900 !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 14px rgba(255, 184, 0, 0.4) !important;
     }
-    @keyframes pulseGlow {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.75; transform: scale(1.05); }
+    .btn-arcade-amber:hover {
+      background: #FFC72C !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 20px rgba(255, 184, 0, 0.6) !important;
+    }
+
+    .btn-cyber-magenta {
+      background: rgba(255, 42, 133, 0.12) !important;
+      color: #FF2A85 !important;
+      border: 1px solid #FF2A85 !important;
+      font-weight: 700 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+    }
+    .btn-cyber-magenta:hover {
+      background: #FF2A85 !important;
+      color: #ffffff !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(255, 42, 133, 0.5) !important;
+    }
+
+    .btn-neon-cyan {
+      background: rgba(0, 240, 255, 0.12) !important;
+      color: #00F0FF !important;
+      border: 1px solid #00F0FF !important;
+      font-weight: 700 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+    }
+    .btn-neon-cyan:hover {
+      background: #00F0FF !important;
+      color: #05050a !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(0, 240, 255, 0.5) !important;
+    }
+
+    .btn-retro-crimson {
+      background: rgba(255, 51, 68, 0.15) !important;
+      color: #FF6677 !important;
+      border: 1px solid #FF3344 !important;
+      font-weight: 700 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+    }
+    .btn-retro-crimson:hover {
+      background: #FF3344 !important;
+      color: #ffffff !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(255, 51, 68, 0.5) !important;
+    }
+
+    /* Pixel Game Card */
+    .pixel-card {
+      border-radius: 2px !important;
+      background: #111224 !important;
+      border: 1px solid rgba(0, 240, 255, 0.25) !important;
+      box-shadow: 4px 4px 0px #05050a !important;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+    }
+    .pixel-card:hover {
+      border-color: #00F0FF !important;
+      box-shadow: 6px 6px 0px #05050a, 0 0 20px rgba(0, 240, 255, 0.3) !important;
+      transform: translate(-2px, -2px) !important;
+    }
+
+    /* CRT Scanlines Overlay */
+    .crt-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.20) 0px,
+        rgba(0, 0, 0, 0.20) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      opacity: 0.8;
+    }
+
+    /* Hero Arcade Frame with Double Neon Glow */
+    .hero-arcade-frame {
+      position: relative;
+      border-radius: 2px !important;
+      border: 2px solid #00F0FF !important;
+      box-shadow: 6px 6px 0px #05050a, 0 0 25px rgba(0, 240, 255, 0.25), inset 0 0 30px rgba(0, 240, 255, 0.1) !important;
+      outline: 1px solid rgba(255, 42, 133, 0.45);
+      outline-offset: 4px;
+    }
+
+    /* Pixel Segmented EXP / Health Bar */
+    .pixel-exp-bar {
+      display: flex;
+      gap: 2.5px;
+      background: #080914;
+      padding: 2px;
+      border: 1px solid rgba(255, 184, 0, 0.6);
+      box-shadow: 2px 2px 0px #05050a;
+      height: 8px;
+      border-radius: 1px;
+    }
+    .pixel-exp-seg {
+      flex: 1;
+      background: #1e223b;
+      height: 100%;
+    }
+    .pixel-exp-seg.active-amber {
+      background: linear-gradient(180deg, #FFE600 0%, #FFB800 100%);
+      box-shadow: 0 0 4px rgba(255, 184, 0, 0.7);
+    }
+    .pixel-exp-seg.active-cyan {
+      background: linear-gradient(180deg, #80F8FF 0%, #00F0FF 100%);
+      box-shadow: 0 0 4px rgba(0, 240, 255, 0.7);
+    }
+
+    /* Pixel Filter Tabs */
+    .pixel-tab {
+      border-radius: 2px !important;
+      background: #111326 !important;
+      border: 1px solid #232747 !important;
+      color: #94A3B8 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+      font-family: var(--font-display) !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+      transition: all 0.15s ease !important;
+    }
+    .pixel-tab:hover {
+      border-color: #00F0FF !important;
+      color: #FFFFFF !important;
+      transform: translate(-1px, -1px) !important;
+      box-shadow: 4px 4px 0px #05050a !important;
+    }
+    .pixel-tab.active-filter-tab {
+      background: #00F0FF !important;
+      color: #05050a !important;
+      border-color: #00F0FF !important;
+      font-weight: 800 !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 15px rgba(0, 240, 255, 0.45) !important;
+    }
+
+    /* Modals with Pixel Borders */
+    .pixel-modal {
+      border-radius: 2px !important;
+      border: 2px solid #00F0FF !important;
+      background: #0e0f22 !important;
+      box-shadow: 8px 8px 0px #05050a, 0 0 35px rgba(0, 240, 255, 0.25) !important;
+      outline: 1px solid rgba(255, 42, 133, 0.5);
+      outline-offset: 4px;
     }
   </style>
 </head>
-<body class="bg-dark-900 text-slate-100 min-h-screen font-sans selection:bg-brand-500 selection:text-white flex flex-col">
+<body class="min-h-screen selection:bg-[#00F0FF] selection:text-black flex flex-col relative">
+  <!-- PIXEL NIGHT CITY BACKDROP LAYER (TOP HEADER & STATUS AREA) -->
+  <div class="pointer-events-none fixed top-0 left-0 right-0 h-80 z-0 overflow-hidden select-none">
+    <div class="w-full h-full bg-cover bg-top opacity-20 mix-blend-screen"
+         style="background-image: url('/static/pixel_city_bg.png'); filter: saturate(1.4) contrast(1.15);"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#0b0c1a]/70 to-[#0b0c1a]"></div>
+  </div>
 
-  <!-- TOP HEADER NAVBAR -->
-  <header class="sticky top-0 z-40 glass border-b border-dark-700/60 px-6 py-3.5 flex items-center justify-between">
+
+  <!-- TOP HEADER NAVBAR (CYBER-PIXEL ARCADE STYLE) -->
+  <header class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between">
     <div class="flex items-center space-x-3.5 cursor-pointer" onclick="refreshData()">
-      <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-500/30 border border-emerald-500/50 bg-dark-950 flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-300">
-        <img src="/static/app_icon.png" alt="CO NGU Icon" class="w-full h-full object-cover rounded-lg" />
+      <div class="w-10 h-10 rounded-[2px] overflow-hidden shadow-[3px_3px_0px_#05050a] border border-[#00F0FF] bg-[#090b16] flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-200">
+        <img src="/static/app_icon.png" alt="CO NGU Icon" class="w-full h-full object-cover rounded-[1px]" />
       </div>
       <div>
         <div class="flex items-center space-x-2">
@@ -169,98 +347,95 @@
             <span class="brand-slashes">//</span>
             <span class="brand-name">CỔ NGỮ</span>
           </h1>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">PRO v2.0.2</span>
+          <span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85] shadow-[2px_2px_0px_#05050a]">PRO v2.0.2</span>
         </div>
-        <p class="text-xs text-slate-400">Hệ Thống Quản Lý & Tự Động Cài Đặt Game Việt Hóa</p>
+        <p class="text-xs text-slate-400 font-mono tracking-tight">Hệ Thống Quản Lý & Tự Động Cài Đặt Game Việt Hóa</p>
       </div>
     </div>
 
-    <!-- Center Search Bar (Fuzzy Search Tiếng Việt) -->
+    <!-- Center Search Bar (Neon Cyan Border, Sharp Pixel Edge) -->
     <div class="flex items-center space-x-3 flex-1 max-w-lg mx-6">
       <div class="relative w-full">
-        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#00F0FF]"></i>
         <input 
           id="searchInput" 
           type="text" 
           placeholder="Tìm game, tên Việt hóa, từ khóa, engine (Unreal, Unity...)..." 
-          class="w-full pl-10 pr-9 py-2 bg-dark-800/90 border border-dark-700/80 rounded-xl text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-100 placeholder-slate-400 transition"
+          class="w-full pl-10 pr-9 py-2 bg-[#0e1022]/95 border border-[#00F0FF]/40 rounded-[2px] text-sm focus:outline-none focus:border-[#00F0FF] focus:shadow-[0_0_12px_rgba(0,240,255,0.35)] text-slate-100 placeholder-slate-400 transition shadow-[3px_3px_0px_#05050a]"
         />
-        <button id="clearSearchBtn" onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 hidden">
+        <button id="clearSearchBtn" onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#00F0FF] hidden">
           <i data-lucide="x" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>
 
-    <!-- Right Quick Controls -->
+    <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors) -->
     <div class="flex items-center space-x-2.5">
-      <button id="syncCloudBtn" onclick="syncCloudCatalog()" class="px-3 py-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-emerald-500/40 shadow-sm shadow-emerald-500/10" title="Đồng bộ kho game mới từ Cloud GitHub">
-        <i id="syncCloudIcon" data-lucide="cloud-download" class="w-4 h-4 text-emerald-400"></i>
+      <button id="syncCloudBtn" onclick="syncCloudCatalog()" class="pixel-btn btn-neon-cyan px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Đồng bộ kho game mới từ Cloud GitHub">
+        <i id="syncCloudIcon" data-lucide="cloud-download" class="w-3.5 h-3.5"></i>
         <span class="hidden sm:inline font-bold">Đồng bộ Cloud</span>
       </button>
-      <button onclick="openGameRequestModal()" class="px-3 py-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Gửi yêu cầu dịch game mới">
-        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+
+      <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Gửi yêu cầu dịch game mới">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
         <span class="hidden lg:inline">Yêu cầu game</span>
       </button>
 
-      <button onclick="openRepoFolder()" class="px-3 py-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Mở thư mục kho Viethoagame">
-        <i data-lucide="folder-archive" class="w-4 h-4 text-emerald-400"></i>
-        <span class="hidden md:inline">Kho Viethoagame</span>
+      <button onclick="openRepoFolder()" class="pixel-btn px-3 py-1.5 text-xs bg-[#13152c] text-emerald-300 border border-emerald-400/50 hover:border-emerald-400 hover:text-white flex items-center space-x-1.5" title="Mở thư mục kho Viethoagame">
+        <i data-lucide="folder-archive" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span class="hidden md:inline">Kho Game</span>
       </button>
 
-      <button onclick="refreshData()" class="p-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Quét lại toàn bộ thư viện game">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-        <span class="hidden sm:inline">Quét lại</span>
+      <button onclick="refreshData()" class="pixel-btn px-2.5 py-1.5 text-xs bg-[#13152c] text-slate-300 border border-[#2b3054] hover:border-[#00F0FF] hover:text-[#00F0FF] flex items-center space-x-1" title="Quét lại toàn bộ thư viện game">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
       </button>
 
-      <button onclick="quitApp()" class="px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-red-500/40 shadow-sm shadow-red-500/10" title="Thoát hoàn toàn ứng dụng">
-        <i data-lucide="power" class="w-4 h-4 text-red-400"></i>
+      <button onclick="quitApp()" class="pixel-btn btn-retro-crimson px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Thoát hoàn toàn ứng dụng">
+        <i data-lucide="power" class="w-3.5 h-3.5"></i>
         <span class="hidden sm:inline font-bold">Thoát</span>
       </button>
     </div>
   </header>
 
-  <!-- APP UPDATE NOTIFICATION BANNER -->
-  <div id="updateNotificationBanner" class="hidden bg-gradient-to-r from-emerald-950/90 via-dark-900 to-emerald-950/90 border-b border-emerald-500/40 px-6 py-2.5 flex items-center justify-between text-xs text-slate-200">
+  <!-- APP UPDATE NOTIFICATION BANNER (CYBER-PIXEL ARCADE STYLE) -->
+  <div id="updateNotificationBanner" class="hidden bg-[#0a1814]/95 border-b border-[#00FF9D]/60 px-6 py-2.5 flex items-center justify-between text-xs text-slate-200 shadow-[0_2px_10px_rgba(0,255,157,0.15)] relative z-20">
     <div class="flex items-center space-x-2.5">
-      <span class="flex h-2 w-2 relative">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-      </span>
-      <span class="font-bold text-emerald-400" id="updateBannerVersion">// BẢN CẬP NHẬT MỚI:</span>
-      <span id="updateBannerTitle" class="text-slate-300">Đã có phiên bản phần mềm mới</span>
+      <span class="w-2.5 h-2.5 bg-[#00FF9D] inline-block animate-pulse shadow-[0_0_8px_#00FF9D]"></span>
+      <span class="font-pixel text-[10px] text-[#00FF9D]" id="updateBannerVersion">// BẢN CẬP NHẬT MỚI:</span>
+      <span id="updateBannerTitle" class="text-slate-200 font-mono text-xs">Đã có phiên bản phần mềm mới</span>
     </div>
     <div class="flex items-center space-x-3">
-      <button onclick="openUpdateModal()" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-md shadow-emerald-600/30 flex items-center space-x-1">
-        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+      <button onclick="openUpdateModal()" class="pixel-btn btn-neon-green px-3 py-1 text-xs flex items-center space-x-1">
+        <i data-lucide="download" class="w-3.5 h-3.5 stroke-[2.5]"></i>
         <span>Xem & Tải bản mới</span>
       </button>
-      <button onclick="closeUpdateBanner()" class="text-slate-400 hover:text-white">
-        <i data-lucide="x" class="w-4 h-4"></i>
+      <button onclick="closeUpdateBanner()" class="pixel-btn p-1 bg-[#17192e] text-slate-400 hover:text-white border border-[#2b2f52]">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
       </button>
     </div>
   </div>
 
-  <!-- REPOSITORY & AUTO-DETECT STATUS BAR (PUBLIC CLOUD READY) -->
-  <div class="bg-dark-850/90 border-b border-dark-700/50 px-6 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
+  <!-- REPOSITORY & AUTO-DETECT STATUS BAR (CYBER-PIXEL ARCADE STYLE) -->
+  <div class="bg-[#0a0c1a]/95 border-b border-[#00F0FF]/25 px-6 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 backdrop-blur-md relative z-10">
     <div class="flex items-center space-x-3">
-      <span class="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium text-[11px]">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00FF9D] border border-[#00FF9D]/60 font-pixel text-[9px] shadow-[2px_2px_0px_#05050a]">
+        <span class="w-2 h-2 bg-[#00FF9D] inline-block animate-pulse shadow-[0_0_6px_#00FF9D]"></span>
         <span>Hệ Thống Đám Mây: Trực Tuyến</span>
       </span>
-      <span class="hidden md:inline text-slate-400 text-xs">Tự động tải & cài đặt bản dịch từ Cloud tốc độ cao</span>
+      <span class="hidden md:inline text-slate-400 text-xs font-mono">Tự động tải & cài đặt bản dịch từ Cloud tốc độ cao</span>
       <!-- Hidden code element so JS doesn't break -->
       <code id="repoPathDisplay" class="hidden"></code>
     </div>
     <div class="flex items-center space-x-4">
-      <span class="flex items-center space-x-1.5 text-emerald-400 font-medium">
-        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+      <span class="flex items-center space-x-1.5 text-[#00FF9D] font-mono text-[11px]">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5 stroke-[2.5]"></i>
         <span id="syncStatusText">Bảo vệ & Sao lưu tự động an toàn</span>
       </span>
-      <span class="hidden sm:flex items-center space-x-1.5 text-slate-400">
-        <i data-lucide="steam" class="w-3.5 h-3.5 text-sky-400"></i>
-        <span class="protocol-text tech-badge text-slate-300">Steam Library: Auto-Detect</span>
+      <span class="hidden sm:flex items-center space-x-1.5 px-2 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/40 shadow-[2px_2px_0px_#05050a] font-pixel text-[9px]">
+        <i data-lucide="steam" class="w-3 h-3 text-[#00F0FF]"></i>
+        <span>Steam Library: Auto-Detect</span>
       </span>
-      <button onclick="changeRepoFolder()" class="text-slate-500 hover:text-slate-300 text-[10px] flex items-center space-x-1 transition ml-2" title="Tùy chọn nâng cao: Chỉ định thư mục kho ngoại tuyến">
+      <button onclick="changeRepoFolder()" class="pixel-btn px-2 py-0.5 bg-[#111326] text-slate-400 hover:text-[#00F0FF] border border-[#232747] text-[10px] flex items-center space-x-1 ml-2" title="Tùy chọn nâng cao: Chỉ định thư mục kho ngoại tuyến">
         <i data-lucide="folder-cog" class="w-3 h-3"></i>
         <span class="hidden xl:inline">Kho cục bộ</span>
       </button>
@@ -270,94 +445,96 @@
   <!-- MAIN CONTAINER -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
 
-    <!-- HERO SPOTLIGHT BANNER -->
-    <div id="heroBanner" onmouseenter="isHeroHovered = true" onmouseleave="isHeroHovered = false" class="relative rounded-2xl overflow-hidden border border-dark-700/80 bg-dark-850 shadow-2xl min-h-[320px] flex items-end p-8 transition-all duration-500">
-      <div id="heroBg" class="absolute inset-0 bg-cover bg-center opacity-35 transition-all duration-700 scale-100 hover:scale-105" style="background-image: url('/assets/preludes/library_hero.jpg');"></div>
-      <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-900/70 to-transparent"></div>
+    <!-- HERO SPOTLIGHT BANNER (CYBER-PIXEL ARCADE FRAME WITH CRT SCANLINES) -->
+    <div id="heroBanner" onmouseenter="isHeroHovered = true" onmouseleave="isHeroHovered = false" class="relative rounded-[2px] overflow-hidden hero-arcade-frame bg-[#0d0e1f] min-h-[320px] flex items-end p-8 transition-all duration-500">
+      <div id="heroBg" class="absolute inset-0 bg-cover bg-center opacity-40 transition-all duration-700 scale-100 hover:scale-105" style="background-image: url('/assets/preludes/library_hero.jpg');"></div>
+      <div class="absolute inset-0 bg-gradient-to-t from-[#070814] via-[#0b0c1a]/80 to-transparent"></div>
+      <!-- CRT Scanlines Overlay -->
+      <div class="crt-overlay"></div>
 
-      <!-- Spotlight Shuffle Button with 5s Auto-Indicator -->
-      <button onclick="shuffleHeroSpotlight()" class="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-xl bg-dark-900/85 hover:bg-dark-800 text-slate-300 hover:text-white border border-dark-700 text-xs flex items-center space-x-1.5 transition backdrop-blur-md group" title="Tự động đổi game sau mỗi 5s (hoặc nhấp để đổi ngay)">
-        <i data-lucide="shuffle" class="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-180 transition-transform duration-500"></i>
-        <span>Đổi Game</span>
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">5s</span>
+      <!-- Spotlight Shuffle Button with 5s Auto-Indicator (Pixel Arcade) -->
+      <button onclick="shuffleHeroSpotlight()" class="pixel-btn absolute top-4 right-4 z-20 px-3 py-1.5 bg-[#090b17]/90 text-slate-300 hover:text-white border border-[#00F0FF]/40 hover:border-[#00F0FF] text-xs flex items-center space-x-2 backdrop-blur-md group" title="Tự động đổi game sau mỗi 5s (hoặc nhấp để đổi ngay)">
+        <i data-lucide="shuffle" class="w-3.5 h-3.5 text-[#00FF9D] group-hover:rotate-180 transition-transform duration-500"></i>
+        <span class="font-display">Đổi Game</span>
+        <span class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[1px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40">5s</span>
       </button>
 
       <div class="relative z-10 max-w-3xl space-y-3">
         <div class="flex flex-wrap items-center gap-2">
           <!-- 3-State Hero Badge -->
-          <span id="heroBadge" class="px-2.5 py-1 rounded-md text-xs font-bold flex items-center space-x-1.5">
-            <span id="heroBadgeDot" class="w-2 h-2 rounded-full animate-pulse"></span>
+          <span id="heroBadge" class="font-pixel text-[9px] px-2.5 py-1 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/60 flex items-center space-x-1.5 shadow-[2px_2px_0px_#05050a]">
+            <span id="heroBadgeDot" class="w-2 h-2 bg-[#00FF9D] inline-block animate-pulse shadow-[0_0_6px_#00FF9D]"></span>
             <span id="heroStatusText">ĐÃ CÀI ĐẶT VIỆT HÓA</span>
           </span>
-          <span id="heroEngine" class="engine-tag tech-badge px-2.5 py-1 rounded-md bg-dark-800/90 text-slate-300 border border-dark-700">Unreal Engine</span>
-          <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">100% Hoàn Thành (Zero Omission)</span>
+          <span id="heroEngine" class="font-pixel text-[9px] px-2.5 py-1 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/50 shadow-[2px_2px_0px_#05050a] tracking-wider uppercase">Unreal Engine</span>
+          <span class="font-pixel text-[9px] px-2.5 py-1 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/50 shadow-[2px_2px_0px_#05050a]">100% Hoành Thành (Zero Omission)</span>
         </div>
 
-        <h2 id="heroTitle" class="font-display text-3xl sm:text-4xl font-bold text-white tracking-wide drop-shadow-md">
+        <h2 id="heroTitle" class="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-wide drop-shadow-[0_4px_12px_rgba(0,240,255,0.25)]">
           Tails: The Backbone Preludes (Tiền Truyện)
         </h2>
-        <p id="heroDesc" class="text-sm text-slate-300 line-clamp-2 leading-relaxed">
+        <p id="heroDesc" class="text-sm text-slate-300 line-clamp-2 leading-relaxed font-sans">
           Tựa game trinh thám noir phân nhánh lựa chọn sâu sắc với 22,240 câu thoại đã được bản địa hóa chuẩn văn học, hỗ trợ đầy đủ font pixel-art tiếng Việt có dấu.
         </p>
 
-        <!-- Hero Important Note (Cảnh Báo Chữ Đỏ Nổi Bật) -->
-        <div id="heroNoteContainer" class="hidden p-3 rounded-xl bg-gradient-to-r from-red-950/95 via-rose-950/90 to-red-950/95 border-2 border-red-500/80 shadow-lg shadow-red-950/50 flex items-start space-x-2.5">
-          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 mt-0.5 animate-pulse"></i>
+        <!-- Hero Important Note (Pixel Warning Frame) -->
+        <div id="heroNoteContainer" class="hidden p-3 rounded-[2px] bg-[#22070f] border-2 border-[#FF3344] shadow-[4px_4px_0px_#05050a] flex items-start space-x-2.5">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-[#FF3344] shrink-0 mt-0.5 animate-pulse"></i>
           <div class="text-xs leading-relaxed">
-            <span class="text-red-400 uppercase tracking-wide mr-1.5 font-extrabold">[LƯU Ý QUAN TRỌNG]:</span>
-            <span id="heroNoteText" class="text-red-200 font-semibold"></span>
+            <span class="font-pixel text-[9.5px] text-[#FF3344] uppercase tracking-wide mr-1.5 font-bold">[LƯU Ý QUAN TRỌNG]:</span>
+            <span id="heroNoteText" class="text-rose-200 font-semibold font-mono"></span>
           </div>
         </div>
 
-        <!-- Hero Actions -->
+        <!-- Hero Actions (Tactile Arcade Buttons) -->
         <div class="pt-2 flex flex-wrap items-center gap-3">
-          <button id="heroActionBtn" onclick="onHeroMainAction()" class="px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-lg transition flex items-center space-x-2">
-            <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+          <button id="heroActionBtn" onclick="onHeroMainAction()" class="pixel-btn btn-neon-green px-6 py-2.5 text-sm flex items-center space-x-2">
+            <i data-lucide="play" class="w-4 h-4 fill-black"></i>
             <span>Chơi Ngay (Launch)</span>
           </button>
-          <button id="heroDetailBtn" onclick="openGameModal(heroGameId)" class="px-4 py-2.5 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-200 hover:text-white font-semibold text-sm border border-dark-600 transition flex items-center space-x-1.5">
-            <i data-lucide="info" class="w-4 h-4 text-brand-400"></i>
+          <button id="heroDetailBtn" onclick="openGameModal(heroGameId)" class="pixel-btn px-4 py-2.5 bg-[#17192e] text-slate-200 hover:text-[#00F0FF] text-sm border border-[#2b2f52] hover:border-[#00F0FF] flex items-center space-x-1.5">
+            <i data-lucide="info" class="w-4 h-4 text-[#00F0FF]"></i>
             <span>Chi Tiết & Phiên Bản</span>
           </button>
-          <button onclick="openGameFolder(heroGameId)" class="px-3.5 py-2.5 rounded-xl bg-dark-800/80 hover:bg-dark-700 text-slate-300 hover:text-white text-sm border border-dark-700 transition" title="Mở thư mục cài đặt game">
+          <button onclick="openGameFolder(heroGameId)" class="pixel-btn px-3.5 py-2.5 bg-[#17192e] text-slate-300 hover:text-white text-sm border border-[#2b2f52] hover:border-[#00F0FF]" title="Mở thư mục cài đặt game">
             <i data-lucide="folder" class="w-4 h-4"></i>
           </button>
-          <button onclick="openModFolder(heroGameId)" class="px-3.5 py-2.5 rounded-xl bg-dark-800/80 hover:bg-dark-700 text-amber-300 hover:text-white text-sm border border-dark-700 transition" title="Mở thư mục mod trong Viethoagame">
+          <button onclick="openModFolder(heroGameId)" class="pixel-btn px-3.5 py-2.5 bg-[#17192e] text-[#FFB800] hover:text-white text-sm border border-[#2b2f52] hover:border-[#FFB800]" title="Mở thư mục mod trong Viethoagame">
             <i data-lucide="package-search" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- FILTER BAR: 3-STATE TABS + ENGINE DROPDOWN -->
+    <!-- FILTER BAR: 3-STATE TABS + ENGINE DROPDOWN (CYBER-PIXEL TABS) -->
     <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
       <!-- State Filter Tabs -->
-      <div class="flex flex-wrap items-center gap-2">
-        <button onclick="setFilter('all')" id="filter-all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold active-filter-tab transition">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button onclick="setFilter('all')" id="filter-all" class="pixel-tab active-filter-tab px-3.5 py-1.5 text-xs font-bold transition">
           Tất cả (<span id="count-all">0</span>)
         </button>
-        <button onclick="setFilter('installed')" id="filter-installed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700">
+        <button onclick="setFilter('installed')" id="filter-installed" class="pixel-tab px-3.5 py-1.5 text-xs font-bold transition">
           Đã cài Việt Hóa (<span id="count-installed">0</span>)
         </button>
-        <button onclick="setFilter('uninstalled')" id="filter-uninstalled" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700">
+        <button onclick="setFilter('uninstalled')" id="filter-uninstalled" class="pixel-tab px-3.5 py-1.5 text-xs font-bold transition">
           Chưa cài mod (<span id="count-uninstalled">0</span>)
         </button>
-        <button onclick="setFilter('missing')" id="filter-missing" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700">
+        <button onclick="setFilter('missing')" id="filter-missing" class="pixel-tab px-3.5 py-1.5 text-xs font-bold transition">
           Chưa có game (<span id="count-missing">0</span>)
         </button>
       </div>
 
-      <!-- Engine Filter Dropdown -->
+      <!-- Engine Filter Dropdown (Cyber Frame) -->
       <div class="flex items-center space-x-3 text-xs">
-        <div class="flex items-center space-x-2 bg-dark-800 px-3 py-1.5 rounded-xl border border-dark-700">
-          <i data-lucide="cpu" class="w-3.5 h-3.5 text-slate-400"></i>
-          <span class="text-slate-400">Engine:</span>
-          <select id="engineFilter" onchange="onEngineFilterChange()" class="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer">
-            <option value="all" class="bg-dark-800 text-slate-200">Tất cả engine</option>
-            <option value="unreal" class="bg-dark-800 text-slate-200">Unreal Engine</option>
-            <option value="unity" class="bg-dark-800 text-slate-200">Unity</option>
-            <option value="gamemaker" class="bg-dark-800 text-slate-200">GameMaker</option>
-            <option value="redengine" class="bg-dark-800 text-slate-200">REDengine (Witcher)</option>
+        <div class="flex items-center space-x-2 bg-[#111326] px-3 py-1.5 rounded-[2px] border border-[#232747] shadow-[3px_3px_0px_#05050a]">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+          <span class="text-slate-400 font-pixel text-[9px] uppercase">Engine:</span>
+          <select id="engineFilter" onchange="onEngineFilterChange()" class="bg-transparent text-[#00F0FF] font-semibold focus:outline-none cursor-pointer font-mono text-xs">
+            <option value="all" class="bg-[#0b0c1a] text-slate-200">Tất cả engine</option>
+            <option value="unreal" class="bg-[#0b0c1a] text-slate-200">Unreal Engine</option>
+            <option value="unity" class="bg-[#0b0c1a] text-slate-200">Unity</option>
+            <option value="gamemaker" class="bg-[#0b0c1a] text-slate-200">GameMaker</option>
+            <option value="redengine" class="bg-[#0b0c1a] text-slate-200">REDengine (Witcher)</option>
           </select>
         </div>
       </div>
@@ -370,42 +547,43 @@
 
   </main>
 
-  <!-- MODAL: GAME DETAILS & SETTINGS -->
-  <div id="gameModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden transition-opacity">
-    <div class="relative w-full max-w-3xl bg-dark-850 border border-dark-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+  <!-- MODAL: GAME DETAILS & SETTINGS (CYBER-PIXEL ARCADE MODAL) -->
+  <div id="gameModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-opacity">
+    <div class="relative w-full max-w-3xl pixel-modal overflow-hidden flex flex-col max-h-[92vh]">
       
       <!-- Modal Header Banner -->
-      <div class="relative h-52 bg-dark-900 overflow-hidden flex items-end p-6">
+      <div class="relative h-52 bg-[#090a17] overflow-hidden flex items-end p-6">
         <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30"></div>
-        <div class="absolute inset-0 bg-gradient-to-t from-dark-850 via-dark-850/70 to-transparent"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0e0f22] via-[#0e0f22]/70 to-transparent"></div>
+        <div class="crt-overlay"></div>
         
-        <button onclick="closeGameModal()" class="absolute top-4 right-4 p-2 rounded-xl bg-dark-900/80 hover:bg-dark-700 text-slate-400 hover:text-white border border-dark-700 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="closeGameModal()" class="pixel-btn absolute top-4 right-4 p-1.5 bg-[#0e0f22]/90 hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/40 transition z-20">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
 
         <div class="relative z-10 space-y-1">
           <div class="flex items-center space-x-2">
-            <span id="modalStatusBadge" class="px-2.5 py-0.5 rounded-md text-[11px] font-bold"></span>
-            <span id="modalEngineBadge" class="engine-tag tech-badge px-2.5 py-0.5 rounded-md bg-dark-800 text-slate-300 border border-dark-700"></span>
-            <span id="modalVersionBadge" class="tech-badge px-2.5 py-0.5 rounded-md font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30"></span>
+            <span id="modalStatusBadge" class="font-pixel text-[9px] px-2.5 py-0.5 rounded-[2px]"></span>
+            <span id="modalEngineBadge" class="font-pixel text-[9px] px-2.5 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/50 shadow-[2px_2px_0px_#05050a] tracking-wider uppercase"></span>
+            <span id="modalVersionBadge" class="font-pixel text-[9px] px-2.5 py-0.5 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/40 shadow-[2px_2px_0px_#05050a]"></span>
           </div>
-          <h3 id="modalTitle" class="font-display text-2xl font-bold text-white tracking-wide"></h3>
-          <p id="modalOrigTitle" class="text-xs text-slate-400"></p>
+          <h3 id="modalTitle" class="font-display text-2xl font-bold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,240,255,0.3)]"></h3>
+          <p id="modalOrigTitle" class="text-xs text-slate-400 font-mono"></p>
         </div>
       </div>
 
-      <!-- Modal Tabs Navigation -->
-      <div class="flex border-b border-dark-700 px-6 bg-dark-800/80 text-xs font-bold">
-        <button onclick="switchModalTab('overview')" id="tabBtn-overview" class="py-3 px-4 text-emerald-400 border-b-2 border-emerald-500 flex items-center space-x-1.5 transition">
+      <!-- Modal Tabs Navigation (Cyber-Pixel Tabs) -->
+      <div class="flex border-b border-[#00F0FF]/25 px-6 bg-[#0a0c1a] text-xs font-bold font-display uppercase tracking-wider">
+        <button onclick="switchModalTab('overview')" id="tabBtn-overview" class="py-3 px-4 text-[#00F0FF] border-b-2 border-[#00F0FF] flex items-center space-x-1.5 transition">
           <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
           <span>Tổng quan & Cài đặt</span>
         </button>
-        <button onclick="switchModalTab('versions')" id="tabBtn-versions" class="py-3 px-4 text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center space-x-1.5 transition">
+        <button onclick="switchModalTab('versions')" id="tabBtn-versions" class="py-3 px-4 text-slate-400 hover:text-white border-b-2 border-transparent flex items-center space-x-1.5 transition">
           <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
           <span>Phiên bản & Cập nhật</span>
         </button>
-        <button onclick="switchModalTab('feedback')" id="tabBtn-feedback" class="py-3 px-4 text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center space-x-1.5 transition">
-          <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400"></i>
+        <button onclick="switchModalTab('feedback')" id="tabBtn-feedback" class="py-3 px-4 text-slate-400 hover:text-white border-b-2 border-transparent flex items-center space-x-1.5 transition">
+          <i data-lucide="star" class="w-3.5 h-3.5 text-[#FFB800]"></i>
           <span>Đánh giá & Báo lỗi</span>
         </button>
       </div>
@@ -415,37 +593,37 @@
 
         <!-- TAB 1: OVERVIEW -->
         <div id="tabContent-overview" class="space-y-5">
-          <!-- Important Note (Cảnh Báo Chữ Đỏ Viền Đỏ) -->
-          <div id="modalNoteContainer" class="hidden rounded-xl p-4 bg-gradient-to-r from-red-950/95 via-rose-950/90 to-red-950/95 border-2 border-red-500/80 shadow-xl shadow-red-950/50 space-y-1.5">
-            <div class="flex items-center space-x-2 text-red-400 font-extrabold text-xs uppercase tracking-wider">
-              <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 animate-bounce"></i>
-              <span>GHI CHÚ ĐẶC BIỆT:</span>
+          <!-- Important Note (Pixel Warning Banner) -->
+          <div id="modalNoteContainer" class="hidden rounded-[2px] p-3.5 bg-[#22070f] border-2 border-[#FF3344] shadow-[4px_4px_0px_#05050a] space-y-1.5">
+            <div class="flex items-center space-x-2 text-[#FF3344] font-bold text-xs uppercase tracking-wider">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-[#FF3344] shrink-0 animate-pulse"></i>
+              <span class="font-pixel text-[9.5px]">GHI CHÚ ĐẶC BIỆT:</span>
             </div>
-            <p id="modalNoteText" class="text-xs text-red-100 font-medium leading-relaxed pl-6"></p>
+            <p id="modalNoteText" class="text-xs text-rose-200 font-mono leading-relaxed pl-6"></p>
           </div>
 
-          <!-- Translation Statistics Card -->
-          <div class="glass-card rounded-xl p-4 space-y-3">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-              <i data-lucide="award" class="w-4 h-4 text-brand-400"></i>
+          <!-- Translation Statistics Card (Pixel Arcade Data) -->
+          <div class="bg-[#111326] border border-[#232747] rounded-[2px] p-4 shadow-[3px_3px_0px_#05050a] space-y-3">
+            <h4 class="text-xs font-pixel text-[#00F0FF] uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="award" class="w-4 h-4 text-[#00F0FF]"></i>
               <span>Thông Số Bản Dịch Việt Hóa</span>
             </h4>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
-                <span class="block text-[11px] text-slate-400">Tiến độ</span>
-                <span id="modalStatProgress" class="text-sm font-bold text-emerald-400">100%</span>
+              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
+                <span class="block text-[10px] font-pixel text-slate-400 mb-0.5">Tiến độ</span>
+                <span id="modalStatProgress" class="text-sm font-pixel font-bold text-[#00FF9D]">100%</span>
               </div>
-              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
-                <span class="block text-[11px] text-slate-400">Khối lượng</span>
-                <span id="modalStatLines" class="text-xs font-bold text-white"></span>
+              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
+                <span class="block text-[10px] font-pixel text-slate-400 mb-0.5">Khối lượng</span>
+                <span id="modalStatLines" class="text-xs font-pixel font-bold text-[#FFB800]"></span>
               </div>
-              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
-                <span class="block text-[11px] text-slate-400">Phiên bản</span>
-                <span id="modalStatVersion" class="text-xs font-bold text-brand-300"></span>
+              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
+                <span class="block text-[10px] font-pixel text-slate-400 mb-0.5">Phiên bản</span>
+                <span id="modalStatVersion" class="text-xs font-pixel font-bold text-[#00F0FF]"></span>
               </div>
-              <div class="p-2.5 rounded-lg bg-dark-800/80 border border-dark-700">
-                <span class="block text-[11px] text-slate-400">Font chữ</span>
-                <span id="modalStatFont" class="text-xs font-semibold text-amber-300">Có dấu chuẩn</span>
+              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
+                <span class="block text-[10px] font-pixel text-slate-400 mb-0.5">Font chữ</span>
+                <span id="modalStatFont" class="text-xs font-pixel font-bold text-[#FFB800]">Có dấu chuẩn</span>
               </div>
             </div>
           </div>
@@ -457,16 +635,16 @@
           </div>
 
           
-          <!-- Google Drive Cloud Download Link Setting -->
-          <div class="space-y-1.5 p-3.5 rounded-xl bg-dark-800/90 border border-dark-700">
+          <!-- Google Drive Cloud Download Link Setting (Cyber-Pixel) -->
+          <div class="space-y-1.5 p-3.5 rounded-[2px] bg-[#111326] border border-[#232747] shadow-[3px_3px_0px_#05050a]">
             <div class="flex items-center justify-between">
-              <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
-                <i data-lucide="cloud" class="w-4 h-4 text-cyan-400"></i>
+              <h4 class="text-xs font-pixel text-[#00F0FF] uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="cloud" class="w-4 h-4 text-[#00F0FF]"></i>
                 <span>Tự Động Tải Từ Google Drive (Khi Chuyển Sang Máy Khác)</span>
               </h4>
-              <span id="cloudStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-dark-700 text-slate-400">Chưa gắn link</span>
+              <span id="cloudStatusBadge" class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#070814] text-slate-400 border border-[#232747]">Chưa gắn link</span>
             </div>
-            <p class="text-[11px] text-slate-400 leading-relaxed">
+            <p class="text-[11px] text-slate-400 font-mono leading-relaxed">
               Dán link chia sẻ file mod trên Google Drive (chế độ "Bất kỳ ai có đường liên kết"). Khi bạn mang app sang máy tính mới không có sẵn thư mục mod, app sẽ tự động tải từ link này về cài đặt 1-click!
             </p>
             <div class="flex items-center space-x-2 pt-1">
@@ -474,47 +652,47 @@
                 id="modalCloudInput" 
                 type="text" 
                 placeholder="Ví dụ: https://drive.google.com/file/d/1a2B3c4D5e.../view?usp=sharing" 
-                class="flex-1 px-3 py-1.5 bg-dark-750 border border-dark-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 font-mono"
+                class="flex-1 px-3 py-1.5 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] font-mono shadow-[2px_2px_0px_#05050a]"
               />
-              <button onclick="saveCloudUrlForActiveGame()" class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center space-x-1 shrink-0 shadow-md">
+              <button onclick="saveCloudUrlForActiveGame()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1 shrink-0">
                 <i data-lucide="save" class="w-3.5 h-3.5"></i>
                 <span>Lưu Link Drive</span>
               </button>
             </div>
           </div>
 
-<!-- Game Installation Path -->
+<!-- Game Installation Path (Cyber-Pixel) -->
           <div class="space-y-2">
-            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <h4 class="text-xs font-pixel text-[#00F0FF] uppercase tracking-wider flex items-center justify-between">
               <span>Đường Dẫn Cài Đặt Game Trên Máy Tính</span>
-              <span id="modalPathStatus" class="text-[11px] font-normal"></span>
+              <span id="modalPathStatus" class="text-[11px] font-normal font-mono"></span>
             </h4>
             <div class="flex items-center space-x-2">
               <input 
-                id="modalPathInput" class="file-path tech-badge flex-1 px-3.5 py-2 bg-dark-800 border border-dark-700 rounded-xl text-slate-200 focus:outline-none" 
+                id="modalPathInput" 
                 type="text" 
                 readonly 
-                class="flex-1 px-3.5 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-slate-200 font-mono focus:outline-none"
+                class="flex-1 px-3.5 py-2 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF] shadow-[2px_2px_0px_#05050a]"
               />
-              <button onclick="chooseFolderForActiveGame()" class="px-3.5 py-2 rounded-xl bg-dark-750 hover:bg-dark-700 text-white text-xs font-semibold border border-dark-600 transition flex items-center space-x-1.5">
-                <i data-lucide="folder-search" class="w-4 h-4"></i>
+              <button onclick="chooseFolderForActiveGame()" class="pixel-btn btn-neon-cyan px-3.5 py-2 text-xs flex items-center space-x-1.5">
+                <i data-lucide="folder-search" class="w-4 h-4 stroke-[2.5]"></i>
                 <span>Chọn Thư Mục</span>
               </button>
             </div>
           </div>
 
           <!-- Quick Actions & QA Verification -->
-          <div class="pt-2 flex flex-wrap gap-2 text-xs">
-            <button onclick="openGameFolder(activeModalGameId)" class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white border border-dark-700 transition flex items-center space-x-1.5">
+          <div class="pt-2 flex flex-wrap gap-2.5 text-xs">
+            <button onclick="openGameFolder(activeModalGameId)" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#00F0FF] flex items-center space-x-1.5">
               <i data-lucide="folder" class="w-3.5 h-3.5"></i>
               <span>Mở thư mục Game</span>
             </button>
-            <button onclick="openModFolder(activeModalGameId)" class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-amber-300 hover:text-white border border-dark-700 transition flex items-center space-x-1.5">
+            <button onclick="openModFolder(activeModalGameId)" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-[#FFB800] hover:text-white border border-[#2b2f52] hover:border-[#FFB800] flex items-center space-x-1.5">
               <i data-lucide="package-search" class="w-3.5 h-3.5"></i>
               <span>Mở kho mod Viethoagame</span>
             </button>
-            <button onclick="verifyModIntegrity(activeModalGameId)" class="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white border border-dark-700 transition flex items-center space-x-1.5">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-brand-400"></i>
+            <button onclick="verifyModIntegrity(activeModalGameId)" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-[#00F0FF] hover:text-white border border-[#2b2f52] hover:border-[#00F0FF] flex items-center space-x-1.5">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
               <span>Kiểm tra tính toàn vẹn (SHA256)</span>
             </button>
           </div>
@@ -524,7 +702,7 @@
         <div id="tabContent-versions" class="hidden space-y-4">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Lịch Sử Các Bản Cập Nhật</h4>
-            <button onclick="checkGameUpdates(activeModalGameId)" class="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition flex items-center space-x-1.5">
+            <button onclick="checkGameUpdates(activeModalGameId)" class="pixel-btn btn-neon-cyan px-3 py-1.5 text-xs flex items-center space-x-1.5 font-bold">
               <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
               <span>Kiểm tra bản mới</span>
             </button>
@@ -534,47 +712,47 @@
           </div>
         </div>
 
-        <!-- TAB 3: FEEDBACK & BUG REPORT -->
+        <!-- TAB 3: FEEDBACK & BUG REPORT (CYBER-PIXEL) -->
         <div id="tabContent-feedback" class="hidden space-y-5">
           <!-- Rating Section -->
-          <div class="glass-card rounded-xl p-4 space-y-3">
-            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
-              <i data-lucide="star" class="w-4 h-4 text-amber-400"></i>
+          <div class="bg-[#111326] border border-[#232747] rounded-[2px] p-4 shadow-[3px_3px_0px_#05050a] space-y-3">
+            <h4 class="text-xs font-pixel text-[#FFB800] uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="star" class="w-4 h-4 text-[#FFB800]"></i>
               <span>Đánh Giá Chất Lượng Bản Dịch</span>
             </h4>
             <div class="flex items-center space-x-2">
               <div id="starRatingContainer" class="flex items-center space-x-1 cursor-pointer">
                 <!-- 5 Stars generated -->
               </div>
-              <span id="starRatingLabel" class="text-xs font-bold text-amber-300 ml-2">5/5 Tuyệt vời</span>
+              <span id="starRatingLabel" class="text-xs font-pixel font-bold text-[#FFB800] ml-2">5/5 Tuyệt vời</span>
             </div>
             <textarea 
               id="userCommentInput" 
               placeholder="Chia sẻ cảm nghĩ của bạn về bản dịch (tùy chọn)..." 
               rows="2" 
-              class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] font-mono shadow-[2px_2px_0px_#05050a]"
             ></textarea>
-            <button onclick="submitUserRating()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">
+            <button onclick="submitUserRating()" class="pixel-btn btn-neon-green px-4 py-1.5 text-xs font-bold">
               Lưu Đánh Giá
             </button>
           </div>
 
           <!-- Bug Report Section -->
-          <div class="glass-card rounded-xl p-4 space-y-3">
-            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
-              <i data-lucide="bug" class="w-4 h-4 text-rose-400"></i>
+          <div class="bg-[#111326] border border-[#232747] rounded-[2px] p-4 shadow-[3px_3px_0px_#05050a] space-y-3">
+            <h4 class="text-xs font-pixel text-[#FF3344] uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="bug" class="w-4 h-4 text-[#FF3344]"></i>
               <span>Báo Lỗi Dịch Thuật / Đóng Góp</span>
             </h4>
-            <p class="text-xs text-slate-400 leading-relaxed">
+            <p class="text-xs text-slate-400 font-mono leading-relaxed">
               Nếu bạn phát hiện câu thoại dịch chưa chuẩn, sai ngữ cảnh hoặc tràn chữ ra ngoài màn hình, vui lòng gửi phản hồi tại đây:
             </p>
             <textarea 
               id="bugReportInput" 
               placeholder="Mô tả lỗi câu thoại, đoạn hội thoại hoặc vị trí xuất hiện trong game..." 
               rows="3" 
-              class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+              class="w-full px-3 py-2 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#FF3344] font-mono shadow-[2px_2px_0px_#05050a]"
             ></textarea>
-            <button onclick="submitBugReport()" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition flex items-center space-x-1.5">
+            <button onclick="submitBugReport()" class="pixel-btn btn-retro-crimson px-4 py-1.5 text-xs font-bold flex items-center space-x-1.5">
               <i data-lucide="send" class="w-3.5 h-3.5"></i>
               <span>Gửi Báo Cáo Lỗi</span>
             </button>
@@ -583,17 +761,17 @@
 
       </div>
 
-      <!-- Modal Footer -->
-      <div class="p-6 bg-dark-800 border-t border-dark-700 flex items-center justify-between">
+      <!-- Modal Footer (Cyber-Pixel Controls) -->
+      <div class="p-4 sm:p-6 bg-[#0a0c1a] border-t border-[#00F0FF]/25 flex items-center justify-between">
         <div>
-          <span id="modalModInfo" class="text-xs text-slate-400"></span>
+          <span id="modalModInfo" class="text-xs text-slate-400 font-mono"></span>
         </div>
         <div class="flex items-center space-x-3">
-          <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="px-5 py-2.5 rounded-xl font-bold text-sm transition flex items-center space-x-2">
+          <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="pixel-btn btn-arcade-amber px-5 py-2 text-xs font-bold transition flex items-center space-x-2">
             <!-- Dynamic button -->
           </button>
-          <button onclick="launchGame(activeModalGameId)" class="px-4 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-500 text-white font-bold text-sm shadow-md transition flex items-center space-x-1.5">
-            <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+          <button onclick="launchGame(activeModalGameId)" class="pixel-btn btn-neon-green px-4 py-2 text-xs font-bold transition flex items-center space-x-1.5">
+            <i data-lucide="play" class="w-4 h-4 fill-black"></i>
             <span>Chơi Game</span>
           </button>
         </div>
@@ -602,66 +780,66 @@
     </div>
   </div>
 
-  <!-- PROGRESS MODAL (Real-time Install/Restore Tracking) -->
+  <!-- PROGRESS MODAL (Real-time Install/Restore Tracking - CYBER-PIXEL GAUGE) -->
   <div id="progressModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
-    <div class="w-full max-w-md bg-dark-850 border border-dark-700 rounded-2xl shadow-2xl p-6 space-y-4">
+    <div class="w-full max-w-md pixel-modal p-6 space-y-4">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-brand-600/20 text-brand-400 border border-brand-500/30 flex items-center justify-center">
+        <div class="w-10 h-10 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50 shadow-[2px_2px_0px_#05050a] flex items-center justify-center">
           <i id="progressIcon" data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
         </div>
         <div>
-          <h3 id="progressTitle" class="text-base font-bold text-white">Đang thực hiện cài đặt...</h3>
-          <p id="progressSubTitle" class="text-xs text-slate-400">Vui lòng không tắt ứng dụng</p>
+          <h3 id="progressTitle" class="font-display text-base font-bold text-white uppercase tracking-wider">Đang thực hiện cài đặt...</h3>
+          <p id="progressSubTitle" class="text-xs text-slate-400 font-mono">Vui lòng không tắt ứng dụng</p>
         </div>
       </div>
 
-      <!-- Progress Bar Track -->
+      <!-- Progress Bar Track (Pixel Gauge) -->
       <div class="space-y-1.5">
-        <div class="w-full bg-dark-800 h-2.5 rounded-full overflow-hidden border border-dark-700">
-          <div id="progressBarFill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-300 rounded-full"></div>
+        <div class="w-full bg-[#080914] h-3 rounded-[2px] overflow-hidden border border-[#00F0FF]/40 p-0.5 shadow-[2px_2px_0px_#05050a]">
+          <div id="progressBarFill" class="bg-gradient-to-r from-[#00F0FF] to-[#00FF9D] h-full w-0 transition-all duration-300 rounded-[1px] shadow-[0_0_8px_rgba(0,240,255,0.6)]"></div>
         </div>
-        <div class="flex justify-between text-[11px] text-slate-400">
-          <span id="progressStepText">Đang chuẩn bị...</span>
-          <span id="progressPercentText" class="font-bold text-emerald-400">0%</span>
+        <div class="flex justify-between text-[11px] font-pixel text-slate-400">
+          <span id="progressStepText" class="text-slate-300">Đang chuẩn bị...</span>
+          <span id="progressPercentText" class="font-bold text-[#00FF9D]">0%</span>
         </div>
       </div>
 
       <div class="pt-2 flex justify-end">
-        <button id="progressCloseBtn" onclick="closeProgressModal()" class="px-4 py-2 rounded-xl bg-dark-750 hover:bg-dark-700 text-white text-xs font-semibold hidden transition">
+        <button id="progressCloseBtn" onclick="closeProgressModal()" class="pixel-btn px-4 py-2 bg-[#17192e] text-white text-xs font-semibold border border-[#2b2f52] hidden transition">
           Đóng
         </button>
       </div>
     </div>
   </div>
 
-  <!-- REQUEST GAME MODAL -->
-  <div id="requestModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
-    <div class="w-full max-w-md bg-dark-850 border border-dark-700 rounded-2xl shadow-2xl p-6 space-y-4">
+  <!-- REQUEST GAME MODAL (CYBER-PIXEL ARCADE) -->
+  <div id="requestModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
+    <div class="w-full max-w-md pixel-modal p-6 space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
-          <i data-lucide="sparkles" class="w-5 h-5 text-amber-400"></i>
-          <h3 class="text-base font-bold text-white">Yêu Cầu Việt Hóa Tựa Game Mới</h3>
+          <i data-lucide="sparkles" class="w-5 h-5 text-[#FF2A85]"></i>
+          <h3 class="font-display text-base font-bold text-white uppercase tracking-wider">Yêu Cầu Việt Hóa Tựa Game Mới</h3>
         </div>
-        <button onclick="closeGameRequestModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="closeGameRequestModal()" class="pixel-btn p-1 bg-[#17192e] text-slate-400 hover:text-white border border-[#2b2f52]">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-400">
-        Hãy gửi tên tựa game Steam bạn muốn được dịch sang tiếng Việt. Đội ngũ Antigravity sẽ ưu tiên nghiên cứu và đưa vào lịch trình!
+      <p class="text-xs text-slate-400 leading-relaxed font-mono">
+        Hãy gửi tên tựa game Steam bạn muốn được dịch sang tiếng Việt. Đội ngũ CỔ NGỮ sẽ ưu tiên nghiên cứu và đưa vào lịch trình!
       </p>
       <div class="space-y-3">
         <div>
-          <label class="block text-[11px] font-bold text-slate-300 uppercase mb-1">Tên tựa game:</label>
-          <input id="reqGameName" type="text" placeholder="Ví dụ: Hades II, Silksong, Disco Elysium..." class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500" />
+          <label class="block text-[10px] font-pixel text-[#00F0FF] uppercase mb-1">Tên tựa game:</label>
+          <input id="reqGameName" type="text" placeholder="Ví dụ: Hades II, Silksong, Disco Elysium..." class="w-full px-3 py-2 bg-[#090b17] border border-[#00F0FF]/40 rounded-[2px] text-xs text-white focus:outline-none focus:border-[#00F0FF] shadow-[2px_2px_0px_#05050a] font-mono" />
         </div>
         <div>
-          <label class="block text-[11px] font-bold text-slate-300 uppercase mb-1">Ghi chú thêm (tùy chọn):</label>
-          <textarea id="reqGameNote" rows="2" placeholder="Lý do yêu thích hoặc phiên bản Steam..." class="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"></textarea>
+          <label class="block text-[10px] font-pixel text-[#00F0FF] uppercase mb-1">Ghi chú thêm (tùy chọn):</label>
+          <textarea id="reqGameNote" rows="2" placeholder="Lý do yêu thích hoặc phiên bản Steam..." class="w-full px-3 py-2 bg-[#090b17] border border-[#00F0FF]/40 rounded-[2px] text-xs text-white focus:outline-none focus:border-[#00F0FF] shadow-[2px_2px_0px_#05050a] font-mono"></textarea>
         </div>
       </div>
-      <div class="flex justify-end space-x-2 pt-2">
-        <button onclick="closeGameRequestModal()" class="px-4 py-2 rounded-xl bg-dark-750 text-slate-300 hover:text-white text-xs font-semibold">Hủy</button>
-        <button onclick="submitGameRequest()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md">Gửi Yêu Cầu</button>
+      <div class="flex justify-end space-x-3 pt-2">
+        <button onclick="closeGameRequestModal()" class="pixel-btn px-4 py-2 bg-[#17192e] text-slate-300 hover:text-white text-xs font-semibold border border-[#2b2f52]">Hủy</button>
+        <button onclick="submitGameRequest()" class="pixel-btn btn-cyber-magenta px-4 py-2 text-xs font-bold">Gửi Yêu Cầu</button>
       </div>
     </div>
   </div>
@@ -669,9 +847,9 @@
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
 
-  <!-- FOOTER -->
-  <footer class="mt-auto border-t border-dark-700/60 py-4 px-6 text-center text-xs text-slate-400 font-medium">
-    CỔ NGỮ v2.0 &bull; Hệ Thống Quản Lý Game Việt Hóa &bull; Tự Động Sao Lưu & Bảo Vệ An Toàn
+  <!-- FOOTER (CYBER-PIXEL ARCADE) -->
+  <footer class="mt-auto border-t border-[#00F0FF]/20 py-4 px-6 text-center text-xs text-slate-400 font-pixel tracking-wider bg-[#080914]/85">
+    <span class="text-[#00F0FF]">CỔ NGỮ</span> <span class="text-[#FF2A85]">v2.0.2</span> &bull; <span class="text-slate-400">CYBER-PIXEL NIGHT CITY ARCADE</span> &bull; <span class="text-[#00FF9D]">ONLINE</span>
   </footer>
 
   <script>
@@ -689,10 +867,10 @@
       const toast = document.createElement('div');
       
       const colors = {
-        success: 'bg-emerald-600/95 text-white border-emerald-500/40 shadow-emerald-600/25',
-        error: 'bg-rose-600/95 text-white border-rose-500/40 shadow-rose-600/25',
-        info: 'bg-brand-600/95 text-white border-brand-500/40 shadow-brand-600/25',
-        warning: 'bg-amber-600/95 text-white border-amber-500/40 shadow-amber-600/25'
+        success: 'bg-[#071912] text-[#00FF9D] border border-[#00FF9D] shadow-[4px_4px_0px_#05050a]',
+        error: 'bg-[#22070f] text-[#FF3344] border border-[#FF3344] shadow-[4px_4px_0px_#05050a]',
+        info: 'bg-[#08121f] text-[#00F0FF] border border-[#00F0FF] shadow-[4px_4px_0px_#05050a]',
+        warning: 'bg-[#1c1404] text-[#FFB800] border border-[#FFB800] shadow-[4px_4px_0px_#05050a]'
       };
 
       const icons = {
@@ -702,7 +880,7 @@
         warning: 'alert-triangle'
       };
 
-      toast.className = `flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl backdrop-blur-md text-xs font-medium transition-all duration-300 pointer-events-auto transform translate-y-2 ${colors[type] || colors.info}`;
+      toast.className = `flex items-center space-x-3 px-4 py-3 rounded-[2px] font-mono text-xs font-bold transition-all duration-200 pointer-events-auto transform translate-y-2 ${colors[type] || colors.info}`;
       toast.innerHTML = `
         <i data-lucide="${icons[type] || 'info'}" class="w-4 h-4 shrink-0"></i>
         <span>${message}</span>
@@ -781,9 +959,9 @@
       ['all', 'installed', 'uninstalled', 'missing'].forEach(f => {
         const btn = document.getElementById(`filter-${f}`);
         if (f === filter) {
-          btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold active-filter-tab transition';
+          btn.className = 'pixel-tab active-filter-tab px-3.5 py-1.5 text-xs font-bold transition';
         } else {
-          btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-dark-800 text-slate-300 hover:text-white hover:bg-dark-750 transition border border-dark-700';
+          btn.className = 'pixel-tab px-3.5 py-1.5 text-xs font-bold transition';
         }
       });
       renderGrid();
@@ -851,23 +1029,23 @@
       const actionBtn = document.getElementById('heroActionBtn');
 
       if (game.status_code === 'INSTALLED') {
-        badge.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 flex items-center space-x-1.5';
-        badgeDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        badge.className = 'font-pixel text-[9px] px-2.5 py-1 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/60 flex items-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
+        badgeDot.className = 'w-2 h-2 bg-[#00FF9D] inline-block animate-pulse shadow-[0_0_6px_#00FF9D]';
         statusText.innerText = 'ĐÃ CÀI ĐẶT VIỆT HÓA';
-        actionBtn.className = 'px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition flex items-center space-x-2';
-        actionBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-white"></i><span>Chơi Ngay (Launch)</span>`;
+        actionBtn.className = 'pixel-btn btn-neon-green px-6 py-2.5 text-sm flex items-center space-x-2';
+        actionBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-black"></i><span>Chơi Ngay (Launch)</span>`;
       } else if (game.status_code === 'GAME_MISSING') {
-        badge.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 flex items-center space-x-1.5';
-        badgeDot.className = 'w-2 h-2 rounded-full bg-indigo-400 animate-pulse';
+        badge.className = 'font-pixel text-[9px] px-2.5 py-1 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/60 flex items-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
+        badgeDot.className = 'w-2 h-2 bg-[#00F0FF] inline-block animate-pulse shadow-[0_0_6px_#00F0FF]';
         statusText.innerText = 'CHƯA TÌM THẤY GAME';
-        actionBtn.className = 'px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2 border border-indigo-400/30';
-        actionBtn.innerHTML = `<i data-lucide="folder-search" class="w-4 h-4 text-indigo-200"></i><span>Chọn Đường Dẫn Game</span>`;
+        actionBtn.className = 'pixel-btn btn-neon-cyan px-6 py-2.5 text-sm flex items-center space-x-2';
+        actionBtn.innerHTML = `<i data-lucide="folder-search" class="w-4 h-4 text-black stroke-[2.5]"></i><span>Chọn Đường Dẫn Game</span>`;
       } else {
-        badge.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center space-x-1.5';
-        badgeDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        badge.className = 'font-pixel text-[9px] px-2.5 py-1 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/60 flex items-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
+        badgeDot.className = 'w-2 h-2 bg-[#FFB800] inline-block';
         statusText.innerText = 'CHƯA CÀI MOD';
-        actionBtn.className = 'px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/30 transition-all duration-200 transform hover:scale-[1.02] flex items-center space-x-2 border border-amber-300/60';
-        actionBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-slate-950 stroke-[2.5]"></i><span>Cài Đặt Việt Hóa (1-Click)</span>`;
+        actionBtn.className = 'pixel-btn btn-arcade-amber px-6 py-2.5 text-sm flex items-center space-x-2';
+        actionBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa (1-Click)</span>`;
       }
 
       lucide.createIcons();
@@ -941,87 +1119,108 @@
 
       filtered.forEach(game => {
         const card = document.createElement('div');
-        card.className = 'group relative rounded-2xl bg-dark-850 border border-dark-700/80 overflow-hidden shadow-lg card-hover-effect flex flex-col';
+        card.className = 'group relative pixel-card overflow-hidden flex flex-col';
 
-        // 3-State Badge HTML
+        // 3-State Badge HTML (Cyber-Pixel Sharp Badges)
         let statusBadgeHtml = '';
         if (game.status_code === 'INSTALLED') {
-          statusBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/90 text-white backdrop-blur-md shadow-md flex items-center space-x-1"><span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D] shadow-[2px_2px_0px_#05050a] flex items-center space-x-1"><span class="w-1.5 h-1.5 bg-[#00FF9D] animate-ping"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
         } else if (game.status_code === 'GAME_MISSING') {
-          statusBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/95 text-white backdrop-blur-md shadow-md flex items-center space-x-1"><i data-lucide="folder-x" class="w-2.5 h-2.5"></i><span>CHƯA CÓ GAME</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85] shadow-[2px_2px_0px_#05050a] flex items-center space-x-1"><i data-lucide="folder-x" class="w-2.5 h-2.5"></i><span>CHƯA CÓ GAME</span></span>`;
         } else {
-          statusBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur-md shadow-md flex items-center space-x-1"><i data-lucide="arrow-down-circle" class="w-2.5 h-2.5 text-amber-400"></i><span>CHƯA CÀI MOD</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800] shadow-[2px_2px_0px_#05050a] flex items-center space-x-1"><i data-lucide="arrow-down-circle" class="w-2.5 h-2.5 text-[#FFB800]"></i><span>CHƯA CÀI MOD</span></span>`;
         }
 
         const noteBadgeHtml = game.important_note 
-          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white shadow-md flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i><span>LƯU Ý</span></span>` 
+          ? `<span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#FF3344] text-white shadow-[2px_2px_0px_#05050a] flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-2.5 h-2.5"></i><span>LƯU Ý</span></span>` 
           : '';
 
         card.innerHTML = `
           <!-- Poster Thumbnail Image (2:3 Standard Steam Grid) -->
-          <div class="relative aspect-[2/3] w-full overflow-hidden bg-dark-900 cursor-pointer group" onclick="openGameModal('${game.id}')" title="Nhấp vào ảnh để xem chi tiết & cài đặt">
-            <img src="${game.assets.poster}" alt="${game.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-transparent to-black/50"></div>
+          <div class="relative aspect-[2/3] w-full overflow-hidden bg-[#070814] cursor-pointer group" onclick="openGameModal('${game.id}')" title="Nhấp vào ảnh để xem chi tiết & cài đặt">
+            <img src="${game.assets.poster}" alt="${game.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            <div class="absolute inset-0 bg-gradient-to-t from-[#111224] via-transparent to-black/60"></div>
             
             <!-- Sleek Hover Cue: Xem Chi Tiết -->
-            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none z-10">
-              <span class="px-3.5 py-1.5 rounded-xl bg-dark-900/95 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-2xl flex items-center space-x-1.5 backdrop-blur-md transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                <i data-lucide="info" class="w-3.5 h-3.5 text-emerald-400"></i>
-                <span>Xem Chi Tiết</span>
+            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none z-10">
+              <span class="pixel-btn px-3 py-1.5 bg-[#090b1a] border border-[#00F0FF] text-[#00F0FF] text-xs font-bold flex items-center space-x-1.5 shadow-[4px_4px_0px_#05050a]">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+                <span class="font-display">XEM CHI TIẾT</span>
               </span>
             </div>
 
-            <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-              <span class="engine-tag tech-badge px-2 py-0.5 rounded-md bg-dark-950/80 text-brand-300 border border-brand-500/30 backdrop-blur-md">${game.engine.split(' ')[0]}</span>
+            <!-- Top Badges on Poster -->
+            <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
+              <span class="font-pixel text-[8.5px] px-2 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/60 shadow-[2px_2px_0px_#05050a] tracking-wider uppercase">${game.engine.split(' ')[0]}</span>
               <div class="flex items-center space-x-1.5">
                 ${noteBadgeHtml}
                 ${statusBadgeHtml}
               </div>
             </div>
 
-            <div class="absolute bottom-3 left-3 right-3 z-10">
-              <span class="tech-badge px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md inline-block mb-1">
-                ${game.translation_stats.total_lines} &bull; 100%
-              </span>
-              <h3 class="font-display text-base font-bold text-white tracking-wide leading-snug line-clamp-1 drop-shadow-md">${game.vietnamese_title}</h3>
-              <p class="text-xs text-slate-400 line-clamp-1">${game.title}</p>
+            <!-- Bottom Content on Poster (Pixel EXP Gauge) -->
+            <div class="absolute bottom-2.5 left-2.5 right-2.5 z-10">
+              <!-- Pixel Segmented Health / EXP Gauge Bar -->
+              <div class="w-full bg-[#070814]/90 border border-[#FFB800]/50 p-1.5 rounded-[2px] shadow-[2px_2px_0px_#05050a] mb-1.5 backdrop-blur-md">
+                <div class="flex items-center justify-between text-[9px] font-pixel text-[#FFB800] mb-1">
+                  <span class="flex items-center gap-1 truncate">
+                    <span class="w-1.5 h-1.5 bg-[#FFB800] inline-block"></span>
+                    <span>${game.translation_stats.total_lines}</span>
+                  </span>
+                  <span class="text-[#00F0FF] font-bold">100% EXP</span>
+                </div>
+                <!-- 8 Retro Pixel Gauge Blocks -->
+                <div class="pixel-exp-bar">
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                  <span class="pixel-exp-seg active-amber"></span>
+                </div>
+              </div>
+
+              <h3 class="font-display text-sm font-bold text-white tracking-wide leading-snug line-clamp-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">${game.vietnamese_title}</h3>
+              <p class="text-[11px] text-slate-400 line-clamp-1 font-mono">${game.title}</p>
             </div>
           </div>
 
           ${game.important_note ? `
-          <!-- Ghi chú nổi bật trên Card -->
-          <div class="mx-3 mt-2.5 p-2 rounded-xl bg-red-950/85 border border-red-500/60 shadow-sm flex items-start space-x-2">
-            <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5 animate-pulse"></i>
+          <!-- Ghi chú nổi bật trên Card (Pixel Style) -->
+          <div class="mx-2.5 mt-2 p-2 rounded-[2px] bg-[#22070f] border border-[#FF3344] shadow-[2px_2px_0px_#05050a] flex items-start space-x-2">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-[#FF3344] shrink-0 mt-0.5 animate-pulse"></i>
             <div class="text-[11px] leading-snug">
-              <span class="font-bold text-red-400 uppercase mr-1">Lưu ý:</span>
-              <span class="text-red-200 font-medium line-clamp-2">${game.important_note}</span>
+              <span class="font-pixel text-[9px] text-[#FF3344] uppercase mr-1">LƯU Ý:</span>
+              <span class="text-rose-200 font-medium line-clamp-2">${game.important_note}</span>
             </div>
           </div>
           ` : ''}
 
-          <!-- Bottom Action Buttons -->
-          <div class="p-3 bg-dark-800/80 border-t border-dark-700 flex items-center justify-between gap-2 mt-auto">
+          <!-- Bottom Action Buttons (Sharp Arcade Micro-Switch Buttons) -->
+          <div class="p-2.5 bg-[#0d0e1c] border-t border-[#1a1d36] flex items-center justify-between gap-2 mt-auto">
             ${game.status_code === 'INSTALLED'
-              ? `<button onclick="launchGame('${game.id}')" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center justify-center space-x-1.5 border border-emerald-400/25">
-                   <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i>
+              ? `<button onclick="launchGame('${game.id}')" class="pixel-btn btn-neon-green flex-1 py-1.5 px-3 text-xs flex items-center justify-center space-x-1.5">
+                   <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
                    <span>Chơi Ngay</span>
                  </button>
-                 <button onclick="toggleMod('${game.id}')" class="p-2 rounded-xl bg-dark-750 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 border border-dark-700 transition" title="Gỡ bỏ bản Việt hóa an toàn">
-                   <i data-lucide="trash-2" class="w-4 h-4"></i>
+                 <button onclick="toggleMod('${game.id}')" class="pixel-btn p-1.5 bg-[#17192e] text-slate-400 hover:text-[#FF3344] border border-[#2b2f52] hover:border-[#FF3344] transition" title="Gỡ bỏ bản Việt hóa an toàn">
+                   <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                  </button>`
               : (game.status_code === 'GAME_MISSING'
-                ? `<button onclick="openGameModal('${game.id}')" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition flex items-center justify-center space-x-1.5 border border-indigo-400/30">
-                     <i data-lucide="folder-search" class="w-3.5 h-3.5 text-indigo-200"></i>
+                ? `<button onclick="openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan flex-1 py-1.5 px-3 text-xs flex items-center justify-center space-x-1.5">
+                     <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
                      <span>Chọn Thư Mục</span>
                    </button>`
-                : `<button onclick="toggleMod('${game.id}')" class="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-1.5 border border-amber-300/60">
-                     <i data-lucide="download" class="w-3.5 h-3.5 text-slate-950 stroke-[2.5]"></i>
+                : `<button onclick="toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber flex-1 py-1.5 px-3 text-xs flex items-center justify-center space-x-1.5">
+                     <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
                      <span>Cài Việt Hóa</span>
                    </button>`
                 )
             }
-            <button onclick="openGameModal('${game.id}')" class="p-2 rounded-xl bg-dark-750 hover:bg-dark-700 text-slate-300 hover:text-white border border-dark-700 transition" title="Chi tiết bản dịch & phiên bản">
-              <i data-lucide="info" class="w-4 h-4"></i>
+            <button onclick="openGameModal('${game.id}')" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition" title="Chi tiết bản dịch & phiên bản">
+              <i data-lucide="info" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         `;
@@ -1058,10 +1257,10 @@
       const cloudBadge = document.getElementById('cloudStatusBadge');
       cloudInput.value = game.download_url || '';
       if (game.download_url) {
-        cloudBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center space-x-1';
+        cloudBadge.className = 'font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/40 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1';
         cloudBadge.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i><span>Đã có Link Cloud Drive</span>';
       } else {
-        cloudBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-dark-700 text-slate-400';
+        cloudBadge.className = 'font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#070814] text-slate-400 border border-[#232747]';
         cloudBadge.innerText = 'Chưa gắn link';
       }
 
@@ -1081,16 +1280,16 @@
       document.getElementById('modalStatVersion').innerText = game.translation_stats.version;
       document.getElementById('modalStatFont').innerText = game.translation_stats.font;
 
-      // Status Badge
+      // Status Badge (Cyber-Pixel Style)
       const statusBadge = document.getElementById('modalStatusBadge');
       if (game.status_code === 'INSTALLED') {
-        statusBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40';
+        statusBadge.className = 'font-pixel text-[9px] px-2.5 py-0.5 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/60 shadow-[2px_2px_0px_#05050a]';
         statusBadge.innerText = 'ĐÃ CÀI ĐẶT VIỆT HÓA';
       } else if (game.status_code === 'GAME_MISSING') {
-        statusBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40';
+        statusBadge.className = 'font-pixel text-[9px] px-2.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/60 shadow-[2px_2px_0px_#05050a]';
         statusBadge.innerText = 'CHƯA CÓ GAME TRÊN MÁY';
       } else {
-        statusBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-700 text-slate-200';
+        statusBadge.className = 'font-pixel text-[9px] px-2.5 py-0.5 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/60 shadow-[2px_2px_0px_#05050a]';
         statusBadge.innerText = 'CHƯA CÀI ĐẶT MOD';
       }
 
@@ -1112,15 +1311,14 @@
         modInfo.innerHTML = `Nguồn: <span class="text-slate-300 font-mono">${game.mod_subfolder}</span>`;
       }
 
-      // Action Button in Modal
+      // Action Button in Modal (Arcade Micro-Switch Buttons)
       const installBtn = document.getElementById('modalInstallBtn');
       if (game.status_code === 'INSTALLED') {
-        installBtn.className = 'px-4 py-2.5 rounded-xl bg-dark-750 hover:bg-rose-900/50 text-rose-300 hover:text-white border border-dark-600 transition flex items-center space-x-1.5 font-bold';
+        installBtn.className = 'pixel-btn btn-retro-crimson px-4 py-2.5 text-xs flex items-center space-x-1.5 font-bold';
         installBtn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Gỡ Bỏ Việt Hóa</span>`;
       } else {
-        installBtn.className = 'px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 transition flex items-center space-x-2 border border-amber-300/60';
-        installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-slate-950 stroke-[2.5]"></i><span>Cài Đặt Việt Hóa</span>`;
-        installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Cài Đặt Việt Hóa</span>`;
+        installBtn.className = 'pixel-btn btn-arcade-amber px-5 py-2.5 text-xs flex items-center space-x-2 font-bold';
+        installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa</span>`;
       }
 
       // Populate Versions Tab
@@ -1145,10 +1343,10 @@
         const btn = document.getElementById(`tabBtn-${t}`);
         const content = document.getElementById(`tabContent-${t}`);
         if (t === tabName) {
-          btn.className = 'py-3 px-4 text-emerald-400 border-b-2 border-emerald-500 flex items-center space-x-1.5 transition font-bold';
+          btn.className = 'py-3 px-4 text-[#00F0FF] border-b-2 border-[#00F0FF] flex items-center space-x-1.5 transition font-bold font-display uppercase tracking-wider text-xs';
           content.classList.remove('hidden');
         } else {
-          btn.className = 'py-3 px-4 text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center space-x-1.5 transition font-bold';
+          btn.className = 'py-3 px-4 text-slate-400 hover:text-white border-b-2 border-transparent flex items-center space-x-1.5 transition font-bold font-display uppercase tracking-wider text-xs';
           content.classList.add('hidden');
         }
       });
@@ -1167,11 +1365,11 @@
 
       versions.forEach((v, idx) => {
         const vCard = document.createElement('div');
-        vCard.className = 'p-3.5 rounded-xl bg-dark-800/90 border border-dark-700 space-y-1.5';
+        vCard.className = 'p-3.5 rounded-[2px] bg-[#111326] border border-[#232747] shadow-[2px_2px_0px_#05050a] space-y-1.5';
         vCard.innerHTML = `
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
-              <span class="px-2 py-0.5 rounded text-xs font-bold ${idx === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-dark-700 text-slate-300'}">${v.version}</span>
+              <span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] ${idx === 0 ? 'bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40 shadow-[2px_2px_0px_#05050a]' : 'bg-[#070814] text-slate-300 border border-[#232747]'}">${v.version}</span>
               ${idx === 0 ? '<span class="text-[10px] font-bold text-brand-400 uppercase">Mới nhất</span>' : ''}
             </div>
             <span class="text-[11px] text-slate-400 font-mono">${v.release_date}</span>
@@ -1560,35 +1758,35 @@
     fetchGames();
   </script>
 
-  <!-- MODAL: APP UPDATE DETAILS -->
-  <div id="updateModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass border border-emerald-500/40 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-      <button onclick="closeUpdateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg bg-dark-800">
+  <!-- MODAL: APP UPDATE DETAILS (CYBER-PIXEL STYLE) -->
+  <div id="updateModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="pixel-modal max-w-lg w-full p-6 space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+      <button onclick="closeUpdateModal()" class="pixel-btn absolute top-4 right-4 text-slate-400 hover:text-white p-1 bg-[#17192e] border border-[#2b2f52]">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
 
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+        <div class="w-10 h-10 rounded-[2px] bg-[#00FF9D]/20 border border-[#00FF9D]/40 shadow-[2px_2px_0px_#05050a] flex items-center justify-center text-[#00FF9D]">
           <i data-lucide="sparkles" class="w-5 h-5"></i>
         </div>
         <div>
-          <h3 id="updateModalTitle" class="font-display font-bold text-lg text-slate-100">Bản Cập Nhật Mới</h3>
-          <p id="updateModalVersion" class="text-xs text-emerald-400 font-mono">Phiên bản: v2.1.0</p>
+          <h3 id="updateModalTitle" class="font-display font-bold text-lg text-slate-100 uppercase tracking-wider">Bản Cập Nhật Mới</h3>
+          <p id="updateModalVersion" class="text-xs text-[#00FF9D] font-pixel">Phiên bản: v2.1.0</p>
         </div>
       </div>
 
       <div class="space-y-2">
-        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Điểm mới trong bản này:</p>
-        <div id="updateModalChangelog" class="bg-dark-900/80 border border-dark-700/80 rounded-xl p-3 text-xs text-slate-300 space-y-1.5 max-h-48 overflow-y-auto">
+        <p class="text-xs font-pixel text-[#00F0FF] uppercase tracking-wider">Điểm mới trong bản này:</p>
+        <div id="updateModalChangelog" class="bg-[#090b17] border border-[#232747] rounded-[2px] p-3 text-xs text-slate-300 space-y-1.5 max-h-48 overflow-y-auto font-mono">
           <!-- Dynamically populated -->
         </div>
       </div>
 
       <div class="pt-2 flex items-center justify-end space-x-3">
-        <button onclick="closeUpdateModal()" class="px-4 py-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 text-xs font-medium">
+        <button onclick="closeUpdateModal()" class="pixel-btn px-4 py-2 bg-[#17192e] hover:bg-[#232747] text-slate-300 text-xs font-medium border border-[#2b2f52]">
           Để sau
         </button>
-        <a id="updateModalDownloadBtn" href="#" target="_blank" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center space-x-1.5 transition">
+        <a id="updateModalDownloadBtn" href="#" target="_blank" class="pixel-btn btn-neon-green px-5 py-2 text-xs flex items-center space-x-1.5">
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
           <span>Tải bản mới trên GitHub</span>
         </a>
