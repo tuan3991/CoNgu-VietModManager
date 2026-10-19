@@ -548,9 +548,7 @@
           <button onclick="openGameFolder(heroGameId)" class="pixel-btn px-3.5 py-2.5 bg-[#17192e] text-slate-300 hover:text-white text-sm border border-[#2b2f52] hover:border-[#00F0FF]" title="Mở thư mục cài đặt game">
             <i data-lucide="folder" class="w-4 h-4"></i>
           </button>
-          <button onclick="openModFolder(heroGameId)" class="pixel-btn px-3.5 py-2.5 bg-[#17192e] text-[#FFB800] hover:text-white text-sm border border-[#2b2f52] hover:border-[#FFB800]" title="Mở thư mục mod trong Viethoagame">
-            <i data-lucide="package-search" class="w-4 h-4"></i>
-          </button>
+
         </div>
       </div>
     </div>
@@ -685,31 +683,7 @@
           </div>
 
           
-          <!-- Google Drive Cloud Download Link Setting (Cyber-Pixel) -->
-          <div class="space-y-1.5 p-3.5 rounded-[2px] bg-[#111326] border border-[#232747] shadow-[3px_3px_0px_#05050a]">
-            <div class="flex items-center justify-between">
-              <h4 class="text-xs font-pixel text-[#00F0FF] uppercase tracking-wider flex items-center space-x-1.5">
-                <i data-lucide="cloud" class="w-4 h-4 text-[#00F0FF]"></i>
-                <span>Tự Động Tải Từ Google Drive (Khi Chuyển Sang Máy Khác)</span>
-              </h4>
-              <span id="cloudStatusBadge" class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#070814] text-slate-400 border border-[#232747]">Chưa gắn link</span>
-            </div>
-            <p class="text-[11px] text-slate-400 font-mono leading-relaxed">
-              Dán link chia sẻ file mod trên Google Drive (chế độ "Bất kỳ ai có đường liên kết"). Khi bạn mang app sang máy tính mới không có sẵn thư mục mod, app sẽ tự động tải từ link này về cài đặt 1-click!
-            </p>
-            <div class="flex items-center space-x-2 pt-1">
-              <input 
-                id="modalCloudInput" 
-                type="text" 
-                placeholder="Ví dụ: https://drive.google.com/file/d/1a2B3c4D5e.../view?usp=sharing" 
-                class="flex-1 px-3 py-1.5 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] font-mono shadow-[2px_2px_0px_#05050a]"
-              />
-              <button onclick="saveCloudUrlForActiveGame()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1 shrink-0">
-                <i data-lucide="save" class="w-3.5 h-3.5"></i>
-                <span>Lưu Link Drive</span>
-              </button>
-            </div>
-          </div>
+
 
 <!-- Game Installation Path (Cyber-Pixel) -->
           <div class="space-y-2">
@@ -737,10 +711,7 @@
               <i data-lucide="folder" class="w-3.5 h-3.5"></i>
               <span>Mở thư mục Game</span>
             </button>
-            <button onclick="openModFolder(activeModalGameId)" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-[#FFB800] hover:text-white border border-[#2b2f52] hover:border-[#FFB800] flex items-center space-x-1.5">
-              <i data-lucide="package-search" class="w-3.5 h-3.5"></i>
-              <span>Mở kho mod Viethoagame</span>
-            </button>
+
             <button onclick="verifyModIntegrity(activeModalGameId)" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-[#00F0FF] hover:text-white border border-[#2b2f52] hover:border-[#00F0FF] flex items-center space-x-1.5">
               <i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
               <span>Kiểm tra tính toàn vẹn (SHA256)</span>
@@ -1306,17 +1277,9 @@
       document.getElementById('modalVersionBadge').innerText = game.latest_version || 'v1.0.0';
       document.getElementById('modalDesc').innerText = game.description;
 
-      // Google Drive Cloud URL
+      // Cloud Download URL (Internal Handled)
       const cloudInput = document.getElementById('modalCloudInput');
-      const cloudBadge = document.getElementById('cloudStatusBadge');
-      cloudInput.value = game.download_url || '';
-      if (game.download_url) {
-        cloudBadge.className = 'font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide';
-        cloudBadge.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i><span>Đã có Link Cloud Drive</span>';
-      } else {
-        cloudBadge.className = 'font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#070814] text-slate-400 border border-[#232747]';
-        cloudBadge.innerText = 'Chưa gắn link';
-      }
+      if (cloudInput) cloudInput.value = game.download_url || '';
 
       // Important Note
       const noteContainer = document.getElementById('modalNoteContainer');
