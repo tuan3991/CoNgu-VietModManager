@@ -40,7 +40,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsTheBackbonePreludes.zip"
   },
   {
     "id": "backbone",
@@ -83,7 +84,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsNoir.zip"
   },
   {
     "id": "toem",
@@ -126,7 +128,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TOEM.zip"
   },
   {
     "id": "hotline_miami",
@@ -169,7 +172,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/HotlineMiami.zip"
   },
   {
     "id": "ror2",
@@ -211,7 +215,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RiskOfRain2.zip"
   },
   {
     "id": "fallout_tactics",
@@ -253,7 +258,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FalloutTactics.zip"
   },
   {
     "id": "loop_hero",
@@ -297,7 +303,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/LoopHero.zip"
   },
   {
     "id": "witcher3",
@@ -342,7 +349,8 @@
         "changelog": "Bản phát hành chính thức chuẩn ngữ pháp và font chữ tiếng Việt trọn vẹn 100%.",
         "is_latest": true
       }
-    ]
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TheWitcher3.zip"
   },
   {
     "id": "forever_ago",
@@ -390,7 +398,8 @@
       "poster": "/assets/forever_ago/library_600x900.jpg",
       "banner": "/assets/forever_ago/library_hero.jpg",
       "header": "/assets/forever_ago/header.jpg"
-    }
+    },
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ForeverAgo.zip"
   },
   {
     "id": "erra_exordium",
@@ -431,7 +440,8 @@
       "poster": "/assets/erra_exordium/library_600x900.jpg",
       "banner": "/assets/erra_exordium/library_hero.jpg",
       "header": "/assets/erra_exordium/header.jpg"
-    }
+    },
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ErraExordium.zip"
   },
   {
     "id": "ravenous_devils",
@@ -473,6 +483,7 @@
       "poster": "/assets/ravenous_devils/library_600x900.jpg",
       "banner": "/assets/ravenous_devils/library_hero.jpg",
       "header": "/assets/ravenous_devils/header.jpg"
-    }
+    },
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RavenousDevils.zip"
   }
 ]

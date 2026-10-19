@@ -10,7 +10,9 @@ def download_file_with_progress(url, dest_path, progress_callback=None):
     import re
     import os
 
-    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    dest_dir = os.path.dirname(dest_path)
+    if dest_dir:
+        os.makedirs(dest_dir, exist_ok=True)
     
     # Convert Google Drive share URL to direct download URL
     gdrive_match = re.search(r'(?:drive\.google\.com/file/d/|drive\.google\.com/uc\?id=|id=)([a-zA-Z0-9_-]{25,})', url)
@@ -94,7 +96,7 @@ APPDATA_DIR = os.path.join(os.environ.get("APPDATA", APP_DIR), "VietModHub")
 BACKUP_ROOT = os.path.join(APPDATA_DIR, "backups")
 USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
 
-CURRENT_VERSION = "2.0.1"
+CURRENT_VERSION = "2.0.2"
 GITHUB_REPO = "tuan3991/CoNgu-VietModManager"
 REMOTE_CATALOG_URLS = [
     f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/games.json",
@@ -738,42 +740,96 @@ class ModManagerAPI:
         mod_subfolder = g.get("mod_subfolder", "")
         source_mod_dir = find_mod_source_dir(mod_subfolder)
 
-        if not os.path.exists(source_mod_dir):
-            # Check if game has a Google Drive or Cloud download URL
-            cloud_url = g.get("download_url") or cfg.get(f"{game_id}_download_url")
-            if cloud_url:
-                cache_dir = os.path.join(APPDATA_DIR, "cache", game_id)
+        # Check if source_mod_dir exists on local drive
+        local_found = os.path.exists(source_mod_dir)
+        cache_dir = os.path.join(APPDATA_DIR, "cache", game_id)
+        cached_source = os.path.join(cache_dir, mod_subfolder) if (mod_subfolder and os.path.exists(os.path.join(cache_dir, mod_subfolder))) else cache_dir
+
+        def check_has_mod_files(chk_dir):
+            if not os.path.exists(chk_dir):
+                return False
+            mtype = g.get("mod_type", "pak")
+            if mtype == "pak":
+                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", ""))) or os.path.exists(os.path.join(chk_dir, "Mod_Files", g.get("target_pak_name", "")))
+            elif mtype == "unity_assets":
+                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", "")))
+            elif mtype == "wad":
+                return os.path.exists(os.path.join(chk_dir, "HotlineMiami_GL.wad"))
+            elif mtype == "bepinex_language":
+                return os.path.exists(os.path.join(chk_dir, "winhttp.dll")) or os.path.exists(os.path.join(chk_dir, "BepInEx"))
+            elif mtype == "folder_copy":
+                return os.path.exists(os.path.join(chk_dir, "core", "locale")) or os.path.exists(os.path.join(chk_dir, "core", "gui", "font"))
+            elif mtype == "ini_and_exe":
+                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", "")))
+            elif mtype == "witcher3_mod":
+                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", "")))
+            return False
+
+        if not local_found:
+            # 1. First check if valid mod package is already present in cache
+            if check_has_mod_files(cached_source):
+                source_mod_dir = cached_source
+                set_progress(15, "Đã tìm thấy gói Việt Hóa trong bộ nhớ tạm (Cache)...", status="running", game_id=game_id)
+            else:
+                # 2. Gather download candidates: Primary CDN (GitHub Releases) -> Mirror / Drive -> Custom
+                download_candidates = []
+                if g.get("download_url"):
+                    download_candidates.append(("GitHub Cloud CDN (Siêu tốc)", g["download_url"]))
+                if g.get("mirror_url"):
+                    download_candidates.append(("Mirror Dự Phòng", g["mirror_url"]))
+                if g.get("drive_url") and g.get("drive_url") != g.get("mirror_url"):
+                    download_candidates.append(("Google Drive Mirror", g["drive_url"]))
+                custom_url = cfg.get(f"{game_id}_download_url")
+                if custom_url and custom_url not in [c[1] for c in download_candidates]:
+                    download_candidates.append(("Link Tùy Chỉnh Cá Nhân", custom_url))
+
+                if not download_candidates:
+                    set_progress(0, "Chưa tìm thấy bản mod local và chưa có link tải Cloud!", status="error", game_id=game_id)
+                    return {"success": False, "message": f"Không tìm thấy thư mục mod tại {source_mod_dir} và tựa game chưa được cấu hình link tải Cloud!"}
+
                 os.makedirs(cache_dir, exist_ok=True)
                 cache_archive = os.path.join(cache_dir, "mod_package.zip")
-                
-                set_progress(15, "Đang kết nối và tải bản Việt hóa từ Google Drive...", status="running", game_id=game_id)
-                
-                def on_dl_progress(d, t, pct, spd):
-                    mb_d = d / (1024 * 1024)
-                    mb_t = t / (1024 * 1024) if t > 0 else 0
-                    spd_mb = spd / 1024
-                    msg = f"Đang tải từ Google Drive: {pct}% ({mb_d:.1f}/{mb_t:.1f} MB - {spd_mb:.1f} MB/s)" if t > 0 else f"Đang tải: {mb_d:.1f} MB"
-                    set_progress(15 + int(pct * 0.45), msg, status="running", game_id=game_id)
-                
-                try:
-                    download_file_with_progress(cloud_url, cache_archive, on_dl_progress)
-                    
-                    # Extract zip archive if applicable
-                    import zipfile
-                    if zipfile.is_zipfile(cache_archive):
-                        set_progress(62, "Đang giải nén gói Việt Hóa...", status="running", game_id=game_id)
-                        with zipfile.ZipFile(cache_archive, 'r') as zf:
-                            zf.extractall(cache_dir)
-                    
-                    source_mod_dir = cache_dir
-                    if os.path.exists(os.path.join(cache_dir, mod_subfolder)):
-                        source_mod_dir = os.path.join(cache_dir, mod_subfolder)
-                except Exception as dl_err:
-                    set_progress(0, f"Lỗi tải từ Google Drive: {dl_err}", status="error", game_id=game_id)
-                    return {"success": False, "message": f"Lỗi khi tải từ Google Drive: {dl_err}"}
-            else:
-                set_progress(0, "Chưa tìm thấy kho mod local và chưa có link tải Google Drive!", status="error", game_id=game_id)
-                return {"success": False, "message": f"Không tìm thấy thư mục mod tại {source_mod_dir} và tựa game chưa được cài đặt Link Google Drive!"}
+
+                download_success = False
+                last_err = ""
+
+                for source_name, dl_url in download_candidates:
+                    set_progress(15, f"Đang kết nối Cloud: {source_name}...", status="running", game_id=game_id)
+
+                    def on_dl_progress(d, t, pct, spd):
+                        mb_d = d / (1024 * 1024)
+                        mb_t = t / (1024 * 1024) if t > 0 else 0
+                        spd_mb = spd / 1024
+                        msg = f"Đang tải ({source_name}): {pct}% ({mb_d:.1f}/{mb_t:.1f} MB - {spd_mb:.1f} MB/s)" if t > 0 else f"Đang tải: {mb_d:.1f} MB ({spd_mb:.1f} MB/s)"
+                        set_progress(15 + int(pct * 0.45), msg, status="running", game_id=game_id)
+
+                    try:
+                        download_file_with_progress(dl_url, cache_archive, on_dl_progress)
+
+                        import zipfile
+                        if zipfile.is_zipfile(cache_archive):
+                            set_progress(62, "Đang giải nén gói Việt Hóa...", status="running", game_id=game_id)
+                            with zipfile.ZipFile(cache_archive, 'r') as zf:
+                                zf.extractall(cache_dir)
+
+                        source_mod_dir = cache_dir
+                        if mod_subfolder and os.path.exists(os.path.join(cache_dir, mod_subfolder)):
+                            source_mod_dir = os.path.join(cache_dir, mod_subfolder)
+
+                        download_success = True
+                        break
+                    except Exception as dl_err:
+                        last_err = str(dl_err)
+                        print(f"Error downloading from {source_name}: {dl_err}")
+                        if os.path.exists(cache_archive):
+                            try:
+                                os.remove(cache_archive)
+                            except Exception:
+                                pass
+
+                if not download_success:
+                    set_progress(0, f"Lỗi tải từ Cloud: {last_err}", status="error", game_id=game_id)
+                    return {"success": False, "message": f"Không thể tải bản Việt Hóa từ Cloud: {last_err}"}
 
         mtype = g.get("mod_type", "pak")
 
@@ -1081,11 +1137,15 @@ class ModManagerAPI:
         return {"success": False, "message": "Thư mục không tồn tại!"}
 
     def open_mod_folder(self, game_id):
-        """Open the specific game mod folder in Viethoagame repository"""
+        """Open the specific game mod folder in Viethoagame repository or cache"""
         with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
             games = {g["id"]: g for g in json.load(f)}
         if game_id in games:
             target_dir = find_mod_source_dir(games[game_id].get("mod_subfolder", ""))
+            if not os.path.exists(target_dir):
+                cache_dir = os.path.join(APPDATA_DIR, "cache", game_id)
+                if os.path.exists(cache_dir):
+                    target_dir = cache_dir
             if os.path.exists(target_dir):
                 os.startfile(target_dir)
                 return {"success": True}

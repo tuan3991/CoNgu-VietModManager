@@ -1,15 +1,15 @@
 {
-  "version": "2.0.1",
-  "name": "// CỔ NGỮ PRO v2.0.1",
+  "version": "2.0.2",
+  "name": "// CỔ NGỮ PRO v2.0.2",
   "release_date": "2026-10-19",
   "min_required_version": "2.0.0",
   "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest",
-  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest/download/CoNgu_v2.0.1_Portable.zip",
+  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/v2.0.2/CoNgu_v2.0.2_Portable.zip",
   "changelog": [
-    "Nút 'Cài Việt Hóa' chuyển sang màu Vàng Cyberpunk (Nền Vàng Chữ Đen) nổi bật và phân biệt 100% với 'Chơi Ngay'",
-    "Banner Game Nổi Bật tự động chuyển đổi mượt mà sau mỗi 5 giây (kèm tính năng tạm dừng thông minh khi rê chuột)",
-    "Bấm trực tiếp vào ảnh đại diện (avatar / poster) của bất kỳ game nào để mở ngay cửa sổ Chi Tiết & Bối Cảnh",
-    "Tối ưu thanh Cloud Status Bar trực tuyến chuyên nghiệp cho người dùng",
-    "Sửa triệt để lỗi file .bat trên hệ điều hành Windows"
+    "Tích hợp toàn diện Cloud CDN (GitHub Releases) cho 11 tựa game: Tải và cài đặt 1-click trực tiếp từ mọi máy tính!",
+    "Cơ chế Multi-Source Cloud Downloader: Tải siêu tốc từ GitHub CDN, tự động fallback Google Drive/Mirror nếu cần.",
+    "Smart Cache: Nhớ gói Việt Hóa đã tải vào bộ nhớ đệm, cho phép cài đặt tức thì mà không cần tải lại.",
+    "Nút 'Cài Việt Hóa' màu Vàng Cyberpunk nổi bật, phân biệt 100% với 'Chơi Ngay'.",
+    "Banner Hero tự động chuyển sau 5s, bấm avatar xem chi tiết & bối cảnh game."
   ]
 }
