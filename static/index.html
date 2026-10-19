@@ -1115,6 +1115,20 @@
       }
     }
 
+    // Get Short Punchy Primary Genre Tag for Poster Badge
+    function getPrimaryGenreTag(game) {
+      const g = (game.genre || '').toLowerCase();
+      if (g.includes('trinh thám') || g.includes('noir')) return 'Trinh Thám';
+      if (g.includes('chiến thuật')) return 'Chiến Thuật';
+      if (g.includes('nhập vai') || g.includes('rpg') || g.includes('arpg')) return 'Nhập Vai';
+      if (g.includes('roguelike') || g.includes('roguelite')) return 'Roguelike';
+      if (g.includes('kinh dị')) return 'Kinh Dị';
+      if (g.includes('thư giãn') || g.includes('cozy') || g.includes('nhiếp ảnh')) return 'Thư Giãn';
+      if (g.includes('hành động') || g.includes('bắn súng')) return 'Hành Động';
+      if (g.includes('phiêu lưu')) return 'Phiêu Lưu';
+      return (game.genre || 'Game').split(',')[0].trim().slice(0, 10);
+    }
+
     // Render 2:3 Portrait Cards Grid
     function renderGrid() {
       const container = document.getElementById('gamesGrid');
@@ -1210,7 +1224,7 @@
 
             <!-- Top Badges on Poster -->
             <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10 pointer-events-none">
-              <span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/70 shadow-[2px_2px_0px_#05050a] tracking-wider uppercase">${game.engine.split(' ')[0]}</span>
+              <span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/70 shadow-[2px_2px_0px_#05050a] tracking-wider uppercase">${getPrimaryGenreTag(game)}</span>
               <div class="flex items-center space-x-1.5">
                 ${noteBadgeHtml}
                 ${statusBadgeHtml}
