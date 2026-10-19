@@ -169,7 +169,7 @@
             <span class="brand-slashes">//</span>
             <span class="brand-name">CỔ NGỮ</span>
           </h1>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">PRO v2.0.1</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">PRO v2.0.2</span>
         </div>
         <p class="text-xs text-slate-400">Hệ Thống Quản Lý & Tự Động Cài Đặt Game Việt Hóa</p>
       </div>
@@ -210,6 +210,11 @@
       <button onclick="refreshData()" class="p-2 rounded-xl bg-dark-800 hover:bg-dark-750 text-slate-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-dark-700" title="Quét lại toàn bộ thư viện game">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
         <span class="hidden sm:inline">Quét lại</span>
+      </button>
+
+      <button onclick="quitApp()" class="px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-white transition flex items-center space-x-1.5 text-xs border border-red-500/40 shadow-sm shadow-red-500/10" title="Thoát hoàn toàn ứng dụng">
+        <i data-lucide="power" class="w-4 h-4 text-red-400"></i>
+        <span class="hidden sm:inline font-bold">Thoát</span>
       </button>
     </div>
   </header>
@@ -1529,6 +1534,26 @@
         closeProgressModal();
         closeGameRequestModal();
       }
+    });
+
+    // Thoat hoan toan ung dung (Tat di la tat han)
+    function quitApp() {
+      if (confirm("Bạn có muốn thoát hoàn toàn ứng dụng CỔ NGỮ không?")) {
+        try {
+          navigator.sendBeacon('/api/app/quit');
+          fetch('/api/app/quit', { method: 'POST' });
+        } catch (e) {}
+        setTimeout(() => {
+          window.close();
+        }, 150);
+      }
+    }
+
+    // Khi nguoi dung dong cua so / tab, tu dong gui tin hieu tat sach tien trinh
+    window.addEventListener('beforeunload', () => {
+      try {
+        navigator.sendBeacon('/api/app/quit');
+      } catch (e) {}
     });
 
     // Start

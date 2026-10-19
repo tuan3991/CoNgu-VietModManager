@@ -1430,6 +1430,15 @@ def api_request_game():
     return json.dumps(res, ensure_ascii=False)
 
 
+@server_app.route("/api/app/quit", method="POST")
+def api_app_quit():
+    """Immediately and completely shut down the application and all background processes"""
+    def _delayed_exit():
+        time.sleep(0.15)
+        os._exit(0)
+    threading.Thread(target=_delayed_exit, daemon=True).start()
+    return json.dumps({"success": True})
+
 @server_app.route("/api/catalog/sync", method="POST")
 def api_catalog_sync():
     res = sync_remote_catalog(force=True)
@@ -1508,6 +1517,43 @@ def get_app_icon_path():
             return os.path.abspath(c)
     return ""
 
+def launch_app_window_fallback(url):
+    """
+    Fallback Desktop Window Mode:
+    Launch Microsoft Edge or Chrome in standalone App Mode (--app=URL).
+    Displays a clean native desktop window without tabs, address bar, or navigation buttons.
+    When the user closes the window, proc.wait() terminates and exits cleanly.
+    """
+    import subprocess
+    potential_browsers = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ]
+    for exe in potential_browsers:
+        if os.path.exists(exe):
+            app_data_edge = os.path.join(APPDATA_DIR, "app_profile")
+            cmd = [
+                exe,
+                f"--app={url}",
+                f"--user-data-dir={app_data_edge}",
+                "--window-size=1340,900",
+                "--no-first-run",
+                "--no-default-browser-check"
+            ]
+            try:
+                proc = subprocess.Popen(cmd)
+                proc.wait()
+                os._exit(0)
+                return True
+            except Exception:
+                pass
+    
+    import webbrowser
+    webbrowser.open(url)
+    return False
+
 def main():
     t = threading.Thread(target=run_server, daemon=True)
     t.start()
@@ -1537,17 +1583,25 @@ def main():
             t_icon = threading.Thread(target=apply_titlebar_icon, args=(w, ico), daemon=True)
             t_icon.start()
 
+        def on_closed():
+            os._exit(0)
+
+        window.events.closed += on_closed
+
         webview.start(
             func=on_shown,
             args=(window, icon_path),
             debug=False,
             icon=icon_path if icon_path else None
         )
+        # When PyWebView window is closed by user (X button), terminate immediately:
+        os._exit(0)
     except Exception as e:
-        print(f"[!] PyWebView window error ({e}). Opening default browser...")
-        import webbrowser
-        webbrowser.open(url)
-        t.join()
+        print(f"[!] PyWebView window error ({e}). Launching Standalone Desktop Window mode...")
+        launched = launch_app_window_fallback(url)
+        if not launched:
+            t.join()
+        os._exit(0)
 
 if __name__ == "__main__":
     main()
