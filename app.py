@@ -99,8 +99,8 @@ USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
 CURRENT_VERSION = "2.0.2"
 GITHUB_REPO = "tuan3991/CoNgu-VietModManager"
 REMOTE_CATALOG_URLS = [
-    f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/games.json",
     f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/games.json",
+    f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/games.json",
 ]
 REMOTE_VERSION_URLS = [
     f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.json",
