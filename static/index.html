@@ -103,10 +103,51 @@
     }
 
     /* Custom Retro Pixel Scrollbar */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #070812; border-left: 1px solid #1a1d36; }
     ::-webkit-scrollbar-thumb { background: #00F0FF; border: 1px solid #05050a; }
     ::-webkit-scrollbar-thumb:hover { background: #FF2A85; }
+
+    /* Sleek 4px Slim Scrollbar in Modals (Fix 6) */
+    .pixel-modal ::-webkit-scrollbar,
+    #gameModal ::-webkit-scrollbar,
+    #updateModal ::-webkit-scrollbar,
+    #requestModal ::-webkit-scrollbar {
+      width: 4px !important;
+      height: 4px !important;
+    }
+    .pixel-modal ::-webkit-scrollbar-track,
+    #gameModal ::-webkit-scrollbar-track,
+    #updateModal ::-webkit-scrollbar-track,
+    #requestModal ::-webkit-scrollbar-track {
+      background: rgba(7, 8, 18, 0.4) !important;
+      border-left: none !important;
+    }
+    .pixel-modal ::-webkit-scrollbar-thumb,
+    #gameModal ::-webkit-scrollbar-thumb,
+    #updateModal ::-webkit-scrollbar-thumb,
+    #requestModal ::-webkit-scrollbar-thumb {
+      background: #00F0FF !important;
+      border: none !important;
+      border-radius: 2px !important;
+    }
+    .pixel-modal ::-webkit-scrollbar-thumb:hover,
+    #gameModal ::-webkit-scrollbar-thumb:hover,
+    #updateModal ::-webkit-scrollbar-thumb:hover,
+    #requestModal ::-webkit-scrollbar-thumb:hover {
+      background: #FF2A85 !important;
+    }
+
+    /* Modal Action Buttons - Single Line No Wrap (Fix 4) */
+    .modal-action-btn {
+      white-space: nowrap !important;
+      min-width: max-content !important;
+      padding: 10px 20px !important;
+      flex-shrink: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
 
     /* Brand Title Cyber Neon */
     .app-brand-title {
@@ -162,7 +203,7 @@
       font-family: var(--font-display) !important;
       text-transform: uppercase !important;
       letter-spacing: 0.05em !important;
-      position: relative !important;
+      position: relative;
     }
     .pixel-btn:hover {
       transform: translate(-1px, -1px) !important;
@@ -465,8 +506,8 @@
       <!-- CRT Scanlines Overlay -->
       <div class="crt-overlay"></div>
 
-      <!-- Spotlight Shuffle Button with 5s Auto-Indicator (Pixel Arcade) -->
-      <button onclick="shuffleHeroSpotlight()" class="pixel-btn absolute top-4 right-4 z-20 px-3 py-1.5 bg-[#090b17]/90 text-slate-300 hover:text-white border border-[#00F0FF]/40 hover:border-[#00F0FF] text-xs flex items-center space-x-2 backdrop-blur-md group" title="Tự động đổi game sau mỗi 5s (hoặc nhấp để đổi ngay)">
+      <!-- Spotlight Shuffle Button with 5s Auto-Indicator (Fix 3: top: 20px, right: 20px) -->
+      <button onclick="shuffleHeroSpotlight()" class="pixel-btn px-3 py-1.5 bg-[#090b17]/90 text-slate-300 hover:text-white border border-[#00F0FF]/40 hover:border-[#00F0FF] text-xs flex items-center space-x-2 backdrop-blur-md group" style="position: absolute !important; top: 20px !important; right: 20px !important; z-index: 30 !important;" title="Tự động đổi game sau mỗi 5s (hoặc nhấp để đổi ngay)">
         <i data-lucide="shuffle" class="w-3.5 h-3.5 text-[#00FF9D] group-hover:rotate-180 transition-transform duration-500"></i>
         <span class="font-display">Đổi Game</span>
         <span class="font-pixel text-[11px] font-bold px-2 py-0.5 rounded-[1px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40">5s</span>
@@ -564,15 +605,16 @@
   <div id="gameModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-opacity">
     <div class="relative w-full max-w-3xl pixel-modal overflow-hidden flex flex-col max-h-[92vh]">
       
+      <!-- Modal Close Button (Fix 1: position: absolute; top: 16px; right: 16px; z-index: 50) -->
+      <button onclick="closeGameModal()" class="pixel-btn p-1.5 bg-[#0e0f22]/95 hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/60 shadow-[2px_2px_0px_#05050a] transition cursor-pointer" style="position: absolute !important; top: 16px !important; right: 16px !important; z-index: 50 !important;" title="Đóng cửa sổ">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+
       <!-- Modal Header Banner -->
       <div class="relative h-52 bg-[#090a17] overflow-hidden flex items-end p-6">
         <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30"></div>
         <div class="absolute inset-0 bg-gradient-to-t from-[#0e0f22] via-[#0e0f22]/70 to-transparent"></div>
         <div class="crt-overlay"></div>
-        
-        <button onclick="closeGameModal()" class="pixel-btn absolute top-4 right-4 p-1.5 bg-[#0e0f22]/90 hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/40 transition z-20">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
 
         <div class="relative z-10 space-y-1">
           <div class="flex items-center space-x-2">
@@ -779,11 +821,11 @@
         <div>
           <span id="modalModInfo" class="text-xs text-slate-400 font-mono"></span>
         </div>
-        <div class="flex items-center space-x-3">
-          <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="pixel-btn btn-arcade-amber px-5 py-2 text-xs font-bold transition flex items-center space-x-2">
+        <div class="flex items-center space-x-3 shrink-0">
+          <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="pixel-btn modal-action-btn btn-arcade-amber text-xs font-bold transition flex items-center justify-center space-x-2">
             <!-- Dynamic button -->
           </button>
-          <button onclick="launchGame(activeModalGameId)" class="pixel-btn btn-neon-green px-4 py-2 text-xs font-bold transition flex items-center space-x-1.5">
+          <button onclick="launchGame(activeModalGameId)" class="pixel-btn modal-action-btn btn-neon-green text-xs font-bold transition flex items-center justify-center space-x-1.5">
             <i data-lucide="play" class="w-4 h-4 fill-black"></i>
             <span>Chơi Game</span>
           </button>
@@ -1137,7 +1179,7 @@
         // 3-State Badge HTML (Cyber-Pixel Sharp Badges)
         let statusBadgeHtml = '';
         if (game.status_code === 'INSTALLED') {
-          statusBadgeHtml = `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/80 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><span class="w-1.5 h-1.5 bg-[#00FF9D] animate-ping"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/80 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><span class="w-2 h-2 rounded-[1px] bg-[#00FF9D] inline-block shadow-[0_0_6px_#00FF9D] shrink-0 animate-pulse"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
         } else if (game.status_code === 'GAME_MISSING') {
           statusBadgeHtml = `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85]/80 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><i data-lucide="folder-x" class="w-3 h-3"></i><span>CHƯA CÓ GAME</span></span>`;
         } else {
@@ -1260,7 +1302,7 @@
       activeModalGameId = game.id;
       document.getElementById('modalBannerBg').style.backgroundImage = `url('${game.assets.banner}')`;
       document.getElementById('modalTitle').innerText = game.vietnamese_title;
-      document.getElementById('modalOrigTitle').innerText = `${game.title} &bull; ${game.developer}`;
+      document.getElementById('modalOrigTitle').textContent = `${game.title} • ${game.developer}`;
       document.getElementById('modalEngineBadge').innerText = game.engine;
       document.getElementById('modalVersionBadge').innerText = game.latest_version || 'v1.0.0';
       document.getElementById('modalDesc').innerText = game.description;
@@ -1319,7 +1361,7 @@
       // Mod Info
       const modInfo = document.getElementById('modalModInfo');
       if (game.status_code === 'INSTALLED') {
-        modInfo.innerHTML = `Trạng thái: <span class="text-emerald-400 font-bold">Đang hoạt động trong game</span> &bull; Cập nhật: ${game.translation_stats.last_updated}`;
+        modInfo.innerHTML = `Trạng thái: <span class="text-emerald-400 font-bold">Đang hoạt động trong game</span> • Cập nhật: ${game.translation_stats.last_updated}`;
       } else {
         modInfo.innerHTML = `Nguồn: <span class="text-slate-300 font-mono">${game.mod_subfolder}</span>`;
       }
@@ -1327,10 +1369,10 @@
       // Action Button in Modal (Arcade Micro-Switch Buttons)
       const installBtn = document.getElementById('modalInstallBtn');
       if (game.status_code === 'INSTALLED') {
-        installBtn.className = 'pixel-btn btn-retro-crimson px-4 py-2.5 text-xs flex items-center space-x-1.5 font-bold';
+        installBtn.className = 'pixel-btn modal-action-btn btn-retro-crimson text-xs flex items-center justify-center space-x-2 font-bold';
         installBtn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Gỡ Bỏ Việt Hóa</span>`;
       } else {
-        installBtn.className = 'pixel-btn btn-arcade-amber px-5 py-2.5 text-xs flex items-center space-x-2 font-bold';
+        installBtn.className = 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
         installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa</span>`;
       }
 
