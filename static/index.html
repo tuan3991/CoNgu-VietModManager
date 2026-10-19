@@ -189,10 +189,10 @@
 
     /* Glass Effect with Cyber Border */
     .glass {
-      background: rgba(13, 15, 30, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+      background: rgba(10, 12, 26, 0.42);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.35);
     }
 
     /* Tactile Pixel Buttons */
@@ -381,14 +381,15 @@
   </style>
 </head>
 <body class="min-h-screen selection:bg-[#00F0FF] selection:text-black flex flex-col relative">
-  <!-- PIXEL NIGHT CITY ARCADE FULL-APP BACKDROP (HƠI MỜ & HUYỀN ẢO) -->
+  <!-- PIXEL NIGHT CITY ARCADE FULL-APP BACKDROP (SÁNG RÕ NÉT - PHỦ TOÀN BỘ APP TỪ HEADER ĐẾN FOOTER) -->
   <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none">
-    <div class="w-full h-full bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
+    <div class="w-full h-full bg-cover bg-no-repeat transition-transform duration-1000 scale-100"
          style="background-image: url('/static/pixel_city_bg.png'); 
-                opacity: 0.26; 
-                filter: blur(1.5px) saturate(1.2) contrast(1.1);"></div>
-    <!-- Soft dark gradient overlay for crystal clear contrast -->
-    <div class="absolute inset-0 bg-gradient-to-b from-[#0b0c1a]/70 via-[#0b0c1a]/40 to-[#0b0c1a]/85"></div>
+                background-position: center top;
+                opacity: 0.62; 
+                filter: saturate(1.2) contrast(1.1);"></div>
+    <!-- Subtle soft gradient tint to keep text readable while background shines brightly -->
+    <div class="absolute inset-0 bg-gradient-to-b from-[#0b0c1a]/25 via-transparent to-[#0b0c1a]/60"></div>
   </div>
 
 
@@ -418,7 +419,7 @@
           id="searchInput" 
           type="text" 
           placeholder="Tìm game, tên Việt hóa, từ khóa, engine (Unreal, Unity...)..." 
-          class="w-full pl-10 pr-9 py-2 bg-[#0e1022]/95 border border-[#00F0FF]/40 rounded-[2px] text-sm focus:outline-none focus:border-[#00F0FF] focus:shadow-[0_0_12px_rgba(0,240,255,0.35)] text-slate-100 placeholder-slate-400 transition shadow-[3px_3px_0px_#05050a]"
+          class="w-full pl-10 pr-9 py-2 bg-[#0e1022]/75 border border-[#00F0FF]/50 rounded-[2px] text-sm focus:outline-none focus:border-[#00F0FF] focus:shadow-[0_0_12px_rgba(0,240,255,0.35)] text-slate-100 placeholder-slate-400 transition shadow-[3px_3px_0px_#05050a]"
         />
         <button id="clearSearchBtn" onclick="clearSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#00F0FF] hidden">
           <i data-lucide="x" class="w-3.5 h-3.5"></i>
@@ -464,7 +465,7 @@
   </div>
 
   <!-- REPOSITORY & AUTO-DETECT STATUS BAR (CYBER-PIXEL ARCADE STYLE) -->
-  <div class="bg-[#0a0c1a]/95 border-b border-[#00F0FF]/25 px-6 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 backdrop-blur-md relative z-10">
+  <div class="bg-[#090b17]/40 border-b border-[#00F0FF]/25 px-6 py-2 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 backdrop-blur-md relative z-10">
     <div class="flex items-center space-x-3">
       <span class="flex items-center space-x-2 px-3 py-1 rounded-[2px] bg-[#070814]/90 text-[#00FF9D] border border-[#00FF9D]/70 font-pixel text-xs font-bold tracking-wide shadow-[2px_2px_0px_#05050a]">
         <span class="w-2 h-2 bg-[#00FF9D] inline-block animate-pulse shadow-[0_0_6px_#00FF9D]"></span>
