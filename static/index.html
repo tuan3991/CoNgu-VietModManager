@@ -1302,9 +1302,9 @@
       const pathStatus = document.getElementById('modalPathStatus');
       pathInput.value = game.game_path || 'Chưa tìm thấy thư mục cài đặt game trên máy';
       if (game.is_game_found) {
-        pathStatus.innerHTML = '<span class="text-emerald-400 font-bold flex items-center space-x-1"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Thư mục hợp lệ</span></span>';
+        pathStatus.innerHTML = '<span class="text-[#00FF9D] font-bold flex items-center space-x-1"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Thư mục hợp lệ</span></span>';
       } else {
-        pathStatus.innerHTML = '<span class="text-amber-400 font-bold flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Chưa phát hiện</span></span>';
+        pathStatus.innerHTML = '<span class="text-[#FF3344] font-bold flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Chưa phát hiện hoặc sai thư mục</span></span>';
       }
 
       // Mod Info
@@ -1623,11 +1623,11 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`Đã chọn thư mục: ${data.path}`, 'success');
+          showToast(data.message || `Đã chọn thư mục: ${data.path}`, 'success');
           gamesList = data.games;
           updateUI();
         } else if (data.message) {
-          showToast(data.message, 'info');
+          showToast(data.message, 'warning');
         }
       } catch (err) {
         showToast('Lỗi mở hộp thoại chọn thư mục!', 'error');

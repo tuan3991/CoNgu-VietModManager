@@ -425,6 +425,89 @@ def find_game_install_path(game_def, libraries):
 
     return None
 
+def verify_and_resolve_game_path(game_def, input_path):
+    """
+    Intelligently verify if input_path is a valid game directory for game_def.
+    Auto-resolves if user selected parent or child directory.
+    Returns: (is_valid: bool, resolved_path: str, message: str)
+    """
+    if not input_path or not os.path.exists(input_path):
+        return False, "", "Thư mục không tồn tại trên máy tính!"
+
+    clean_path = os.path.normpath(input_path)
+    exe_name = game_def.get("executable_name", "").lower()
+    folder_names = [f.lower() for f in game_def.get("default_folder_names", [])]
+    game_title = game_def.get("title", "").lower()
+    gid = game_def.get("id", "").lower()
+    viet_title = game_def.get("vietnamese_title", "tựa game này")
+    expected_exe = os.path.basename(game_def.get("executable_name", "file chạy game"))
+    
+    def check_folder(dir_path):
+        if not os.path.isdir(dir_path):
+            return False
+        # 1. Direct executable check
+        if exe_name:
+            if os.path.exists(os.path.join(dir_path, game_def.get("executable_name", ""))):
+                return True
+            base_exe = os.path.basename(exe_name)
+            if os.path.exists(os.path.join(dir_path, base_exe)):
+                return True
+            try:
+                for f in os.listdir(dir_path):
+                    if f.lower() == base_exe:
+                        return True
+            except Exception:
+                pass
+                
+        # 2. Check engine-specific folders
+        rel_install = game_def.get("relative_install_path", "")
+        if rel_install:
+            first_part = rel_install.split("/")[0].split("\\")[0]
+            if first_part and os.path.exists(os.path.join(dir_path, first_part)):
+                return True
+
+        # 3. Check for any exe matching title or id or folder names
+        try:
+            for f in os.listdir(dir_path):
+                if f.lower().endswith(".exe"):
+                    f_clean = re.sub(r'[^a-z0-9]', '', f.lower())
+                    for target in folder_names + [gid, game_title]:
+                        t_clean = re.sub(r'[^a-z0-9]', '', target)
+                        if t_clean and (t_clean in f_clean or f_clean in t_clean):
+                            return True
+        except Exception:
+            pass
+
+        return False
+
+    # A. Check directly in input_path
+    if check_folder(clean_path):
+        return True, clean_path, f"Đã xác nhận thư mục hợp lệ cho {viet_title}!"
+
+    # B. Auto-resolve: Parent directory (e.g. steamapps/common)
+    try:
+        subdirs = [os.path.join(clean_path, d) for d in os.listdir(clean_path) if os.path.isdir(os.path.join(clean_path, d))]
+        for sub in subdirs:
+            sub_name = os.path.basename(sub).lower()
+            if any(fn in sub_name or sub_name in fn for fn in folder_names) or (gid in sub_name):
+                if check_folder(sub):
+                    return True, sub, f"Đã tự động định vị đúng thư mục game: {os.path.basename(sub)}"
+            if check_folder(sub):
+                return True, sub, f"Đã tự động định vị đúng thư mục game: {os.path.basename(sub)}"
+    except Exception:
+        pass
+
+    # C. Auto-resolve: Subfolder
+    parent = os.path.dirname(clean_path)
+    if parent and parent != clean_path and check_folder(parent):
+        return True, parent, f"Đã tự động trỏ về thư mục gốc của game: {os.path.basename(parent)}"
+
+    parent2 = os.path.dirname(parent)
+    if parent2 and parent2 != parent and check_folder(parent2):
+        return True, parent2, f"Đã tự động trỏ về thư mục gốc của game: {os.path.basename(parent2)}"
+
+    return False, clean_path, f"Thư mục không hợp lệ! Không tìm thấy file chạy '{expected_exe}' của {viet_title}."
+
 class ModManagerAPI:
     def __init__(self):
         self.window = None
@@ -444,17 +527,30 @@ class ModManagerAPI:
 
         for g in games:
             gid = g["id"]
-            # 1. Determine game path
+            # 1. Determine game path with Smart Validation
             game_path = user_cfg.get(f"{gid}_path")
-            if not game_path or not os.path.exists(game_path):
+            is_valid = False
+            if game_path and os.path.exists(game_path):
+                is_valid, resolved, _ = verify_and_resolve_game_path(g, game_path)
+                if is_valid:
+                    if resolved != game_path:
+                        game_path = resolved
+                        user_cfg[f"{gid}_path"] = resolved
+                        cfg_changed = True
+                else:
+                    game_path = ""
+            
+            if not game_path:
                 detected = find_game_install_path(g, libraries)
                 if detected:
-                    game_path = detected
-                    user_cfg[f"{gid}_path"] = game_path
-                    cfg_changed = True
+                    is_valid, resolved, _ = verify_and_resolve_game_path(g, detected)
+                    if is_valid:
+                        game_path = resolved
+                        user_cfg[f"{gid}_path"] = game_path
+                        cfg_changed = True
 
             g["game_path"] = game_path or ""
-            g["is_game_found"] = bool(game_path and os.path.exists(game_path))
+            g["is_game_found"] = is_valid
 
             # 2. Source mod folder in Viethoagame repository
             mod_subfolder = g.get("mod_subfolder", "")
@@ -635,21 +731,34 @@ class ModManagerAPI:
                 print(f"File dialog error: {e}")
 
         if chosen_dir and os.path.exists(chosen_dir):
-            cfg = load_user_config()
-            cfg[f"{game_id}_path"] = chosen_dir
-            save_user_config(cfg)
-            return {"success": True, "path": chosen_dir, "games": self.get_games()}
+            with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
+                games_map = {gm["id"]: gm for gm in json.load(f)}
+            g_target = games_map.get(game_id, {})
+            is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g_target, chosen_dir)
+            if is_valid:
+                cfg = load_user_config()
+                cfg[f"{game_id}_path"] = resolved_path
+                save_user_config(cfg)
+                return {"success": True, "path": resolved_path, "message": val_msg, "games": self.get_games()}
+            else:
+                return {"success": False, "path": chosen_dir, "message": val_msg}
         
         return {"success": False, "message": "Không có thư mục nào được chọn."}
 
     def set_game_path(self, game_id, path):
-        """Manually update game path from text input"""
+        """Manually update game path with smart validation"""
         if not path or not os.path.exists(path):
             return {"success": False, "message": "Đường dẫn không tồn tại trên máy tính!"}
+        with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
+            games_map = {gm["id"]: gm for gm in json.load(f)}
+        g_target = games_map.get(game_id, {})
+        is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g_target, path)
+        if not is_valid:
+            return {"success": False, "message": val_msg}
         cfg = load_user_config()
-        cfg[f"{game_id}_path"] = path
+        cfg[f"{game_id}_path"] = resolved_path
         save_user_config(cfg)
-        return {"success": True, "games": self.get_games()}
+        return {"success": True, "path": resolved_path, "message": val_msg, "games": self.get_games()}
 
     def _backup_file_to_appdata(self, game_id, original_abs_path, relative_in_game):
         """Safely backup an original game file into %APPDATA%/VietModHub/backups/{game_id}/"""
@@ -737,6 +846,16 @@ class ModManagerAPI:
         if not game_path or not os.path.exists(game_path):
             set_progress(0, "Chưa chọn thư mục game!", status="error", game_id=game_id)
             return {"success": False, "message": "Chưa tìm thấy thư mục cài đặt game. Vui lòng bấm 'Chọn thư mục' trước!"}
+
+        is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g, game_path)
+        if not is_valid:
+            set_progress(0, f"Thư mục không hợp lệ! {val_msg}", status="error", game_id=game_id)
+            return {"success": False, "message": f"Không thể cài đặt: {val_msg} Vui lòng bấm 'Chọn Thư Mục' để chọn đúng thư mục game!"}
+        
+        if resolved_path and resolved_path != game_path:
+            game_path = resolved_path
+            cfg[f"{game_id}_path"] = game_path
+            save_user_config(cfg)
 
         mod_subfolder = g.get("mod_subfolder", "")
         source_mod_dir = find_mod_source_dir(mod_subfolder)
