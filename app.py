@@ -1559,6 +1559,8 @@ def api_request_game():
     return json.dumps(res, ensure_ascii=False)
 
 
+is_window_maximized = False
+
 @server_app.route("/api/app/quit", method="POST")
 def api_app_quit():
     """Immediately and completely shut down the application and all background processes"""
@@ -1567,6 +1569,34 @@ def api_app_quit():
         os._exit(0)
     threading.Thread(target=_delayed_exit, daemon=True).start()
     return json.dumps({"success": True})
+
+@server_app.route("/api/window/minimize", method="POST")
+def api_window_minimize():
+    """Minimize the desktop window to taskbar"""
+    if api_instance.window:
+        try:
+            api_instance.window.minimize()
+            return json.dumps({"success": True})
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+    return json.dumps({"success": False, "error": "No window instance"})
+
+@server_app.route("/api/window/maximize", method="POST")
+def api_window_maximize():
+    """Toggle maximize / restore the desktop window"""
+    global is_window_maximized
+    if api_instance.window:
+        try:
+            if is_window_maximized:
+                api_instance.window.restore()
+                is_window_maximized = False
+            else:
+                api_instance.window.maximize()
+                is_window_maximized = True
+            return json.dumps({"success": True, "maximized": is_window_maximized})
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+    return json.dumps({"success": False, "error": "No window instance"})
 
 @server_app.route("/api/catalog/sync", method="POST")
 def api_catalog_sync():
@@ -1704,6 +1734,8 @@ def main():
             width=1340,
             height=900,
             min_size=(1020, 680),
+            frameless=True,
+            easy_drag=True,
             background_color="#0b0f19"
         )
         api_instance.window = window

@@ -378,6 +378,18 @@
       outline: 1px solid rgba(255, 42, 133, 0.5);
       outline-offset: 4px;
     }
+    /* Frameless Window Drag Region */
+    .pywebview-drag-region {
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .no-drag,
+    .pywebview-drag-region button,
+    .pywebview-drag-region input,
+    .pywebview-drag-region select,
+    .pywebview-drag-region a {
+      -webkit-app-region: no-drag;
+    }
   </style>
 </head>
 <body class="min-h-screen selection:bg-[#00F0FF] selection:text-black flex flex-col relative">
@@ -393,8 +405,8 @@
   </div>
 
 
-  <!-- TOP HEADER NAVBAR (CYBER-PIXEL ARCADE STYLE) -->
-  <header class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between">
+  <!-- TOP HEADER NAVBAR (CYBER-PIXEL ARCADE STYLE - FRAMELESS DRAG REGION) -->
+  <header class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between pywebview-drag-region" ondblclick="maximizeWindow()">
     <div class="flex items-center space-x-3.5 cursor-pointer" onclick="refreshData()">
       <div class="w-10 h-10 rounded-[2px] overflow-hidden shadow-[3px_3px_0px_#05050a] border border-[#00F0FF] bg-[#090b16] flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-200">
         <img src="/static/app_icon.png" alt="CO NGU Icon" class="w-full h-full object-cover rounded-[1px]" />
@@ -427,11 +439,11 @@
       </div>
     </div>
 
-    <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors) -->
-    <div class="flex items-center space-x-2.5">
+    <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors & Window Controls) -->
+    <div class="flex items-center space-x-2.5 no-drag">
       <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs flex items-center space-x-1.5" title="Quét và làm mới danh sách game mới nhất">
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline font-bold">Làm Mới Danh Sách Game</span>
+        <span class="hidden sm:inline font-bold">Làm Mới</span>
       </button>
 
       <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Gửi yêu cầu dịch game mới">
@@ -439,10 +451,21 @@
         <span class="hidden lg:inline">Yêu cầu game</span>
       </button>
 
-      <button onclick="quitApp()" class="pixel-btn btn-retro-crimson px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Thoát hoàn toàn ứng dụng">
-        <i data-lucide="power" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline font-bold">Thoát</span>
-      </button>
+      <!-- Frameless Window Control Buttons -->
+      <div class="flex items-center space-x-1.5 pl-2 border-l border-[#232747]">
+        <button onclick="minimizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a]" title="Thu nhỏ ứng dụng xuống Taskbar">
+          <i data-lucide="minus" class="w-3.5 h-3.5 stroke-[2.5]"></i>
+        </button>
+
+        <button onclick="maximizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a]" title="Phóng to / Khôi phục kích thước cửa sổ">
+          <i data-lucide="square" class="w-3.5 h-3.5 stroke-[2.5]"></i>
+        </button>
+
+        <button onclick="quitApp()" class="pixel-btn btn-retro-crimson p-1.5 px-2.5 text-xs flex items-center space-x-1 font-bold shadow-[2px_2px_0px_#05050a]" title="Thoát hoàn toàn ứng dụng">
+          <i data-lucide="power" class="w-3.5 h-3.5 stroke-[2.5]"></i>
+          <span class="hidden sm:inline">Thoát</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -1759,6 +1782,23 @@
         closeGameRequestModal();
       }
     });
+
+    // Frameless Window Control Functions
+    async function minimizeWindow() {
+      try {
+        await fetch('/api/window/minimize', { method: 'POST' });
+      } catch (e) {
+        console.error('Failed to minimize window:', e);
+      }
+    }
+
+    async function maximizeWindow() {
+      try {
+        await fetch('/api/window/maximize', { method: 'POST' });
+      } catch (e) {
+        console.error('Failed to maximize window:', e);
+      }
+    }
 
     // Thoat hoan toan ung dung (Tat di la tat han)
     function quitApp() {
