@@ -517,7 +517,7 @@ def verify_and_resolve_game_path(game_def, input_path):
 # ==============================================================================
 # COMMUNITY LOCALIZATION WISHLIST & VOTING (FIREBASE RTDB / LOCAL HYBRID)
 # ==============================================================================
-FIREBASE_RTDB_URL = ""
+FIREBASE_RTDB_URL = "https://congu-hub-default-rtdb.asia-southeast1.firebasedatabase.app"
 
 def get_firebase_url():
     global FIREBASE_RTDB_URL

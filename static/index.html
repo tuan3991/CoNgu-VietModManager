@@ -1959,6 +1959,8 @@
       closeReqDropdown();
     }
 
+    const FIREBASE_WISHLIST_URL = "https://congu-hub-default-rtdb.asia-southeast1.firebasedatabase.app";
+
     // Load & Render Community Wishlist
     async function loadCommunityRequests() {
       const container = document.getElementById('communityRequestList');
@@ -1972,23 +1974,54 @@
         if (window.lucide) lucide.createIcons();
       }
 
+      // 1. Try local server API first
       try {
         const res = await fetch('/api/community_requests');
-        const data = await res.json();
-        if (data.success) {
-          communityWishlistItems = data.items || [];
-          updateCloudStatusBadge(data.cloud_connected);
-          renderCommunityRequests();
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            communityWishlistItems = data.items || [];
+            updateCloudStatusBadge(true);
+            renderCommunityRequests();
+            return;
+          }
         }
       } catch (err) {
-        console.error('Failed to load community requests:', err);
-        if (container) {
-          container.innerHTML = `
-            <div class="py-8 text-center text-xs text-rose-400 font-mono">
-              Lỗi tải danh sách nguyện vọng. Vui lòng thử lại!
-            </div>
-          `;
+        console.warn('Local API /api/community_requests unreachable, falling back to direct Firebase REST API:', err);
+      }
+
+      // 2. Direct Firebase REST API fallback
+      try {
+        const fbRes = await fetch(`${FIREBASE_WISHLIST_URL}/community_requests.json`);
+        if (fbRes.ok) {
+          const fbData = await fbRes.json();
+          const items = [];
+          const userVoted = JSON.parse(localStorage.getItem('congu_voted_requests') || '[]');
+          
+          for (const [gid, item] of Object.entries(fbData || {})) {
+            if (item && typeof item === 'object') {
+              item.id = isNaN(Number(gid)) ? gid : Number(gid);
+              item.has_voted = userVoted.includes(String(gid));
+              items.push(item);
+            }
+          }
+          items.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+          communityWishlistItems = items;
+          updateCloudStatusBadge(true);
+          renderCommunityRequests();
+          return;
         }
+      } catch (fbErr) {
+        console.error('Firebase direct load error:', fbErr);
+      }
+
+      // 3. Fallback error state
+      if (container) {
+        container.innerHTML = `
+          <div class="py-8 text-center text-xs text-rose-400 font-mono">
+            Không thể nạp dữ liệu từ Cloud. Vui lòng kiểm tra lại kết nối mạng!
+          </div>
+        `;
       }
     }
 
@@ -2158,27 +2191,57 @@
     }
 
     async function voteCommunityRequest(gameId) {
+      const gidStr = String(gameId);
+      const item = communityWishlistItems.find(it => String(it.id) === gidStr);
+      if (!item) return;
+
+      // 1. Try local server API
       try {
         const res = await fetch('/api/community_requests/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ game_id: gameId })
         });
-        const data = await res.json();
-        if (data.success) {
-          showToast(data.message, data.has_voted ? 'success' : 'info');
-          // Update item in local array for instant response
-          const item = communityWishlistItems.find(it => String(it.id) === String(gameId));
-          if (item) {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message, data.has_voted ? 'success' : 'info');
             item.votes = data.votes;
             item.has_voted = data.has_voted;
             renderCommunityRequests();
+            return;
           }
-        } else {
-          showToast(data.message, 'warning');
         }
       } catch (err) {
-        showToast('Lỗi khi gửi bình chọn!', 'error');
+        console.warn('Local vote API failed, using direct Firebase:', err);
+      }
+
+      // 2. Direct Firebase REST fallback
+      try {
+        let userVoted = JSON.parse(localStorage.getItem('congu_voted_requests') || '[]');
+        const isVoted = userVoted.includes(gidStr);
+        const newVotes = isVoted ? Math.max(0, (item.votes || 1) - 1) : (item.votes || 0) + 1;
+        
+        await fetch(`${FIREBASE_WISHLIST_URL}/community_requests/${gidStr}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ votes: newVotes })
+        });
+
+        if (isVoted) {
+          userVoted = userVoted.filter(x => x !== gidStr);
+          item.has_voted = false;
+          showToast(`Đã hủy bình chọn cho game '${item.name}'`, 'info');
+        } else {
+          userVoted.push(gidStr);
+          item.has_voted = true;
+          showToast(`Đã bình chọn (+1 Vote) cho game '${item.name}'!`, 'success');
+        }
+        localStorage.setItem('congu_voted_requests', JSON.stringify(userVoted));
+        item.votes = newVotes;
+        renderCommunityRequests();
+      } catch (fbErr) {
+        showToast('Lỗi khi gửi bình chọn lên Cloud!', 'error');
       }
     }
 
@@ -2190,9 +2253,22 @@
         return;
       }
 
-      const gameId = selectedGameRequest ? selectedGameRequest.id : null;
-      const capsule = selectedGameRequest ? selectedGameRequest.capsule : null;
+      const gameId = selectedGameRequest ? selectedGameRequest.id : ('custom_' + Math.floor(Math.random()*1000000));
+      const capsule = selectedGameRequest ? selectedGameRequest.capsule : `https://cdn.akamai.steamstatic.com/steam/apps/${gameId}/capsule_sm_120.jpg`;
+      const gidStr = String(gameId);
 
+      // Check if already in list
+      const existing = communityWishlistItems.find(it => String(it.id) === gidStr);
+      if (existing) {
+        showToast(`Tựa game '${gname}' đã có trên bảng, đang tự động bình chọn!`, 'info');
+        closeProposalDrawer();
+        if (!existing.has_voted) {
+          await voteCommunityRequest(existing.id);
+        }
+        return;
+      }
+
+      // 1. Try local server API
       try {
         const res = await fetch('/api/community_requests/create', {
           method: 'POST',
@@ -2204,16 +2280,45 @@
             note: gnote
           })
         });
-        const data = await res.json();
-        if (data.success) {
-          showToast(data.message, 'success');
-          closeProposalDrawer();
-          await loadCommunityRequests();
-        } else {
-          showToast(data.message, 'warning');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message, 'success');
+            closeProposalDrawer();
+            await loadCommunityRequests();
+            return;
+          }
         }
       } catch (err) {
-        showToast('Lỗi khi gửi đề cử!', 'error');
+        console.warn('Local create API failed, using direct Firebase:', err);
+      }
+
+      // 2. Direct Firebase fallback
+      try {
+        const newItem = {
+          id: gameId,
+          name: gname,
+          capsule: capsule,
+          votes: 1,
+          status: 'voting',
+          note: gnote,
+          created_at: new Date().toISOString()
+        };
+        await fetch(`${FIREBASE_WISHLIST_URL}/community_requests/${gidStr}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newItem)
+        });
+
+        let userVoted = JSON.parse(localStorage.getItem('congu_voted_requests') || '[]');
+        if (!userVoted.includes(gidStr)) userVoted.push(gidStr);
+        localStorage.setItem('congu_voted_requests', JSON.stringify(userVoted));
+
+        showToast(`Đã đề cử thành công tựa game '${gname}' (+1 Vote)!`, 'success');
+        closeProposalDrawer();
+        await loadCommunityRequests();
+      } catch (fbErr) {
+        showToast('Lỗi khi gửi đề cử lên Cloud!', 'error');
       }
     }
 
