@@ -47,12 +47,12 @@
     "media": {
       "trailers": [
         {
-          "id": "preludes_trailer",
-          "title": "Tails: The Backbone Preludes - Release Trailer",
+          "id": "preludes_1",
+          "title": "Trailer Phát Hành Chính Thức",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "64nZ7k0fT_Q",
-          "duration": "1:30"
+          "youtube_id": "deROnCikabM",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -105,12 +105,20 @@
     "media": {
       "trailers": [
         {
-          "id": "backbone_trailer",
-          "title": "Backbone (Tails Noir) - Official Launch Trailer",
+          "id": "backbone_1",
+          "title": "Trailer Phát Hành Chính Thức (Tails Noir)",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "N8sP2Z7sN9g",
-          "duration": "1:48"
+          "youtube_id": "7n-3HiFkT8k",
+          "duration": "Trailer HD"
+        },
+        {
+          "id": "backbone_2",
+          "title": "Cắt Cảnh Khởi Đầu - Thám Tử Howard Lotor",
+          "badge": "CẮT CẢNH",
+          "type": "youtube",
+          "youtube_id": "Qu1pROvE4jg",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -163,12 +171,12 @@
     "media": {
       "trailers": [
         {
-          "id": "toem_trailer",
-          "title": "TOEM - A Photo Adventure Launch Trailer",
+          "id": "toem_1",
+          "title": "Trailer Phát Hành Chính Thức",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "31T7u8X3pQI",
-          "duration": "1:15"
+          "youtube_id": "tivdtRdOfZE",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -221,12 +229,12 @@
     "media": {
       "trailers": [
         {
-          "id": "hotline_trailer",
-          "title": "Hotline Miami - Official Launch Trailer",
+          "id": "hotline_miami_1",
+          "title": "Trailer Phát Hành - Hotline Miami",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "2n_BDeP6128",
-          "duration": "1:35"
+          "youtube_id": "Nv-XCM8sies",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -278,12 +286,12 @@
     "media": {
       "trailers": [
         {
-          "id": "ror2_trailer",
-          "title": "Risk of Rain 2 - Official Cinematic & Launch Trailer",
+          "id": "ror2_1",
+          "title": "Trailer Phát Hành - Risk of Rain 2",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "4yq94U8Zp4c",
-          "duration": "1:52"
+          "youtube_id": "ZcivhFnIBo0",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -335,20 +343,20 @@
     "media": {
       "trailers": [
         {
-          "id": "fallout_intro",
+          "id": "fallout_tactics_1",
           "title": "Cắt Cảnh Mở Đầu - 'War Never Changes'",
           "badge": "CẮT CẢNH",
           "type": "youtube",
-          "youtube_id": "pEl3b1h2n_U",
-          "duration": "3:24"
+          "youtube_id": "ITyFyF1EwOA",
+          "duration": "Trailer HD"
         },
         {
-          "id": "fallout_trailer",
-          "title": "Fallout Tactics - Trailer Chính Thức",
+          "id": "fallout_tactics_2",
+          "title": "Fallout Tactics - Trailer Lối Chơi Chiến Thuật",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "kUq9B1wR0dI",
-          "duration": "1:45"
+          "youtube_id": "dBS-m0iQycg",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -402,12 +410,12 @@
     "media": {
       "trailers": [
         {
-          "id": "loop_trailer",
-          "title": "Loop Hero - Launch Trailer (Devolver Digital)",
+          "id": "loop_hero_1",
+          "title": "Trailer Phát Hành - Loop Hero",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "G3m_2B4p5hQ",
-          "duration": "1:22"
+          "youtube_id": "7P58L0AVIEM",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -462,20 +470,20 @@
     "media": {
       "trailers": [
         {
-          "id": "witcher3_killing",
+          "id": "witcher3_1",
           "title": "Cắt Cảnh Điện Ảnh - 'Killing Monsters'",
           "badge": "CẮT CẢNH",
           "type": "youtube",
           "youtube_id": "c0i88t0Kacs",
-          "duration": "2:46"
+          "duration": "Trailer HD"
         },
         {
-          "id": "witcher3_launch",
-          "title": "The Witcher 3: Wild Hunt - Launch Trailer",
+          "id": "witcher3_2",
+          "title": "The Witcher 3 - Trailer Phát Hành",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "5nLipy-Z4yo",
-          "duration": "2:30"
+          "youtube_id": "OlmuIckOX0c",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -533,12 +541,12 @@
     "media": {
       "trailers": [
         {
-          "id": "forever_trailer",
-          "title": "Forever Ago - Official Teaser Trailer",
+          "id": "forever_ago_1",
+          "title": "Trailer Giới Thiệu - Forever Ago",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "b2nFp9P8eQ4",
-          "duration": "1:30"
+          "youtube_id": "H1C3zWLoFYo",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -589,12 +597,12 @@
     "media": {
       "trailers": [
         {
-          "id": "erra_trailer",
-          "title": "Erra: Exordium - Official Release Trailer",
+          "id": "erra_exordium_1",
+          "title": "Trailer Phát Hành - Erra: Exordium",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "J7mK2hL1v_0",
-          "duration": "1:10"
+          "youtube_id": "14k_Qd2S5OU",
+          "duration": "Trailer HD"
         }
       ]
     }
@@ -646,12 +654,12 @@
     "media": {
       "trailers": [
         {
-          "id": "ravenous_trailer",
-          "title": "Ravenous Devils - Official Launch Trailer",
+          "id": "ravenous_devils_1",
+          "title": "Trailer Phát Hành - Ravenous Devils",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "z8fU_K9n7p0",
-          "duration": "1:08"
+          "youtube_id": "uH7WFoK6gbI",
+          "duration": "Trailer HD"
         }
       ]
     }

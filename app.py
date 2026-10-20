@@ -1829,6 +1829,20 @@ def api_steam_search():
     response.content_type = "application/json"
     return json.dumps(results, ensure_ascii=False)
 
+@server_app.route("/api/open_url", method="POST")
+def api_open_url():
+    data = request.json or {}
+    url = data.get("url")
+    if url:
+        try:
+            import webbrowser
+            webbrowser.open(url)
+            return json.dumps({"success": True})
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+    return json.dumps({"success": False, "error": "No URL provided"})
+
+
 @server_app.route("/api/community_requests", method="GET")
 def api_get_community_requests():
     res = api_instance.get_community_requests()
