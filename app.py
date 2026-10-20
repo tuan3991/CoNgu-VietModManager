@@ -1383,17 +1383,19 @@ class ModManagerAPI:
         save_user_data(data)
         return {"success": True, "message": "Cảm ơn bạn! Báo cáo lỗi dịch thuật đã được gửi thành công."}
 
-    def submit_game_request(self, game_name, note=""):
+    def submit_game_request(self, game_name, note="", steam_id=None, capsule=None):
         """Save a game localization request"""
         data = load_user_data()
         req = {
             "game_name": game_name,
             "note": note,
+            "steam_id": steam_id,
+            "capsule": capsule,
             "timestamp": datetime.now().isoformat()
         }
         data["game_requests"].append(req)
         save_user_data(data)
-        return {"success": True, "message": f"Đã ghi nhận yêu cầu Việt hóa tựa game '{game_name}'!"}
+        return {"success": True, "message": f"Đã ghi nhận yêu cầu Việt hóa tựa game '{game_name}' thành công!"}
 
 
 # Web Server Setup (Bottle)
@@ -1549,12 +1551,80 @@ def api_bug_report():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
+STEAM_GAMES_CACHE = None
+
+def get_steam_games():
+    global STEAM_GAMES_CACHE
+    if STEAM_GAMES_CACHE is not None:
+        return STEAM_GAMES_CACHE
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "data", "steam_games.json")
+    if os.path.exists(db_path):
+        try:
+            with open(db_path, "r", encoding="utf-8") as f:
+                STEAM_GAMES_CACHE = json.load(f)
+                return STEAM_GAMES_CACHE
+        except Exception as e:
+            print("Error loading steam_games.json:", e)
+    STEAM_GAMES_CACHE = []
+    return STEAM_GAMES_CACHE
+
+@server_app.route("/api/steam/search")
+def api_steam_search():
+    query = (request.query.get("q") or "").strip().lower()
+    if not query or len(query) < 2:
+        response.content_type = "application/json"
+        return json.dumps([])
+    
+    games = get_steam_games()
+    exact = []
+    starts = []
+    word_starts = []
+    contains = []
+    seen_ids = set()
+    
+    for g in games:
+        app_id = g.get("id")
+        if app_id in seen_ids:
+            continue
+        name = g.get("name", "")
+        name_low = name.lower()
+        if name_low == query:
+            exact.append(g)
+            seen_ids.add(app_id)
+        elif name_low.startswith(query):
+            starts.append(g)
+            seen_ids.add(app_id)
+        elif any(w.startswith(query) for w in name_low.split()):
+            word_starts.append(g)
+            seen_ids.add(app_id)
+        elif query in name_low:
+            contains.append(g)
+            seen_ids.add(app_id)
+            
+        if len(seen_ids) >= 30:
+            break
+            
+    matched = (exact + starts + word_starts + contains)[:10]
+    results = []
+    for m in matched:
+        app_id = m.get("id")
+        results.append({
+            "id": app_id,
+            "name": m.get("name"),
+            "capsule": f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/capsule_sm_120.jpg"
+        })
+        
+    response.content_type = "application/json"
+    return json.dumps(results, ensure_ascii=False)
+
 @server_app.route("/api/request_game", method="POST")
 def api_request_game():
     data = request.json or {}
     game_name = data.get("game_name", "")
     note = data.get("note", "")
-    res = api_instance.submit_game_request(game_name, note)
+    steam_id = data.get("steam_id")
+    capsule = data.get("capsule")
+    res = api_instance.submit_game_request(game_name, note, steam_id, capsule)
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
