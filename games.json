@@ -43,7 +43,19 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsTheBackbonePreludes.congu",
-    "mod_size": "~2.6 MB"
+    "mod_size": "~2.6 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "preludes_trailer",
+          "title": "Tails: The Backbone Preludes - Release Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "64nZ7k0fT_Q",
+          "duration": "1:30"
+        }
+      ]
+    }
   },
   {
     "id": "backbone",
@@ -89,7 +101,19 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TailsNoir.congu",
-    "mod_size": "~1.2 MB"
+    "mod_size": "~1.2 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "backbone_trailer",
+          "title": "Backbone (Tails Noir) - Official Launch Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "N8sP2Z7sN9g",
+          "duration": "1:48"
+        }
+      ]
+    }
   },
   {
     "id": "toem",
@@ -135,7 +159,19 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TOEM.congu",
-    "mod_size": "~3.2 MB"
+    "mod_size": "~3.2 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "toem_trailer",
+          "title": "TOEM - A Photo Adventure Launch Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "31T7u8X3pQI",
+          "duration": "1:15"
+        }
+      ]
+    }
   },
   {
     "id": "hotline_miami",
@@ -181,7 +217,19 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/HotlineMiami.congu",
-    "mod_size": "~346 MB"
+    "mod_size": "~346 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "hotline_trailer",
+          "title": "Hotline Miami - Official Launch Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "2n_BDeP6128",
+          "duration": "1:35"
+        }
+      ]
+    }
   },
   {
     "id": "ror2",
@@ -226,7 +274,19 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RiskOfRain2.congu",
-    "mod_size": "~3.4 MB"
+    "mod_size": "~3.4 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "ror2_trailer",
+          "title": "Risk of Rain 2 - Official Cinematic & Launch Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "4yq94U8Zp4c",
+          "duration": "1:52"
+        }
+      ]
+    }
   },
   {
     "id": "fallout_tactics",
@@ -271,7 +331,27 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FalloutTactics.congu",
-    "mod_size": "~7.9 MB"
+    "mod_size": "~7.9 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "fallout_intro",
+          "title": "Cắt Cảnh Mở Đầu - 'War Never Changes'",
+          "badge": "CẮT CẢNH",
+          "type": "youtube",
+          "youtube_id": "pEl3b1h2n_U",
+          "duration": "3:24"
+        },
+        {
+          "id": "fallout_trailer",
+          "title": "Fallout Tactics - Trailer Chính Thức",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "kUq9B1wR0dI",
+          "duration": "1:45"
+        }
+      ]
+    }
   },
   {
     "id": "loop_hero",
@@ -318,7 +398,19 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/LoopHero.congu",
-    "mod_size": "~24.8 MB"
+    "mod_size": "~24.8 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "loop_trailer",
+          "title": "Loop Hero - Launch Trailer (Devolver Digital)",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "G3m_2B4p5hQ",
+          "duration": "1:22"
+        }
+      ]
+    }
   },
   {
     "id": "witcher3",
@@ -366,7 +458,27 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/TheWitcher3.congu",
-    "mod_size": "~15.4 MB"
+    "mod_size": "~15.4 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "witcher3_killing",
+          "title": "Cắt Cảnh Điện Ảnh - 'Killing Monsters'",
+          "badge": "CẮT CẢNH",
+          "type": "youtube",
+          "youtube_id": "c0i88t0Kacs",
+          "duration": "2:46"
+        },
+        {
+          "id": "witcher3_launch",
+          "title": "The Witcher 3: Wild Hunt - Launch Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "5nLipy-Z4yo",
+          "duration": "2:30"
+        }
+      ]
+    }
   },
   {
     "id": "forever_ago",
@@ -417,7 +529,19 @@
       "header": "/assets/forever_ago/header.jpg"
     },
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ForeverAgo.congu",
-    "mod_size": "~35.6 MB"
+    "mod_size": "~35.6 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "forever_trailer",
+          "title": "Forever Ago - Official Teaser Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "b2nFp9P8eQ4",
+          "duration": "1:30"
+        }
+      ]
+    }
   },
   {
     "id": "erra_exordium",
@@ -461,7 +585,19 @@
       "header": "/assets/erra_exordium/header.jpg"
     },
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/ErraExordium.congu",
-    "mod_size": "~66.5 MB"
+    "mod_size": "~66.5 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "erra_trailer",
+          "title": "Erra: Exordium - Official Release Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "J7mK2hL1v_0",
+          "duration": "1:10"
+        }
+      ]
+    }
   },
   {
     "id": "ravenous_devils",
@@ -506,6 +642,18 @@
       "header": "/assets/ravenous_devils/header.jpg"
     },
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/RavenousDevils.congu",
-    "mod_size": "~1.3 MB"
+    "mod_size": "~1.3 MB",
+    "media": {
+      "trailers": [
+        {
+          "id": "ravenous_trailer",
+          "title": "Ravenous Devils - Official Launch Trailer",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "z8fU_K9n7p0",
+          "duration": "1:08"
+        }
+      ]
+    }
   }
 ]
