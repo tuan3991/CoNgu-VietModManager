@@ -378,16 +378,25 @@
       outline: 1px solid rgba(255, 42, 133, 0.5);
       outline-offset: 4px;
     }
-    /* Frameless Window Drag Region */
+    /* Frameless Window Drag Region (Native + Webkit Drag) */
     .pywebview-drag-region {
       -webkit-app-region: drag;
+      cursor: grab;
       user-select: none;
+      -webkit-user-select: none;
+    }
+    .pywebview-drag-region:active {
+      cursor: grabbing;
     }
     .no-drag,
-    .pywebview-drag-region button,
-    .pywebview-drag-region input,
-    .pywebview-drag-region select,
-    .pywebview-drag-region a {
+    .no-drag *,
+    button,
+    input,
+    textarea,
+    select,
+    a,
+    .pixel-btn,
+    .cursor-pointer {
       -webkit-app-region: no-drag;
     }
   </style>
@@ -406,12 +415,13 @@
 
 
   <!-- TOP HEADER NAVBAR (CYBER-PIXEL ARCADE STYLE - FRAMELESS DRAG REGION) -->
-  <header class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between pywebview-drag-region" ondblclick="maximizeWindow()">
-    <div class="flex items-center space-x-3.5 cursor-pointer" onclick="refreshData()">
-      <div class="w-10 h-10 rounded-[2px] overflow-hidden shadow-[3px_3px_0px_#05050a] border border-[#00F0FF] bg-[#090b16] flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-200">
-        <img src="/static/app_icon.png" alt="CO NGU Icon" class="w-full h-full object-cover rounded-[1px]" />
+  <header id="appTitlebar" class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between pywebview-drag-region select-none" ondblclick="maximizeWindow()" title="Kéo để di chuyển cửa sổ | Bấm đúp để phóng to/thu nhỏ">
+    <!-- Left Brand (Draggable with Clickable App Icon) -->
+    <div class="flex items-center space-x-3.5 pywebview-drag-region">
+      <div class="w-10 h-10 rounded-[2px] overflow-hidden shadow-[3px_3px_0px_#05050a] border border-[#00F0FF] bg-[#090b16] flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-200 cursor-pointer no-drag" onclick="refreshData()" title="Bấm vào logo để làm mới danh sách game">
+        <img src="/static/app_icon.png" alt="CO NGU Icon" class="w-full h-full object-cover rounded-[1px] pointer-events-none" />
       </div>
-      <div>
+      <div class="pointer-events-none select-none">
         <div class="flex items-center space-x-2">
           <h1 class="app-brand-title">
             <span class="brand-slashes">//</span>
@@ -423,10 +433,10 @@
       </div>
     </div>
 
-    <!-- Center Search Bar (Neon Cyan Border, Sharp Pixel Edge) -->
-    <div class="flex items-center space-x-3 flex-1 max-w-lg mx-6">
+    <!-- Center Search Bar (Neon Cyan Border, Sharp Pixel Edge - NO DRAG) -->
+    <div class="flex items-center space-x-3 flex-1 max-w-lg mx-6 no-drag">
       <div class="relative w-full">
-        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#00F0FF]"></i>
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#00F0FF] pointer-events-none"></i>
         <input 
           id="searchInput" 
           type="text" 
@@ -439,29 +449,39 @@
       </div>
     </div>
 
+    <!-- Visual Drag Grip Spacer between Search and Action Buttons -->
+    <div class="hidden xl:flex items-center justify-center px-4 py-2 opacity-35 hover:opacity-90 transition-opacity pywebview-drag-region cursor-grab" title="Rê chuột ở đây để di chuyển cửa sổ CỔ NGỮ">
+      <div class="flex items-center space-x-1.5 pointer-events-none">
+        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
+        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
+        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
+        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
+      </div>
+    </div>
+
     <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors & Window Controls) -->
     <div class="flex items-center space-x-2.5 no-drag">
-      <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs flex items-center space-x-1.5" title="Quét và làm mới danh sách game mới nhất">
+      <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs flex items-center space-x-1.5 no-drag" title="Quét và làm mới danh sách game mới nhất">
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
         <span class="hidden sm:inline font-bold">Làm Mới</span>
       </button>
 
-      <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Gửi yêu cầu dịch game mới">
+      <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5 no-drag" title="Gửi yêu cầu dịch game mới">
         <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
         <span class="hidden lg:inline">Yêu cầu game</span>
       </button>
 
       <!-- Frameless Window Control Buttons -->
       <div class="flex items-center space-x-1.5 pl-2 border-l border-[#232747]">
-        <button onclick="minimizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a]" title="Thu nhỏ ứng dụng xuống Taskbar">
+        <button onclick="minimizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a] no-drag" title="Thu nhỏ ứng dụng xuống Taskbar">
           <i data-lucide="minus" class="w-3.5 h-3.5 stroke-[2.5]"></i>
         </button>
 
-        <button onclick="maximizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a]" title="Phóng to / Khôi phục kích thước cửa sổ">
+        <button onclick="maximizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a] no-drag" title="Phóng to / Khôi phục kích thước cửa sổ">
           <i data-lucide="square" class="w-3.5 h-3.5 stroke-[2.5]"></i>
         </button>
 
-        <button onclick="quitApp()" class="pixel-btn btn-retro-crimson p-1.5 px-2.5 text-xs flex items-center space-x-1 font-bold shadow-[2px_2px_0px_#05050a]" title="Thoát hoàn toàn ứng dụng">
+        <button onclick="quitApp()" class="pixel-btn btn-retro-crimson p-1.5 px-2.5 text-xs flex items-center space-x-1 font-bold shadow-[2px_2px_0px_#05050a] no-drag" title="Thoát hoàn toàn ứng dụng">
           <i data-lucide="power" class="w-3.5 h-3.5 stroke-[2.5]"></i>
           <span class="hidden sm:inline">Thoát</span>
         </button>
@@ -2741,6 +2761,28 @@
         navigator.sendBeacon('/api/app/quit');
       } catch (e) {}
     });
+
+    // Titlebar Dragging System (Native Windows OS Drag via Win32 SendMessageW)
+    (function initTitlebarDrag() {
+      const titlebar = document.getElementById('appTitlebar');
+      if (!titlebar) return;
+
+      titlebar.addEventListener('mousedown', function (e) {
+        // Only primary mouse button (left click)
+        if (e.button !== 0) return;
+
+        // Do not drag if clicking inside an interactive control
+        if (e.target.closest('button, input, select, textarea, a, .no-drag')) {
+          return;
+        }
+
+        // Prevent text selection or browser default drag ghost
+        e.preventDefault();
+
+        // Trigger native Windows OS window dragging
+        fetch('/api/window/drag', { method: 'POST' }).catch(() => {});
+      });
+    })();
 
     // Start
     fetchGames();

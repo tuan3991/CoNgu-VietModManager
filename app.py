@@ -1929,6 +1929,38 @@ def api_window_maximize():
             return json.dumps({"success": False, "error": str(e)})
     return json.dumps({"success": False, "error": "No window instance"})
 
+def get_main_hwnd():
+    """Resolve the main Win32 window handle for PyWebView frameless window"""
+    import ctypes
+    user32 = ctypes.windll.user32
+    hwnd = None
+    if api_instance.window and hasattr(api_instance.window, 'native') and api_instance.window.native:
+        try:
+            hwnd = api_instance.window.native.Handle.ToInt64()
+        except Exception:
+            hwnd = None
+    if not hwnd:
+        hwnd = user32.FindWindowW(None, "CỔ NGỮ - Trình Quản Lý Game Việt Hóa Pro")
+    return hwnd
+
+@server_app.route("/api/window/drag", method=["GET", "POST"])
+def api_window_drag():
+    """Trigger native Windows OS window dragging on titlebar mouse down"""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        hwnd = get_main_hwnd()
+        if hwnd:
+            def _do_drag():
+                user32.ReleaseCapture()
+                user32.SendMessageW(hwnd, 0x00A1, 2, 0)  # WM_NCLBUTTONDOWN, HTCAPTION
+            threading.Thread(target=_do_drag, daemon=True).start()
+            return json.dumps({"success": True})
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
+    return json.dumps({"success": False, "error": "No window handle"})
+
+
 @server_app.route("/api/catalog/sync", method="POST")
 def api_catalog_sync():
     res = sync_remote_catalog(force=True)
