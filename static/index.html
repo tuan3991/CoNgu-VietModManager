@@ -1332,15 +1332,15 @@
         // 3-State Badge HTML (Cyber-Pixel Sharp Badges)
         let statusBadgeHtml = '';
         if (game.status_code === 'INSTALLED') {
-          statusBadgeHtml = `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/80 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><span class="w-2 h-2 rounded-[1px] bg-[#00FF9D] inline-block shadow-[0_0_6px_#00FF9D] shrink-0 animate-pulse"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-emerald-400 border border-emerald-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><span class="w-1.5 h-1.5 rounded-[1px] bg-emerald-400/80 inline-block shrink-0"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
         } else if (game.status_code === 'GAME_MISSING') {
-          statusBadgeHtml = `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85]/80 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><i data-lucide="folder-x" class="w-3 h-3"></i><span>CHƯA CÓ GAME</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-pink-400/90 border border-pink-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="folder-x" class="w-3 h-3 text-pink-400/80"></i><span>CHƯA CÓ GAME</span></span>`;
         } else {
-          statusBadgeHtml = `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/80 shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><i data-lucide="arrow-down-circle" class="w-3 h-3 text-[#FFB800]"></i><span>CHƯA CÀI MOD</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-amber-400/90 border border-amber-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="arrow-down-circle" class="w-3 h-3 text-amber-400/80"></i><span>CHƯA CÀI MOD</span></span>`;
         }
 
         const noteBadgeHtml = game.important_note 
-          ? `<span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#FF3344] text-white shadow-[2px_2px_0px_#05050a] flex items-center space-x-1.5 tracking-wide"><i data-lucide="alert-triangle" class="w-3 h-3"></i><span>LƯU Ý</span></span>` 
+          ? `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-rose-400 border border-rose-500/40 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i><span>LƯU Ý</span></span>` 
           : '';
 
         card.innerHTML = `
@@ -1349,9 +1349,9 @@
             <img src="${game.assets.poster}" alt="${game.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
             
 
-            <!-- Top Badges on Poster -->
+            <!-- Top Badges on Poster (Tối màu, tinh tế, hòa hợp với game) -->
             <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10 pointer-events-none">
-              <span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/70 shadow-[2px_2px_0px_#05050a] tracking-wider uppercase">${getPrimaryGenreTag(game)}</span>
+              <span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-slate-300 border border-white/20 tracking-wider uppercase shadow-sm">${getPrimaryGenreTag(game)}</span>
               <div class="flex items-center space-x-1.5">
                 ${noteBadgeHtml}
                 ${statusBadgeHtml}
