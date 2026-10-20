@@ -269,7 +269,7 @@ def save_user_config(cfg):
         print(f"Error saving config: {e}")
 
 def load_user_data():
-    data = {"ratings": {}, "comments": {}, "bug_reports": [], "game_requests": []}
+    data = {"ratings": {}, "comments": {}, "bug_reports": [], "game_requests": [], "voted_requests": [], "machine_id": None}
     if os.path.exists(USER_DATA_FILE):
         try:
             with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
@@ -277,6 +277,12 @@ def load_user_data():
                 data.update(saved)
         except Exception:
             pass
+    import uuid
+    if not data.get("machine_id"):
+        data["machine_id"] = str(uuid.uuid4())
+        save_user_data(data)
+    if "voted_requests" not in data:
+        data["voted_requests"] = []
     return data
 
 def save_user_data(data):
@@ -507,6 +513,91 @@ def verify_and_resolve_game_path(game_def, input_path):
         return True, parent2, f"Đã tự động trỏ về thư mục gốc của game: {os.path.basename(parent2)}"
 
     return False, clean_path, f"Thư mục không hợp lệ! Không tìm thấy file chạy '{expected_exe}' của {viet_title}."
+
+# ==============================================================================
+# COMMUNITY LOCALIZATION WISHLIST & VOTING (FIREBASE RTDB / LOCAL HYBRID)
+# ==============================================================================
+FIREBASE_RTDB_URL = ""
+
+def get_firebase_url():
+    global FIREBASE_RTDB_URL
+    if FIREBASE_RTDB_URL:
+        return FIREBASE_RTDB_URL.rstrip("/")
+    env_url = os.environ.get("FIREBASE_RTDB_URL")
+    if env_url:
+        return env_url.rstrip("/")
+    return ""
+
+def fetch_community_requests_from_cloud():
+    fb_url = get_firebase_url()
+    if not fb_url:
+        return None
+    try:
+        url = f"{fb_url}/community_requests.json"
+        req = urllib.request.Request(url, headers={"User-Agent": "CoNguHub/2.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                if isinstance(data, dict):
+                    return data
+    except Exception as e:
+        print(f"Firebase fetch error: {e}")
+    return None
+
+def push_community_request_to_cloud(game_id, item_data):
+    fb_url = get_firebase_url()
+    if not fb_url:
+        return False
+    try:
+        url = f"{fb_url}/community_requests/{game_id}.json"
+        req_body = json.dumps(item_data, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(url, data=req_body, headers={"Content-Type": "application/json", "User-Agent": "CoNguHub/2.0"}, method="PUT")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return resp.status in (200, 204)
+    except Exception as e:
+        print(f"Firebase push error: {e}")
+    return False
+
+def patch_vote_to_cloud(game_id, new_votes, machine_id=None):
+    fb_url = get_firebase_url()
+    if not fb_url:
+        return False
+    try:
+        url = f"{fb_url}/community_requests/{game_id}.json"
+        payload = {"votes": new_votes}
+        req_body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=req_body, headers={"Content-Type": "application/json", "User-Agent": "CoNguHub/2.0"}, method="PATCH")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if machine_id:
+                try:
+                    voter_url = f"{fb_url}/community_requests/{game_id}/voters/{machine_id}.json"
+                    v_req = urllib.request.Request(voter_url, data=b"true", headers={"Content-Type": "application/json"}, method="PUT")
+                    urllib.request.urlopen(v_req, timeout=4)
+                except Exception:
+                    pass
+            return resp.status in (200, 204)
+    except Exception as e:
+        print(f"Firebase vote patch error: {e}")
+    return False
+
+LOCAL_REQUESTS_FILE = os.path.join(STATIC_DIR, "data", "community_requests.json")
+
+def load_local_community_requests():
+    if os.path.exists(LOCAL_REQUESTS_FILE):
+        try:
+            with open(LOCAL_REQUESTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading local community requests: {e}")
+    return {}
+
+def save_local_community_requests(data):
+    try:
+        with open(LOCAL_REQUESTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error saving local community requests: {e}")
+
 
 class ModManagerAPI:
     def __init__(self):
@@ -1383,6 +1474,127 @@ class ModManagerAPI:
         save_user_data(data)
         return {"success": True, "message": "Cảm ơn bạn! Báo cáo lỗi dịch thuật đã được gửi thành công."}
 
+    def get_community_requests(self):
+        """Return list of community localization requests with user vote status"""
+        user_data = load_user_data()
+        voted_ids = [str(x) for x in user_data.get("voted_requests", [])]
+
+        # 1. Try cloud
+        data = fetch_community_requests_from_cloud()
+        if data is None:
+            data = load_local_community_requests()
+        else:
+            save_local_community_requests(data)
+
+        items = []
+        for gid, item in data.items():
+            if not isinstance(item, dict):
+                continue
+            item["id"] = int(gid) if str(gid).isdigit() else gid
+            item["has_voted"] = str(gid) in voted_ids
+            items.append(item)
+
+        items.sort(key=lambda x: x.get("votes", 0), reverse=True)
+
+        return {
+            "success": True,
+            "items": items,
+            "user_voted": voted_ids,
+            "cloud_connected": bool(get_firebase_url())
+        }
+
+    def vote_community_request(self, game_id):
+        """Vote or unvote for a community game request"""
+        user_data = load_user_data()
+        gid_str = str(game_id)
+        voted_ids = [str(x) for x in user_data.get("voted_requests", [])]
+
+        cloud_data = fetch_community_requests_from_cloud()
+        data = cloud_data if cloud_data is not None else load_local_community_requests()
+
+        if gid_str not in data:
+            return {"success": False, "message": "Không tìm thấy tựa game này trong danh sách!"}
+
+        current_item = data[gid_str]
+        current_votes = current_item.get("votes", 0)
+
+        if gid_str in voted_ids:
+            new_votes = max(0, current_votes - 1)
+            current_item["votes"] = new_votes
+            user_data["voted_requests"] = [x for x in voted_ids if x != gid_str]
+            save_user_data(user_data)
+            save_local_community_requests(data)
+            if get_firebase_url():
+                patch_vote_to_cloud(gid_str, new_votes, None)
+            return {
+                "success": True,
+                "action": "unvoted",
+                "votes": new_votes,
+                "has_voted": False,
+                "message": f"Đã hủy bình chọn cho game '{current_item.get('name')}'"
+            }
+        else:
+            new_votes = current_votes + 1
+            current_item["votes"] = new_votes
+            user_data["voted_requests"].append(gid_str)
+            save_user_data(user_data)
+            save_local_community_requests(data)
+            if get_firebase_url():
+                patch_vote_to_cloud(gid_str, new_votes, user_data.get("machine_id"))
+            return {
+                "success": True,
+                "action": "voted",
+                "votes": new_votes,
+                "has_voted": True,
+                "message": f"Đã bình chọn (+1 Vote) cho game '{current_item.get('name')}'!"
+            }
+
+    def create_community_request(self, game_id, name, capsule, note=""):
+        """Create or upvote an existing community game request"""
+        user_data = load_user_data()
+        gid_str = str(game_id)
+        voted_ids = [str(x) for x in user_data.get("voted_requests", [])]
+
+        cloud_data = fetch_community_requests_from_cloud()
+        data = cloud_data if cloud_data is not None else load_local_community_requests()
+
+        if gid_str in data:
+            if gid_str not in voted_ids:
+                return self.vote_community_request(game_id)
+            else:
+                return {
+                    "success": True,
+                    "action": "already_exists",
+                    "item": data[gid_str],
+                    "message": f"Tựa game '{name}' đã có trên bảng nguyện vọng và bạn đã bình chọn trước đó!"
+                }
+
+        new_item = {
+            "id": int(game_id) if str(game_id).isdigit() else game_id,
+            "name": name,
+            "capsule": capsule or f"https://cdn.akamai.steamstatic.com/steam/apps/{game_id}/capsule_sm_120.jpg",
+            "votes": 1,
+            "status": "voting",
+            "note": note,
+            "created_at": datetime.now().isoformat(),
+            "voters": {user_data.get("machine_id", "default"): True}
+        }
+
+        data[gid_str] = new_item
+        user_data["voted_requests"].append(gid_str)
+        save_user_data(user_data)
+        save_local_community_requests(data)
+
+        if get_firebase_url():
+            push_community_request_to_cloud(gid_str, new_item)
+
+        return {
+            "success": True,
+            "action": "created",
+            "item": new_item,
+            "message": f"Đã đề cử thành công tựa game '{name}' (+1 Vote)!"
+        }
+
     def submit_game_request(self, game_name, note="", steam_id=None, capsule=None):
         """Save a game localization request"""
         data = load_user_data()
@@ -1616,6 +1828,41 @@ def api_steam_search():
         
     response.content_type = "application/json"
     return json.dumps(results, ensure_ascii=False)
+
+@server_app.route("/api/community_requests", method="GET")
+def api_get_community_requests():
+    res = api_instance.get_community_requests()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_requests/vote", method="POST")
+def api_vote_community_request():
+    data = request.json or {}
+    game_id = data.get("game_id")
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "message": "Thiếu game_id!"})
+    res = api_instance.vote_community_request(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_requests/create", method="POST")
+def api_create_community_request():
+    data = request.json or {}
+    game_id = data.get("game_id")
+    name = data.get("name", "")
+    capsule = data.get("capsule", "")
+    note = data.get("note", "")
+    if not name:
+        response.status = 400
+        return json.dumps({"success": False, "message": "Vui lòng nhập tên game!"})
+    if not game_id:
+        import hashlib
+        game_id = "custom_" + hashlib.md5(name.lower().strip().encode("utf-8")).hexdigest()[:8]
+    res = api_instance.create_community_request(game_id, name, capsule, note)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
 
 @server_app.route("/api/request_game", method="POST")
 def api_request_game():

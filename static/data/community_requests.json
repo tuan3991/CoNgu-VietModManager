@@ -1,0 +1,72 @@
+{
+  "1030300": {
+    "id": 1030300,
+    "name": "Hollow Knight: Silksong",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/1030300/capsule_sm_120.jpg",
+    "votes": 186,
+    "status": "reviewing",
+    "note": "Bom tấn metroidvania được mong chờ nhất của Team Cherry",
+    "created_at": "2026-10-15T10:00:00",
+    "voters": {}
+  },
+  "1145360": {
+    "id": 1145360,
+    "name": "Hades II",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/1145360/capsule_sm_120.jpg",
+    "votes": 142,
+    "status": "voting",
+    "note": "Hành trình của Melinoë, phần tiếp theo siêu phẩm Hades",
+    "created_at": "2026-10-16T14:30:00",
+    "voters": {}
+  },
+  "2358720": {
+    "id": 2358720,
+    "name": "Black Myth: Wukong",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/2358720/capsule_sm_120.jpg",
+    "votes": 115,
+    "status": "voting",
+    "note": "Tuyệt tác Tây Du Ký phong cách Soulslike đỉnh cao",
+    "created_at": "2026-10-17T09:15:00",
+    "voters": {}
+  },
+  "1086940": {
+    "id": 1086940,
+    "name": "Baldur's Gate 3",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/1086940/capsule_sm_120.jpg",
+    "votes": 94,
+    "status": "translating",
+    "note": "Dự án nhập vai đồ sộ Game of the Year của Larian Studios",
+    "created_at": "2026-10-14T08:00:00",
+    "voters": {}
+  },
+  "2620600": {
+    "id": 2620600,
+    "name": "Metaphor: ReFantazio",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/2620600/capsule_sm_120.jpg",
+    "votes": 78,
+    "status": "voting",
+    "note": "Siêu phẩm JRPG mới nhất từ đội ngũ sáng tạo Persona 3, 4, 5",
+    "created_at": "2026-10-18T16:20:00",
+    "voters": {}
+  },
+  "1771300": {
+    "id": 1771300,
+    "name": "Kingdom Come: Deliverance II",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/1771300/capsule_sm_120.jpg",
+    "votes": 52,
+    "status": "voting",
+    "note": "Thế giới mở Trung Cổ chân thực và lôi cuốn của Warhorse Studios",
+    "created_at": "2026-10-19T11:45:00",
+    "voters": {}
+  },
+  "1601580": {
+    "id": 1601580,
+    "name": "Frostpunk 2",
+    "capsule": "https://cdn.akamai.steamstatic.com/steam/apps/1601580/capsule_sm_120.jpg",
+    "votes": 43,
+    "status": "voting",
+    "note": "Chiến thuật sinh tồn giữa mùa đông băng giá khắc nghiệt",
+    "created_at": "2026-10-19T17:10:00",
+    "voters": {}
+  }
+}

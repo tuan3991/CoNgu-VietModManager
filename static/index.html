@@ -844,24 +844,69 @@
     </div>
   </div>
 
-    <!-- REQUEST GAME MODAL (CYBER-PIXEL ARCADE WITH STEAM SEARCH) -->
-  <div id="requestModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
-    <div class="w-full max-w-lg pixel-modal p-6 space-y-4 bg-[#0c0d1a] border-2 border-[#00F0FF]/50 shadow-[0_0_30px_rgba(0,240,255,0.25)] relative">
-      <div class="flex items-center justify-between border-b border-[#00F0FF]/20 pb-3">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="sparkles" class="w-5 h-5 text-[#FF2A85]"></i>
-          <h3 class="font-display text-base font-bold text-white uppercase tracking-wider">Yêu Cầu Việt Hóa Tựa Game Mới</h3>
+      <!-- COMMUNITY LOCALIZATION WISHLIST & VOTING MODAL -->
+  <div id="requestModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md hidden">
+    <div class="w-full max-w-3xl pixel-modal p-0 overflow-hidden bg-[#0a0c1b] border-2 border-[#00F0FF]/60 shadow-[0_0_40px_rgba(0,240,255,0.25)] flex flex-col max-h-[90vh]">
+      
+      <!-- MODAL HEADER -->
+      <div class="p-4 border-b border-[#00F0FF]/25 bg-[#070815] flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <i data-lucide="sparkles" class="w-5 h-5 text-[#FF2A85] animate-pulse"></i>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="font-display text-base font-bold text-white uppercase tracking-wider">Bảng Nguyện Vọng Việt Hóa</h3>
+              <span class="text-[9px] font-pixel text-[#00F0FF] bg-[#00F0FF]/15 px-2 py-0.5 border border-[#00F0FF]/30 rounded">COMMUNITY WISHLIST</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono mt-0.5">
+              Cộng đồng cùng đề cử và bình chọn tựa game Steam ưu tiên được CỔ NGỮ dịch sang tiếng Việt!
+            </p>
+          </div>
         </div>
-        <button onclick="closeGameRequestModal()" class="pixel-btn p-1 bg-[#17192e] text-slate-400 hover:text-white border border-[#2b2f52]" title="Đóng">
+        <button onclick="closeGameRequestModal()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-400 hover:text-white border border-[#2b2f52]" title="Đóng">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-400 leading-relaxed font-mono">
-        Nhập tên tựa game Steam bạn muốn được dịch sang tiếng Việt. Hệ thống sẽ gợi ý tự động từ cơ sở dữ liệu Steam để bạn chọn nhanh và chính xác!
-      </p>
-      
-      <div class="space-y-3">
-        <!-- GAME NAME INPUT WITH AUTOCOMPLETE -->
+
+      <!-- ACTION & FILTER TOOLBAR -->
+      <div class="p-3 bg-[#0d0f22] border-b border-white/5 flex flex-wrap items-center justify-between gap-2.5">
+        <!-- Wishlist live search input -->
+        <div class="relative flex-1 min-w-[180px] max-w-xs">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+          <input id="wishlistFilterInput" type="text" placeholder="Lọc nhanh tên game trong bảng..."
+            class="w-full pl-8 pr-3 py-1.5 bg-[#090b17] border border-[#00F0FF]/30 rounded-[2px] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] font-mono" />
+        </div>
+
+        <!-- Filter tabs (Top voted, Recent, Voted) -->
+        <div class="flex items-center space-x-1 bg-[#070815] p-1 border border-white/10 rounded-[2px]">
+          <button id="tabTopVoted" onclick="setWishlistTab('top')" class="px-2.5 py-1 text-[11px] font-pixel font-bold rounded-[2px] bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/40 transition-all">
+            🔥 Nhiều Vote Nhất
+          </button>
+          <button id="tabRecent" onclick="setWishlistTab('recent')" class="px-2.5 py-1 text-[11px] font-pixel text-slate-400 hover:text-white transition-all">
+            ✨ Mới Nhất
+          </button>
+          <button id="tabMyVoted" onclick="setWishlistTab('voted')" class="px-2.5 py-1 text-[11px] font-pixel text-slate-400 hover:text-white transition-all">
+            ✓ Đã Vote
+          </button>
+        </div>
+
+        <!-- Proposal button (toggle expandable drawer) -->
+        <button onclick="toggleProposalDrawer()" class="pixel-btn btn-cyber-magenta px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5 shadow-[0_0_12px_rgba(255,42,133,0.3)]">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span>Đề Cử Game Mới</span>
+        </button>
+      </div>
+
+      <!-- PROPOSAL DRAWER (SLIDE-DOWN STEAM SEARCH FORM) -->
+      <div id="proposalDrawer" class="hidden p-4 bg-[#080a18] border-b-2 border-[#FF2A85]/50 space-y-3 relative shadow-[inset_0_0_20px_rgba(0,0,0,0.6)]">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2 text-xs font-pixel font-bold text-[#FF2A85] uppercase tracking-wider">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Đề cử tựa game mới (Bạn sẽ tự động +1 Vote)</span>
+          </div>
+          <button onclick="toggleProposalDrawer()" class="text-slate-400 hover:text-white text-xs font-mono">Đóng [x]</button>
+        </div>
+
+        <!-- STEAM AUTOCOMPLETE INPUT -->
         <div class="relative">
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs font-pixel font-bold text-[#00F0FF] uppercase tracking-wider">Tên tựa game:</label>
@@ -869,11 +914,11 @@
               <i data-lucide="search" class="w-3 h-3 text-[#00F0FF]"></i> gợi ý tự động từ Steam
             </span>
           </div>
-          
+
           <div class="relative flex items-center">
             <input id="reqGameName" type="text" autocomplete="off" spellcheck="false"
               placeholder="Gõ tên game (ví dụ: Hades II, Silksong, Elden Ring, Wukong...)" 
-              class="w-full pl-3 pr-9 py-2.5 bg-[#090b17] border border-[#00F0FF]/40 rounded-[2px] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] focus:shadow-[0_0_10px_rgba(0,240,255,0.3)] shadow-[2px_2px_0px_#05050a] font-mono transition-all" />
+              class="w-full pl-3 pr-9 py-2 bg-[#090b17] border border-[#00F0FF]/40 rounded-[2px] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] focus:shadow-[0_0_10px_rgba(0,240,255,0.3)] shadow-[2px_2px_0px_#05050a] font-mono transition-all" />
             <div id="reqSearchSpinner" class="absolute right-3 hidden pointer-events-none">
               <i data-lucide="loader-2" class="w-4 h-4 text-[#00F0FF] animate-spin"></i>
             </div>
@@ -883,14 +928,14 @@
           </div>
 
           <!-- STEAM AUTOCOMPLETE DROPDOWN -->
-          <div id="reqSteamDropdown" class="absolute left-0 right-0 top-full mt-1.5 bg-[#0a0c1b] border-2 border-[#00F0FF]/60 shadow-[0_12px_35px_rgba(0,0,0,0.95),0_0_20px_rgba(0,240,255,0.3)] rounded-[2px] max-h-64 overflow-y-auto z-50 hidden divide-y divide-white/5 scrollbar-thin">
-            <!-- Items rendered via JS -->
+          <div id="reqSteamDropdown" class="absolute left-0 right-0 top-full mt-1.5 bg-[#0a0c1b] border-2 border-[#00F0FF]/60 shadow-[0_12px_35px_rgba(0,0,0,0.95),0_0_20px_rgba(0,240,255,0.3)] rounded-[2px] max-h-60 overflow-y-auto z-50 hidden divide-y divide-white/5 scrollbar-thin">
+            <!-- Items rendered dynamically via JS -->
           </div>
 
           <!-- SELECTED GAME BADGE (PREVIEW) -->
           <div id="reqSelectedCard" class="hidden mt-2 p-2 bg-[#09151c]/90 border border-[#00FF9D]/60 rounded-[2px] shadow-[0_0_12px_rgba(0,255,157,0.2)] flex items-center justify-between">
             <div class="flex items-center space-x-3 min-w-0">
-              <img id="reqSelectedCapsule" src="" alt="" class="w-[88px] h-[36px] object-cover rounded-[2px] border border-[#00FF9D]/40 bg-[#121424] shrink-0" onerror="this.style.opacity='0.3'" />
+              <img id="reqSelectedCapsule" src="" alt="" class="w-[88px] h-[36px] object-cover rounded-[2px] border border-[#00FF9D]/40 bg-[#121424] shrink-0" onerror="this.src='/static/icons/game_placeholder.png'" />
               <div class="min-w-0">
                 <div class="flex items-center space-x-1.5 text-[9px] font-pixel text-[#00FF9D] uppercase tracking-wider">
                   <i data-lucide="check" class="w-3 h-3 text-[#00FF9D]"></i>
@@ -906,19 +951,33 @@
           </div>
         </div>
 
-        <!-- NOTES INPUT -->
         <div>
-          <label class="block text-xs font-pixel font-bold text-[#00F0FF] uppercase mb-1 tracking-wider">Ghi chú thêm (tùy chọn):</label>
-          <textarea id="reqGameNote" rows="2" placeholder="Lý do yêu thích hoặc phiên bản Steam..." class="w-full px-3 py-2 bg-[#090b17] border border-[#00F0FF]/40 rounded-[2px] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] shadow-[2px_2px_0px_#05050a] font-mono"></textarea>
+          <label class="block text-[11px] font-pixel font-bold text-[#00F0FF] uppercase mb-1 tracking-wider">Ghi chú thêm (tùy chọn):</label>
+          <input id="reqGameNote" type="text" placeholder="Lý do muốn dịch, thời lượng thoại, phiên bản Steam..." class="w-full px-3 py-1.5 bg-[#090b17] border border-[#00F0FF]/40 rounded-[2px] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] shadow-[2px_2px_0px_#05050a] font-mono" />
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-1">
+          <button onclick="toggleProposalDrawer()" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-slate-300 hover:text-white text-xs font-semibold border border-[#2b2f52]">Hủy</button>
+          <button onclick="submitGameProposal()" class="pixel-btn btn-cyber-magenta px-4 py-1.5 text-xs font-bold flex items-center space-x-1.5">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Gửi Đề Cử & Bình Chọn</span>
+          </button>
         </div>
       </div>
 
-      <div class="flex justify-end space-x-3 pt-2">
-        <button onclick="closeGameRequestModal()" class="pixel-btn px-4 py-2 bg-[#17192e] text-slate-300 hover:text-white text-xs font-semibold border border-[#2b2f52]">Hủy</button>
-        <button onclick="submitGameRequest()" class="pixel-btn btn-cyber-magenta px-5 py-2 text-xs font-bold flex items-center space-x-1.5">
-          <i data-lucide="send" class="w-3.5 h-3.5"></i>
-          <span>Gửi Yêu Cầu</span>
-        </button>
+      <!-- WISHLIST LEADERBOARD CARDS LIST -->
+      <div id="communityRequestList" class="p-3 sm:p-4 overflow-y-auto space-y-2.5 flex-1 scrollbar-thin bg-[#060712]">
+        <!-- Rendered dynamically via JS -->
+      </div>
+
+      <!-- MODAL FOOTER -->
+      <div class="p-3 bg-[#070815] border-t border-white/5 flex flex-wrap items-center justify-between text-[11px] text-slate-400 font-mono gap-2">
+        <div id="wishlistStatsText" class="flex items-center space-x-2">
+          <span>Đang tải danh sách nguyện vọng...</span>
+        </div>
+        <div id="wishlistCloudBadge" class="flex items-center space-x-2">
+          <!-- Populated via JS -->
+        </div>
       </div>
     </div>
   </div>
@@ -1770,7 +1829,12 @@
       }
     }
 
-        // Game Request Modal State & Steam Search
+            // ==============================================================================
+    // COMMUNITY LOCALIZATION WISHLIST & VOTING LOGIC
+    // ==============================================================================
+    let communityWishlistItems = [];
+    let activeWishlistTab = 'top'; // 'top' | 'recent' | 'voted'
+    let wishlistFilterQuery = '';
     let selectedGameRequest = null;
     let reqSearchDebounceTimer = null;
     let reqDropdownItems = [];
@@ -1787,12 +1851,11 @@
           return steamGamesDb;
         }
       } catch (err) {
-        console.warn('Could not load /static/data/steam_games.json locally, will fallback to API:', err);
+        console.warn('Could not load steam_games.json:', err);
       }
       return null;
     }
 
-    // Preload silently when browser is idle
     if (typeof requestIdleCallback !== 'undefined') {
       requestIdleCallback(() => loadSteamGamesDb());
     } else {
@@ -1839,7 +1902,6 @@
     }
 
     async function querySteamSearch(query) {
-      // 1. Try instant in-memory database first (0ms latency, offline-friendly)
       if (!steamGamesDb) {
         await loadSteamGamesDb();
       }
@@ -1849,8 +1911,6 @@
           return localResults;
         }
       }
-
-      // 2. Fallback to server search endpoint
       try {
         const res = await fetch(`/api/steam/search?q=${encodeURIComponent(query)}`);
         if (res.ok) {
@@ -1862,23 +1922,302 @@
       return [];
     }
 
-    function openGameRequestModal() {
+    // Modal lifecycle
+    async function openGameRequestModal() {
       document.getElementById('requestModal').classList.remove('hidden');
-      document.getElementById('reqGameName').value = '';
-      document.getElementById('reqGameNote').value = '';
-      clearSelectedSteamGame();
-      closeReqDropdown();
+      closeProposalDrawer();
       if (window.lucide) lucide.createIcons();
-      setTimeout(() => {
-        document.getElementById('reqGameName').focus();
-      }, 100);
+      await loadCommunityRequests();
     }
 
     function closeGameRequestModal() {
       document.getElementById('requestModal').classList.add('hidden');
       closeReqDropdown();
+      closeProposalDrawer();
     }
 
+    function toggleProposalDrawer() {
+      const drawer = document.getElementById('proposalDrawer');
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+        document.getElementById('reqGameName').value = '';
+        document.getElementById('reqGameNote').value = '';
+        clearSelectedSteamGame();
+        closeReqDropdown();
+        setTimeout(() => {
+          document.getElementById('reqGameName').focus();
+        }, 80);
+      } else {
+        closeProposalDrawer();
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeProposalDrawer() {
+      const drawer = document.getElementById('proposalDrawer');
+      if (drawer) drawer.classList.add('hidden');
+      closeReqDropdown();
+    }
+
+    // Load & Render Community Wishlist
+    async function loadCommunityRequests() {
+      const container = document.getElementById('communityRequestList');
+      if (container) {
+        container.innerHTML = `
+          <div class="py-12 flex flex-col items-center justify-center space-y-3 text-slate-400 font-mono">
+            <i data-lucide="loader-2" class="w-6 h-6 text-[#00F0FF] animate-spin"></i>
+            <span class="text-xs">Đang nạp bảng nguyện vọng cộng đồng...</span>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        const res = await fetch('/api/community_requests');
+        const data = await res.json();
+        if (data.success) {
+          communityWishlistItems = data.items || [];
+          updateCloudStatusBadge(data.cloud_connected);
+          renderCommunityRequests();
+        }
+      } catch (err) {
+        console.error('Failed to load community requests:', err);
+        if (container) {
+          container.innerHTML = `
+            <div class="py-8 text-center text-xs text-rose-400 font-mono">
+              Lỗi tải danh sách nguyện vọng. Vui lòng thử lại!
+            </div>
+          `;
+        }
+      }
+    }
+
+    function updateCloudStatusBadge(cloudConnected) {
+      const badge = document.getElementById('wishlistCloudBadge');
+      if (!badge) return;
+      if (cloudConnected) {
+        badge.innerHTML = `
+          <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400 font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Cloud Realtime Online</span>
+          </span>
+        `;
+      } else {
+        badge.innerHTML = `
+          <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-400 font-mono" title="Chưa gắn URL Firebase, dữ liệu đang đồng bộ cục bộ và sẵn sàng kết nối Cloud">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            <span>Chế độ Offline / Sẵn sàng kết nối Firebase</span>
+          </span>
+        `;
+      }
+    }
+
+    function setWishlistTab(tab) {
+      activeWishlistTab = tab;
+      
+      const tabTop = document.getElementById('tabTopVoted');
+      const tabRecent = document.getElementById('tabRecent');
+      const tabMyVoted = document.getElementById('tabMyVoted');
+
+      [tabTop, tabRecent, tabMyVoted].forEach(btn => {
+        if (!btn) return;
+        btn.classList.remove('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
+        btn.classList.add('text-slate-400');
+      });
+
+      if (tab === 'top' && tabTop) {
+        tabTop.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
+      } else if (tab === 'recent' && tabRecent) {
+        tabRecent.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
+      } else if (tab === 'voted' && tabMyVoted) {
+        tabMyVoted.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
+      }
+
+      renderCommunityRequests();
+    }
+
+    function renderCommunityRequests() {
+      const container = document.getElementById('communityRequestList');
+      const statsText = document.getElementById('wishlistStatsText');
+      if (!container) return;
+
+      // Filter by search query
+      let items = [...communityWishlistItems];
+      if (wishlistFilterQuery) {
+        const q = wishlistFilterQuery.toLowerCase();
+        items = items.filter(it => 
+          (it.name && it.name.toLowerCase().includes(q)) ||
+          (it.id && String(it.id).includes(q)) ||
+          (it.note && it.note.toLowerCase().includes(q))
+        );
+      }
+
+      // Sort / Filter by tab
+      if (activeWishlistTab === 'top') {
+        items.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+      } else if (activeWishlistTab === 'recent') {
+        items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      } else if (activeWishlistTab === 'voted') {
+        items = items.filter(it => it.has_voted);
+        items.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+      }
+
+      // Update stats text
+      const totalVotes = communityWishlistItems.reduce((acc, it) => acc + (it.votes || 0), 0);
+      if (statsText) {
+        statsText.innerHTML = `
+          <span>🔥 Tổng cộng: <strong class="text-white">${communityWishlistItems.length}</strong> tựa game &bull; <strong class="text-[#00F0FF]">${totalVotes}</strong> lượt bình chọn</span>
+        `;
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 flex flex-col items-center justify-center space-y-3 text-slate-400 font-mono">
+            <i data-lucide="inbox" class="w-8 h-8 text-slate-600"></i>
+            <span class="text-xs">Chưa có tựa game nào trong danh mục này.</span>
+            <button onclick="toggleProposalDrawer()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs font-bold">
+              + Đề cử game đầu tiên
+            </button>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      const html = items.map((item, index) => {
+        const rank = index + 1;
+        let rankBadge = '';
+        let borderAccent = 'border-white/10 hover:border-[#00F0FF]/50';
+
+        if (activeWishlistTab === 'top') {
+          if (rank === 1) {
+            rankBadge = `<span class="px-2 py-1 rounded-[2px] bg-gradient-to-r from-amber-500/30 to-amber-500/10 border border-amber-400/80 text-amber-300 font-pixel font-bold text-xs shadow-[0_0_10px_rgba(251,191,36,0.3)] shrink-0">👑 #1</span>`;
+            borderAccent = 'border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.15)]';
+          } else if (rank === 2) {
+            rankBadge = `<span class="px-2 py-1 rounded-[2px] bg-slate-300/20 border border-slate-300/80 text-slate-200 font-pixel font-bold text-xs shrink-0">🥈 #2</span>`;
+            borderAccent = 'border-slate-300/40';
+          } else if (rank === 3) {
+            rankBadge = `<span class="px-2 py-1 rounded-[2px] bg-amber-700/20 border border-amber-600/80 text-amber-400 font-pixel font-bold text-xs shrink-0">🥉 #3</span>`;
+            borderAccent = 'border-amber-600/40';
+          } else {
+            rankBadge = `<span class="px-2 py-0.5 rounded-[2px] bg-[#121630] border border-white/10 text-slate-400 font-mono text-xs shrink-0 font-bold">#${rank}</span>`;
+          }
+        }
+
+        // Status badge
+        let statusBadge = '';
+        const st = item.status || 'voting';
+        if (st === 'reviewing') {
+          statusBadge = `<span class="px-2 py-0.5 text-[9px] font-pixel text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded">TIẾP NHẬN</span>`;
+        } else if (st === 'translating') {
+          statusBadge = `<span class="px-2 py-0.5 text-[9px] font-pixel text-[#FF2A85] bg-[#FF2A85]/15 border border-[#FF2A85]/40 rounded animate-pulse">ĐANG DỊCH</span>`;
+        } else if (st === 'completed') {
+          statusBadge = `<span class="px-2 py-0.5 text-[9px] font-pixel text-[#00FF9D] bg-[#00FF9D]/15 border border-[#00FF9D]/40 rounded">ĐÃ HOÀN THÀNH</span>`;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 text-[9px] font-pixel text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 rounded">ĐANG BÌNH CHỌN</span>`;
+        }
+
+        // Vote button styling
+        const voteBtn = item.has_voted ? `
+          <button onclick="voteCommunityRequest('${item.id}')" class="pixel-btn px-3 sm:px-4 py-2 bg-[#06241a] border border-[#00FF9D] text-[#00FF9D] font-bold flex items-center space-x-1.5 shadow-[0_0_12px_rgba(0,255,157,0.25)] hover:bg-[#083023] transition-all shrink-0" title="Bấm để hủy bình chọn">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span class="text-xs font-pixel">${item.votes || 0}</span>
+            <span class="text-[10px] font-mono uppercase hidden sm:inline">ĐÃ VOTE</span>
+          </button>
+        ` : `
+          <button onclick="voteCommunityRequest('${item.id}')" class="pixel-btn px-3 sm:px-4 py-2 bg-[#121630] border border-[#00F0FF]/40 hover:border-[#00F0FF] hover:bg-[#00F0FF]/20 text-white font-bold flex items-center space-x-1.5 shadow-[0_0_10px_rgba(0,240,255,0.15)] transition-all shrink-0 group" title="Bình chọn cho tựa game này">
+            <span class="text-[#FF2A85] text-xs">🔥</span>
+            <span class="text-xs font-pixel group-hover:text-[#00F0FF]">${item.votes || 0}</span>
+            <span class="text-[10px] font-mono text-[#00F0FF] uppercase hidden sm:inline">BÌNH CHỌN</span>
+          </button>
+        `;
+
+        return `
+          <div class="pixel-panel p-2.5 sm:p-3 bg-[#0a0c1b] border ${borderAccent} flex items-center justify-between gap-3 transition-all rounded-[2px]">
+            <div class="flex items-center space-x-2.5 sm:space-x-3.5 min-w-0">
+              ${rankBadge}
+              <img src="${item.capsule}" class="w-[88px] sm:w-[104px] h-[38px] sm:h-[44px] object-cover rounded-[2px] border border-white/10 shrink-0 bg-[#121424]" alt="" onerror="this.src='/static/icons/game_placeholder.png'" />
+              <div class="min-w-0">
+                <div class="flex items-center space-x-2">
+                  <h4 class="text-xs sm:text-sm font-bold text-white truncate hover:text-[#00F0FF] transition-colors font-display">${item.name}</h4>
+                  ${statusBadge}
+                </div>
+                <div class="flex items-center space-x-2 text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                  <span class="text-[#00FF9D]/80">AppID: ${item.id}</span>
+                  ${item.note ? `<span>&bull;</span> <span class="truncate italic text-slate-400">${item.note}</span>` : ''}
+                </div>
+              </div>
+            </div>
+            ${voteBtn}
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function voteCommunityRequest(gameId) {
+      try {
+        const res = await fetch('/api/community_requests/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, data.has_voted ? 'success' : 'info');
+          // Update item in local array for instant response
+          const item = communityWishlistItems.find(it => String(it.id) === String(gameId));
+          if (item) {
+            item.votes = data.votes;
+            item.has_voted = data.has_voted;
+            renderCommunityRequests();
+          }
+        } else {
+          showToast(data.message, 'warning');
+        }
+      } catch (err) {
+        showToast('Lỗi khi gửi bình chọn!', 'error');
+      }
+    }
+
+    async function submitGameProposal() {
+      const gname = document.getElementById('reqGameName').value.trim();
+      const gnote = document.getElementById('reqGameNote').value.trim();
+      if (!gname) {
+        showToast('Vui lòng chọn hoặc nhập tên tựa game mong muốn!', 'warning');
+        return;
+      }
+
+      const gameId = selectedGameRequest ? selectedGameRequest.id : null;
+      const capsule = selectedGameRequest ? selectedGameRequest.capsule : null;
+
+      try {
+        const res = await fetch('/api/community_requests/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            name: gname,
+            capsule: capsule,
+            note: gnote
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          closeProposalDrawer();
+          await loadCommunityRequests();
+        } else {
+          showToast(data.message, 'warning');
+        }
+      } catch (err) {
+        showToast('Lỗi khi gửi đề cử!', 'error');
+      }
+    }
+
+    // Steam Autocomplete input events for Game Request
     function closeReqDropdown() {
       const dd = document.getElementById('reqSteamDropdown');
       if (dd) dd.classList.add('hidden');
@@ -1944,7 +2283,7 @@
         dropdown.innerHTML = `
           <div class="p-3 text-center text-xs text-slate-400 font-mono">
             <div class="text-slate-300 font-semibold mb-1">Không thấy trong top game Steam phổ biến</div>
-            <div class="text-[11px] text-slate-500">Bạn vẫn có thể gửi tên này bình thường bằng nút "GỬI YÊU CẦU"!</div>
+            <div class="text-[11px] text-slate-500">Bạn vẫn có thể đề cử tên này bằng nút "GỬI ĐỀ CỬ"!</div>
           </div>
         `;
         dropdown.classList.remove('hidden');
@@ -1986,132 +2325,104 @@
           <span class="text-[#00F0FF] font-semibold text-[9px] uppercase tracking-wider">Cơ sở dữ liệu Steam</span>
         </div>
         <div class="divide-y divide-white/5">${html}</div>
-        <div class="px-2.5 py-1.5 text-[10px] text-slate-400 font-mono bg-[#05060d] text-center border-t border-white/5">
-          💡 Dùng phím <kbd class="px-1 py-0.5 bg-[#17192e] text-[#00F0FF] rounded text-[9px]">↑</kbd> <kbd class="px-1 py-0.5 bg-[#17192e] text-[#00F0FF] rounded text-[9px]">↓</kbd> và <kbd class="px-1 py-0.5 bg-[#17192e] text-[#00F0FF] rounded text-[9px]">Enter</kbd> để chọn nhanh
-        </div>
       `;
       dropdown.classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
     }
 
-    async function submitGameRequest() {
-      const gname = document.getElementById('reqGameName').value.trim();
-      let gnote = document.getElementById('reqGameNote').value.trim();
-      if (!gname) {
-        showToast('Vui lòng nhập tên tựa game mong muốn!', 'warning');
-        return;
-      }
-      try {
-        const steamId = selectedGameRequest ? selectedGameRequest.id : null;
-        const capsule = selectedGameRequest ? selectedGameRequest.capsule : null;
-        
-        // Enrich note with Steam ID for full backward compatibility
-        if (steamId && !gnote.includes(`Steam App ID: ${steamId}`)) {
-          gnote = gnote ? `${gnote} (Steam App ID: ${steamId})` : `Steam App ID: ${steamId}`;
-        }
-
-        const payload = {
-          game_name: gname,
-          note: gnote,
-          steam_id: steamId,
-          capsule: capsule
-        };
-        const res = await fetch('/api/request_game', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+    // Attach search events for wishlist filter & steam autocomplete
+    document.addEventListener('DOMContentLoaded', () => {
+      // Wishlist live filter search
+      const wishlistFilterInput = document.getElementById('wishlistFilterInput');
+      if (wishlistFilterInput) {
+        wishlistFilterInput.addEventListener('input', (e) => {
+          wishlistFilterQuery = e.target.value.trim();
+          renderCommunityRequests();
         });
-        const data = await res.json();
-        showToast(data.message, 'success');
-        document.getElementById('reqGameName').value = '';
-        document.getElementById('reqGameNote').value = '';
-        clearSelectedSteamGame();
-        closeGameRequestModal();
-      } catch (err) {
-        showToast('Lỗi khi gửi yêu cầu!', 'error');
       }
-    }
 
-    // Steam Autocomplete input events for Game Request
-    const reqInput = document.getElementById('reqGameName');
-    const reqDropdown = document.getElementById('reqSteamDropdown');
-    const reqSpinner = document.getElementById('reqSearchSpinner');
-    const reqClearBtn = document.getElementById('reqClearInputBtn');
+      // Steam input autocomplete
+      const reqInput = document.getElementById('reqGameName');
+      const reqDropdown = document.getElementById('reqSteamDropdown');
+      const reqSpinner = document.getElementById('reqSearchSpinner');
+      const reqClearBtn = document.getElementById('reqClearInputBtn');
 
-    if (reqInput) {
-      reqInput.addEventListener('input', (e) => {
-        const q = e.target.value.trim();
-        if (q.length > 0) {
-          reqClearBtn.classList.remove('hidden');
-        } else {
-          reqClearBtn.classList.add('hidden');
-          clearSelectedSteamGame();
-          closeReqDropdown();
-          return;
-        }
-
-        if (selectedGameRequest && selectedGameRequest.name !== q) {
-          clearSelectedSteamGame();
-        }
-
-        if (q.length < 2) {
-          closeReqDropdown();
-          return;
-        }
-
-        clearTimeout(reqSearchDebounceTimer);
-        reqSearchDebounceTimer = setTimeout(async () => {
-          reqSpinner.classList.remove('hidden');
-          reqClearBtn.classList.add('hidden');
-          try {
-            const results = await querySteamSearch(q);
-            renderReqDropdown(results, q);
-          } catch (err) {
-            console.error('Steam search error:', err);
-          } finally {
-            reqSpinner.classList.add('hidden');
-            if (reqInput.value.trim().length > 0) {
-              reqClearBtn.classList.remove('hidden');
-            }
-          }
-        }, 120);
-      });
-
-      reqInput.addEventListener('keydown', (e) => {
-        if (reqDropdown.classList.contains('hidden') || !reqDropdownItems.length) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            submitGameRequest();
-          }
-          return;
-        }
-
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          reqActiveIndex = (reqActiveIndex + 1) % reqDropdownItems.length;
-          updateActiveDropdownItem();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          reqActiveIndex = (reqActiveIndex - 1 + reqDropdownItems.length) % reqDropdownItems.length;
-          updateActiveDropdownItem();
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          if (reqActiveIndex >= 0 && reqActiveIndex < reqDropdownItems.length) {
-            selectSteamGame(reqDropdownItems[reqActiveIndex]);
+      if (reqInput) {
+        reqInput.addEventListener('input', (e) => {
+          const q = e.target.value.trim();
+          if (q.length > 0) {
+            reqClearBtn.classList.remove('hidden');
           } else {
+            reqClearBtn.classList.add('hidden');
+            clearSelectedSteamGame();
+            closeReqDropdown();
+            return;
+          }
+
+          if (selectedGameRequest && selectedGameRequest.name !== q) {
+            clearSelectedSteamGame();
+          }
+
+          if (q.length < 2) {
+            closeReqDropdown();
+            return;
+          }
+
+          clearTimeout(reqSearchDebounceTimer);
+          reqSearchDebounceTimer = setTimeout(async () => {
+            reqSpinner.classList.remove('hidden');
+            reqClearBtn.classList.add('hidden');
+            try {
+              const results = await querySteamSearch(q);
+              renderReqDropdown(results, q);
+            } catch (err) {
+              console.error('Steam search error:', err);
+            } finally {
+              reqSpinner.classList.add('hidden');
+              if (reqInput.value.trim().length > 0) {
+                reqClearBtn.classList.remove('hidden');
+              }
+            }
+          }, 120);
+        });
+
+        reqInput.addEventListener('keydown', (e) => {
+          if (reqDropdown.classList.contains('hidden') || !reqDropdownItems.length) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submitGameProposal();
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            reqActiveIndex = (reqActiveIndex + 1) % reqDropdownItems.length;
+            updateActiveDropdownItem();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            reqActiveIndex = (reqActiveIndex - 1 + reqDropdownItems.length) % reqDropdownItems.length;
+            updateActiveDropdownItem();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (reqActiveIndex >= 0 && reqActiveIndex < reqDropdownItems.length) {
+              selectSteamGame(reqDropdownItems[reqActiveIndex]);
+            } else {
+              closeReqDropdown();
+            }
+          } else if (e.key === 'Escape') {
             closeReqDropdown();
           }
-        } else if (e.key === 'Escape') {
-          closeReqDropdown();
-        }
-      });
+        });
 
-      document.addEventListener('click', (e) => {
-        if (!reqInput.contains(e.target) && !reqDropdown.contains(e.target) && !e.target.closest('#reqClearInputBtn')) {
-          closeReqDropdown();
-        }
-      });
-    }
+        document.addEventListener('click', (e) => {
+          if (!reqInput.contains(e.target) && !reqDropdown.contains(e.target) && !e.target.closest('#reqClearInputBtn')) {
+            closeReqDropdown();
+          }
+        });
+      }
+    });
+
 
     // Search events
     document.getElementById('searchInput').addEventListener('input', (e) => {
