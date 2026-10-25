@@ -807,5 +807,85 @@
       ]
     },
     "congu_sha256": "0c71c419c98d29a4c5259d6ab1fcaee2d24996743a7017b9790e1805c8bb4d48"
+  },
+  {
+    "id": "demons_night_fever",
+    "steam_appid": "3502620",
+    "title": "DEMONS' NIGHT FEVER",
+    "vietnamese_title": "DEMONS' NIGHT FEVER (Cơn Sốt Đêm Ma Quái)",
+    "developer": "LycansLab / Drecom",
+    "engine": "Unity 2022.3 (IL2CPP + Addressables)",
+    "genre": "Chiến thuật, Xây dựng Hậu cung, Indie, RPG",
+    "description": "Hóa thân thành Tân Chúa Quỷ trong hành trình chinh phục nhân giới! Tuyển mộ và chỉ huy các tay sai ma quỷ thực hiện các trò gian ác thâu đêm, tích lũy Điểm Sa Đọa, chiêu mộ các ma nữ quyến rũ và đối đầu các anh hùng chính nghĩa bảo vệ thành phố.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "9,139 chuỗi ngôn ngữ & hội thoại",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
+      "author": "Antigravity Localization Team",
+      "font": "FOT-RODINNTLGPRO-UB SDF tiếng Việt 134 ký tự chuẩn sắc nét",
+      "last_updated": "26/10/2026",
+      "mod_size": "~1.9 MB"
+    },
+    "mod_subfolder": "DEMONS' NIGHT FEVER",
+    "mod_type": "pipeline",
+    "mod_file": "DEMONS_NIGHT_FEVER_Viethoa.congu",
+    "relative_install_path": "DNFever_Data/StreamingAssets/aa",
+    "target_pak_name": "DEMONS_NIGHT_FEVER_Viethoa.congu",
+    "executable_name": "DNFever.exe",
+    "default_folder_names": [
+      "DEMONS' NIGHT FEVER",
+      "DEMONS NIGHT FEVER",
+      "DNFever"
+    ],
+    "assets": {
+      "poster": "/static/posters/3502620.jpg",
+      "banner": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3502620/capsule_616x353.jpg",
+      "header": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3502620/capsule_616x353.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
+        "release_date": "26/10/2026",
+        "changelog": "Bản phát hành chính thức Việt hóa trọn vẹn 100% toàn bộ hội thoại và UI, tích hợp font SDF tiếng Việt chuẩn sắc nét không lỗi ô vuông, container .congu V2 siêu nhẹ.",
+        "is_latest": true
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/DEMONS_NIGHT_FEVER_Viethoa.congu",
+    "mod_size": "~1.9 MB",
+    "install_steps": [
+      {
+        "action": "copy_file",
+        "source": "e2e4446269fb212f153f6c0c71fdde79.bundle",
+        "destination": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/e2e4446269fb212f153f6c0c71fdde79.bundle"
+      },
+      {
+        "action": "copy_file",
+        "source": "5f79f6e33d257e173f7ed4dcfc489702.bundle",
+        "destination": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/5f79f6e33d257e173f7ed4dcfc489702.bundle"
+      },
+      {
+        "action": "patch_binary",
+        "target": "DNFever_Data/StreamingAssets/aa/catalog.json",
+        "patch": "catalog.json.xdelta.diff",
+        "original_sha256": "c37e5240a750e0a3a6ae970933237fc9826ddcd60381e94ec66c8452c3631ea1",
+        "patched_sha256": "c10f98bf9b6ca00cf3fafc392baaab3bd2e2203daffaae3f253eb05c565a7bdf"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "restore_backup",
+        "target": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/e2e4446269fb212f153f6c0c71fdde79.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/5f79f6e33d257e173f7ed4dcfc489702.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "DNFever_Data/StreamingAssets/aa/catalog.json"
+      }
+    ],
+    "congu_sha256": "63cdbaf64a9ac958e51ea2470d7221d0c45eaba988edbc17e96ce1c949c8c1d8"
   }
 ]

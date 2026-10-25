@@ -749,6 +749,10 @@
                 <i data-lucide="image" class="w-4 h-4 text-[#00F0FF]"></i>
                 <span class="hidden sm:inline">Đổi Ảnh Bìa</span>
               </button>
+              <button onclick="openRemapModal(activeModalGameId)" class="pixel-btn bg-[#181a33] text-slate-200 hover:text-[#00FF9D] border border-[#2b2f52] hover:border-[#00FF9D] px-3 py-2 text-xs flex items-center space-x-1.5" title="Tìm và chọn lại game từ Steam Store / games.json để sửa đúng Poster">
+                <i data-lucide="search" class="w-4 h-4 text-[#00FF9D]"></i>
+                <span class="hidden sm:inline">Tìm & Chọn lại game</span>
+              </button>
             </div>
             <!-- Admin Permission Required Warning Banner (Early Smart UAC Warning) -->
             <div id="modalAdminWarningBanner" class="hidden p-2.5 rounded-[2px] bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs flex items-center justify-between shadow-[2px_2px_0px_#05050a]">
@@ -1070,6 +1074,10 @@
       <i data-lucide="image" class="w-4 h-4 text-[#00F0FF]"></i>
       <span>Đổi Ảnh Bìa (Cover)...</span>
     </button>
+    <button onclick="onContextRemapGame()" class="w-full text-left px-3.5 py-2 text-slate-200 hover:text-[#00FF9D] hover:bg-[#1a1d3b] flex items-center space-x-2.5 transition">
+      <i data-lucide="search" class="w-4 h-4 text-[#00FF9D]"></i>
+      <span>Tìm & Chọn lại game (Steam)...</span>
+    </button>
     <button onclick="onContextOpenFolder()" class="w-full text-left px-3.5 py-2 text-slate-200 hover:text-[#00FF9D] hover:bg-[#1a1d3b] flex items-center space-x-2.5 transition">
       <i data-lucide="folder" class="w-4 h-4 text-[#00FF9D]"></i>
       <span>Mở Thư Mục Game</span>
@@ -1079,6 +1087,37 @@
       <i data-lucide="info" class="w-4 h-4 text-[#FFB800]"></i>
       <span>Xem Chi Tiết & Cài Đặt</span>
     </button>
+  </div>
+
+  <!-- MODAL TÌM & CHỌN LẠI GAME (STEAM / GAMES.JSON) -->
+  <div id="remapGameModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0b0d1e] border-2 border-[#00F0FF]/60 shadow-[0_0_35px_rgba(0,240,255,0.25)] rounded-[2px] max-w-lg w-full p-5 space-y-4 font-sans text-slate-200 relative">
+      <div class="flex items-center justify-between border-b border-[#00F0FF]/30 pb-3">
+        <div class="flex items-center space-x-2 font-pixel text-sm font-bold text-[#00F0FF] uppercase tracking-wider">
+          <i data-lucide="search" class="w-4 h-4 text-[#00F0FF]"></i>
+          <span>Tìm & Chọn Lại Avatar Game</span>
+        </div>
+        <button onclick="closeRemapModal()" class="text-slate-400 hover:text-white font-mono text-sm">[x]</button>
+      </div>
+      <p class="text-xs text-slate-300 font-sans">
+        Nhập tên game để tìm kiếm từ cơ sở dữ liệu và Steam Store. Khi chọn, hệ thống sẽ tự động cập nhật Poster dọc 600x900 và thông tin tương ứng.
+      </p>
+      <div class="relative">
+        <input id="remapSearchInput" type="text" autocomplete="off" spellcheck="false"
+          placeholder="Nhập tên game (ví dụ: Demons' Night Fever, Hades, Elden Ring...)"
+          oninput="onRemapSearchInput(this.value)"
+          class="w-full pl-3.5 pr-10 py-2.5 bg-[#070914] border border-[#00F0FF]/50 rounded-[2px] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] focus:shadow-[0_0_12px_rgba(0,240,255,0.4)] font-mono" />
+        <div id="remapSearchSpinner" class="absolute right-3.5 top-2.5 hidden">
+          <i data-lucide="loader-2" class="w-4 h-4 text-[#00F0FF] animate-spin"></i>
+        </div>
+      </div>
+      <div id="remapResultsList" class="max-h-72 overflow-y-auto space-y-1.5 divide-y divide-white/5 scrollbar-thin">
+        <!-- Rendered items -->
+      </div>
+      <div class="flex justify-end pt-2 border-t border-white/10">
+        <button onclick="closeRemapModal()" class="pixel-btn bg-[#181a33] text-slate-300 hover:text-white px-4 py-1.5 text-xs">Hủy</button>
+      </div>
+    </div>
   </div>
 
   <!-- TOAST NOTIFICATION CONTAINER -->
@@ -2417,6 +2456,163 @@
       const gid = activeContextGameId;
       closeCardContextMenu();
       if (gid) openGameModal(gid);
+    }
+
+    let activeRemapGameId = null;
+    let remapDebounceTimer = null;
+
+    function onContextRemapGame() {
+      const gid = activeContextGameId;
+      closeCardContextMenu();
+      if (gid) openRemapModal(gid);
+    }
+
+    function openRemapModal(gameId) {
+      if (!gameId) return;
+      activeRemapGameId = gameId;
+      const modal = document.getElementById('remapGameModal');
+      const input = document.getElementById('remapSearchInput');
+      const list = document.getElementById('remapResultsList');
+      if (!modal) return;
+      
+      const game = gamesList.find(g => g.id === gameId);
+      input.value = game ? (game.title || game.name || '') : '';
+      list.innerHTML = '<div class="p-3 text-center text-xs text-slate-500 font-mono">Nhập từ khóa để bắt đầu tìm kiếm...</div>';
+      modal.classList.remove('hidden');
+      input.focus();
+      lucide.createIcons();
+      if (input.value) {
+        onRemapSearchInput(input.value);
+      }
+    }
+
+    function closeRemapModal() {
+      const modal = document.getElementById('remapGameModal');
+      if (modal) modal.classList.add('hidden');
+      activeRemapGameId = null;
+    }
+
+    function onRemapSearchInput(val) {
+      clearTimeout(remapDebounceTimer);
+      const query = (val || '').trim();
+      const spinner = document.getElementById('remapSearchSpinner');
+      const list = document.getElementById('remapResultsList');
+      if (!list) return;
+
+      if (!query || query.length < 2) {
+        list.innerHTML = '<div class="p-3 text-center text-xs text-slate-500 font-mono">Nhập từ khóa để bắt đầu tìm kiếm...</div>';
+        return;
+      }
+
+      if (spinner) spinner.classList.remove('hidden');
+      remapDebounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/steam/search?q=${encodeURIComponent(query)}`);
+          const steamResults = await res.json();
+
+          const qLow = query.toLowerCase();
+          const localMatches = gamesList.filter(g => 
+            (g.title && g.title.toLowerCase().includes(qLow)) ||
+            (g.vietnamese_title && g.vietnamese_title.toLowerCase().includes(qLow))
+          );
+
+          renderRemapResults(steamResults, localMatches);
+        } catch (e) {
+          list.innerHTML = `<div class="p-3 text-center text-xs text-red-400 font-mono">Lỗi tìm kiếm: ${e}</div>`;
+        } finally {
+          if (spinner) spinner.classList.add('hidden');
+        }
+      }, 250);
+    }
+
+    function renderRemapResults(steamResults, localMatches) {
+      const list = document.getElementById('remapResultsList');
+      if (!list) return;
+
+      const combined = [];
+      const seenIds = new Set();
+
+      localMatches.forEach(g => {
+        if (g.steam_appid && !seenIds.has(String(g.steam_appid))) {
+          seenIds.add(String(g.steam_appid));
+          combined.push({
+            id: g.steam_appid,
+            name: g.title,
+            capsule: g.assets?.poster || g.assets?.header || `https://cdn.akamai.steamstatic.com/steam/apps/${g.steam_appid}/capsule_sm_120.jpg`,
+            isLocal: true,
+            genre: g.genre
+          });
+        }
+      });
+
+      steamResults.forEach(s => {
+        if (!seenIds.has(String(s.id))) {
+          seenIds.add(String(s.id));
+          combined.push({
+            id: s.id,
+            name: s.name,
+            capsule: s.capsule || `https://cdn.akamai.steamstatic.com/steam/apps/${s.id}/capsule_sm_120.jpg`,
+            isLocal: false
+          });
+        }
+      });
+
+      if (!combined.length) {
+        list.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 font-mono">Không tìm thấy game nào phù hợp.</div>';
+        return;
+      }
+
+      let html = '';
+      combined.forEach(item => {
+        html += `
+          <div class="p-2 hover:bg-[#141733] flex items-center justify-between group rounded-[2px] transition cursor-pointer" onclick="applyRemapGame('${item.id}', '${item.name.replace(/'/g, "\\'")}')">
+            <div class="flex items-center space-x-3 min-w-0">
+              <img src="${item.capsule}" class="w-16 h-8 object-cover rounded-[2px] border border-[#2b2f52] bg-[#0c0e1f]" onerror="this.src='/static/icons/game_placeholder.png'" />
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-white group-hover:text-[#00F0FF] truncate">${item.name}</div>
+                <div class="text-[10px] text-slate-400 font-mono">AppID: ${item.id} ${item.isLocal ? '<span class="text-[#00FF9D] font-bold">[CỔ NGỮ MOD]</span>' : ''}</div>
+              </div>
+            </div>
+            <button class="pixel-btn bg-[#181a33] text-slate-200 group-hover:bg-[#00F0FF] group-hover:text-black px-2.5 py-1 text-[11px] font-bold rounded-[2px] shrink-0">
+              Chọn
+            </button>
+          </div>
+        `;
+      });
+      list.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    async function applyRemapGame(appId, title) {
+      if (!activeRemapGameId || !appId) return;
+      closeRemapModal();
+      showToast(`Đang đồng bộ Poster & thông tin từ Steam (AppID ${appId})...`, 'info');
+      try {
+        const res = await fetch('/api/game/remap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: activeRemapGameId,
+            steam_appid: appId,
+            title: title
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          if (data.games) {
+            gamesList = data.games;
+            updateUI();
+            if (activeModalGameId === activeRemapGameId) {
+              openGameModal(activeModalGameId);
+            }
+          }
+        } else {
+          showToast(data.message || 'Lỗi khi cập nhật Avatar!', 'error');
+        }
+      } catch (e) {
+        showToast(`Lỗi kết nối: ${e}`, 'error');
+      }
     }
 
     async function changeGameCover(gameId) {

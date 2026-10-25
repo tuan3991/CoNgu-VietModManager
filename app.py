@@ -4436,6 +4436,59 @@ def api_game_metadata():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/game/remap", method="POST")
+def api_game_remap():
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    target_appid = str(data.get("steam_appid", "")).strip()
+    target_title = data.get("title", "").strip()
+    
+    if not game_id or not target_appid:
+        response.status = 400
+        return json.dumps({"success": False, "message": "Thiếu game_id hoặc steam_appid"})
+    
+    details_url = f"https://store.steampowered.com/api/appdetails?appids={target_appid}&l=vietnamese&cc=VN"
+    try:
+        req = urllib.request.Request(details_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            det = json.loads(resp.read().decode("utf-8"))
+        if det.get(str(target_appid), {}).get("success"):
+            app_data = det[str(target_appid)]["data"]
+            poster_url = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900_2x.jpg"
+            out_cover = os.path.join(COVERS_DIR, f"{game_id}.jpg")
+            try:
+                urllib.request.urlretrieve(poster_url, out_cover)
+            except Exception:
+                poster_url = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg"
+                try:
+                    urllib.request.urlretrieve(poster_url, out_cover)
+                except Exception:
+                    pass
+            
+            c_cache = load_covers_cache()
+            genres_list = [g.get("description") for g in app_data.get("genres", [])]
+            c_cache[game_id] = {
+                "steam_appid": target_appid,
+                "title": app_data.get("name", target_title),
+                "genre": ", ".join(genres_list) if genres_list else "Game",
+                "poster_url": poster_url,
+                "local_cover": f"/api/covers/{game_id}.jpg",
+                "header_url": app_data.get("header_image", "")
+            }
+            save_covers_cache(c_cache)
+            response.content_type = "application/json"
+            return json.dumps({
+                "success": True, 
+                "message": f"Đã cập nhật Avatar & thông tin theo Steam AppID {target_appid}!",
+                "games": api_instance.get_games()
+            }, ensure_ascii=False)
+        else:
+            response.content_type = "application/json"
+            return json.dumps({"success": False, "message": "Không tìm thấy game trên Steam Store"}, ensure_ascii=False)
+    except Exception as e:
+        response.content_type = "application/json"
+        return json.dumps({"success": False, "message": f"Lỗi khi cập nhật Avatar: {e}"}, ensure_ascii=False)
+
 @server_app.route("/api/games", method="GET")
 def api_get_games():
     response.content_type = "application/json"
