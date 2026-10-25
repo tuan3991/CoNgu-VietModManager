@@ -823,9 +823,9 @@
       "status": "Hoàn thành 100% (Zero Omission)",
       "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
       "author": "Antigravity Localization Team",
-      "font": "FOT-RODINNTLGPRO-UB SDF tiếng Việt 134 ký tự chuẩn sắc nét",
+      "font": "FOT-RODINNTLGPRO-UB SDF JA & EN (134/134 ký tự tiếng Việt chuẩn sắc nét)",
       "last_updated": "26/10/2026",
-      "mod_size": "~1.9 MB"
+      "mod_size": "~32.2 MB"
     },
     "mod_subfolder": "DEMONS' NIGHT FEVER",
     "mod_type": "pipeline",
@@ -852,7 +852,7 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/DEMONS_NIGHT_FEVER_Viethoa.congu",
-    "mod_size": "~1.9 MB",
+    "mod_size": "~32.2 MB",
     "install_steps": [
       {
         "action": "copy_file",
@@ -865,11 +865,16 @@
         "destination": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/5f79f6e33d257e173f7ed4dcfc489702.bundle"
       },
       {
+        "action": "copy_file",
+        "source": "c5a5aba1d7020603d2c280e671f4e5dd.bundle",
+        "destination": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/c5a5aba1d7020603d2c280e671f4e5dd.bundle"
+      },
+      {
         "action": "patch_binary",
         "target": "DNFever_Data/StreamingAssets/aa/catalog.json",
         "patch": "catalog.json.xdelta.diff",
         "original_sha256": "c37e5240a750e0a3a6ae970933237fc9826ddcd60381e94ec66c8452c3631ea1",
-        "patched_sha256": "c10f98bf9b6ca00cf3fafc392baaab3bd2e2203daffaae3f253eb05c565a7bdf"
+        "patched_sha256": "a2800f871afad6b9408b87163f98a08d3e379bd675c3f98e3954e7d87a0c4da7"
       }
     ],
     "uninstall_steps": [
@@ -883,9 +888,13 @@
       },
       {
         "action": "restore_backup",
+        "target": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/c5a5aba1d7020603d2c280e671f4e5dd.bundle"
+      },
+      {
+        "action": "restore_backup",
         "target": "DNFever_Data/StreamingAssets/aa/catalog.json"
       }
     ],
-    "congu_sha256": "63cdbaf64a9ac958e51ea2470d7221d0c45eaba988edbc17e96ce1c949c8c1d8"
+    "congu_sha256": "f6896f58c564f6f98154d93c11009f2dda7e2747390788578889b6ac6875c609"
   }
 ]
