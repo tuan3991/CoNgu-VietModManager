@@ -724,8 +724,8 @@
     "translation_stats": {
       "progress": 100,
       "total_lines": "2,838 dòng thoại, nhật ký & giao diện",
-      "status": "Hoàn thành 100% (Zero Omission)",
-      "version": "v1.0.0 (Bản Chuẩn UE5)",
+      "status": "Hoàn thành 100% (Đã Nhuận Sắc Toàn Diện)",
+      "version": "v1.1.0 (Bản Nhuận Sắc Toàn Diện)",
       "author": "Antigravity Localization Team",
       "font": "NotoSerif & Slate có dấu chuẩn 100% (U+00C0 - U+1EF9)",
       "last_updated": "25/10/2026",
@@ -749,10 +749,16 @@
     },
     "versions": [
       {
+        "version": "v1.1.0 (Bản Nhuận Sắc Toàn Diện)",
+        "release_date": "25/10/2026",
+        "changelog": "Nhuận sắc văn phong toàn diện (Localization Polish Pass): Chuẩn hóa đại từ xưng hô theo quan hệ nhân vật (Anh - Em, Bố/Mẹ - Con gái cưng, Cậu - Tớ, độc thoại nội tâm \"mình\"), xóa bỏ văn phong dịch máy, thêm trợ từ khẩu ngữ tiếng Việt tự nhiên và chuẩn hóa thuật ngữ game thủ.",
+        "is_latest": true
+      },
+      {
         "version": "v1.0.0 (Bản Chuẩn UE5)",
         "release_date": "25/10/2026",
-        "changelog": "Phát hành bản Việt hóa chuẩn Unreal Engine 5 cho toàn bộ cốt truyện, nhật ký A.R.E.S., câu đố và menu.",
-        "is_latest": true
+        "changelog": "Phát hành bản dịch ban đầu cho toàn bộ cốt truyện, nhật ký A.R.E.S., câu đố và menu.",
+        "is_latest": false
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/Rivage.congu",
@@ -800,6 +806,6 @@
         }
       ]
     },
-    "congu_sha256": "d5d3ef5c1fc6d31b0eeeaecfd4e39afd30743775d8deabe4e2802886ef948233"
+    "congu_sha256": "0c71c419c98d29a4c5259d6ab1fcaee2d24996743a7017b9790e1805c8bb4d48"
   }
 ]

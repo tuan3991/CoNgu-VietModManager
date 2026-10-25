@@ -30,5 +30,25 @@ Toàn bộ các gói mod Việt hóa của bạn được lưu trữ tập trung
    - Tự động nhận diện thư mục cài đặt của tất cả 6 tựa game trên ổ C: và E:.
    - Hiển thị đầy đủ poster dọc 600x900, banner ngang và logo chính thức từ Steam.
    - Cho phép cài đặt hoặc gỡ bỏ bản Việt hóa trong 1 cú nhấp (1-Click Install / Uninstall).
-   - Nút **"Chơi Ngay (Launch)"** mở game trực tiếp qua Steam.
+- Nút **"Chơi Ngay (Launch)"** mở game trực tiếp qua Steam.
    - Nút **"Kho Viethoagame"** mở nhanh thư mục chứa file mod trong Windows Explorer.
+
+---
+
+## 📦 Đóng Gói Mod Mới & Tự Động Tính SHA-256 (`pack_mod.py`)
+
+Hệ thống cung cấp sẵn tiện ích CLI **`pack_mod.py`** giúp tự động hóa 100% quy trình tạo gói mod bảo mật `.congu` V2 và cập nhật vào `games.json`:
+
+```bash
+# 1. Chạy chế độ tương tác trực quan (Interactive Mode):
+python pack_mod.py
+
+# 2. Hoặc đóng gói tự động và cập nhật trực tiếp mã SHA-256 vào games.json:
+python pack_mod.py "path/to/mod_folder" --game-id <game_id> --update-json
+```
+
+**Tính năng nổi bật:**
+- Tự động nén thư mục mod thành tệp zip trung gian trong RAM.
+- Mã hóa bằng thuật toán **AES-256-GCM Streaming Chunked (V2)** chống tràn RAM & disk.
+- Tự động tính toán mã băm SHA-256 thực tế của file `.congu` đầu ra, loại bỏ hoàn toàn rủi ro copy-paste mã băm rỗng (`e3b0c442...`).
+- Tự động cập nhật `congu_sha256` và `mod_size` vào `games.json` kèm sao lưu an toàn `games.json.bak`.

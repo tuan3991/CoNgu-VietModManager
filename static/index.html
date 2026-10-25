@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="session-auth-token" content="">
   <title>CỔ NGỮ - Trình Quản Lý Game Việt Hóa Pro</title>
   <link rel="icon" type="image/png" href="/static/app_icon.png">
   <link rel="shortcut icon" type="image/x-icon" href="/app_icon.ico">
@@ -415,7 +416,7 @@
 
 
   <!-- TOP HEADER NAVBAR (CYBER-PIXEL ARCADE STYLE - FRAMELESS DRAG REGION) -->
-  <header id="appTitlebar" class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between pywebview-drag-region select-none" ondblclick="maximizeWindow()" title="Kéo để di chuyển cửa sổ | Bấm đúp để phóng to/thu nhỏ">
+  <header id="appTitlebar" class="sticky top-0 z-40 glass border-b border-[#00F0FF]/30 px-6 py-3 flex items-center justify-between pywebview-drag-region select-none cursor-grab active:cursor-grabbing" ondblclick="maximizeWindow()" title="Kéo để di chuyển cửa sổ | Bấm đúp để phóng to/thu nhỏ">
     <!-- Left Brand (Draggable with Clickable App Icon) -->
     <div class="flex items-center space-x-3.5 pywebview-drag-region">
       <div class="w-10 h-10 rounded-[2px] overflow-hidden shadow-[3px_3px_0px_#05050a] border border-[#00F0FF] bg-[#090b16] flex items-center justify-center p-0.5 transition-transform hover:scale-105 duration-200 cursor-pointer no-drag" onclick="refreshData()" title="Bấm vào logo để làm mới danh sách game">
@@ -449,15 +450,6 @@
       </div>
     </div>
 
-    <!-- Visual Drag Grip Spacer between Search and Action Buttons -->
-    <div class="hidden xl:flex items-center justify-center px-4 py-2 opacity-35 hover:opacity-90 transition-opacity pywebview-drag-region cursor-grab" title="Rê chuột ở đây để di chuyển cửa sổ CỔ NGỮ">
-      <div class="flex items-center space-x-1.5 pointer-events-none">
-        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
-        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
-        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
-        <span class="w-1.5 h-1.5 rounded-[1px] bg-[#00F0FF] shadow-[0_0_4px_#00F0FF]"></span>
-      </div>
-    </div>
 
     <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors & Window Controls) -->
     <div class="flex items-center space-x-2.5 no-drag">
@@ -736,7 +728,7 @@
           
 
 
-<!-- Game Installation Path (Cyber-Pixel) -->
+          <!-- Game Installation Path (Cyber-Pixel) -->
           <div class="space-y-2">
             <h4 class="text-xs font-pixel text-[#00F0FF] uppercase tracking-wider flex items-center justify-between">
               <span>Đường Dẫn Cài Đặt Game Trên Máy Tính</span>
@@ -753,6 +745,25 @@
                 <i data-lucide="folder-search" class="w-4 h-4 stroke-[2.5]"></i>
                 <span>Chọn Thư Mục</span>
               </button>
+            </div>
+            <!-- Admin Permission Required Warning Banner (Early Smart UAC Warning) -->
+            <div id="modalAdminWarningBanner" class="hidden p-2.5 rounded-[2px] bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs flex items-center justify-between shadow-[2px_2px_0px_#05050a]">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400 shrink-0"></i>
+                <span class="leading-tight">Thư mục nằm trong <b>Program Files</b> bị khóa quyền ghi. Cần cấp quyền Administrator.</span>
+              </div>
+              <button onclick="triggerAdminElevation()" class="pixel-btn bg-amber-500 hover:bg-amber-400 text-black font-bold px-2.5 py-1 text-[11px] flex items-center space-x-1 shrink-0 ml-2 shadow-[1px_1px_0px_#000]">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-black"></i>
+                <span>Nâng Quyền Admin</span>
+              </button>
+            </div>
+            <!-- Steam/Epic Game Update Warning Banner (Auto-Update Health Check) -->
+            <div id="modalUpdateWarningBanner" class="hidden p-3 rounded-[2px] bg-amber-950/40 border border-amber-500/60 text-amber-300 text-xs flex items-start space-x-3 shadow-[2px_2px_0px_#05050a]">
+              <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 shrink-0 mt-0.5"></i>
+              <div class="text-xs">
+                <span class="font-bold text-amber-300 block mb-0.5 font-display text-[13px]">⚠️ Phát hiện cập nhật game trên Steam/Epic:</span>
+                <span class="text-amber-200/90 leading-relaxed font-sans" id="modalUpdateWarningText">Tệp game vừa bị ghi đè về bản gốc tiếng Anh. Bạn có thể bấm <strong>"Cài Lại 1-Click"</strong> bên dưới để khôi phục ngay lập tức từ bộ nhớ đệm Cache mà không cần tải lại!</span>
+              </div>
             </div>
           </div>
 
@@ -858,12 +869,16 @@
           <span id="modalModInfo" class="text-xs text-slate-400 font-mono"></span>
         </div>
         <div class="flex items-center space-x-3 shrink-0">
+          <button id="modalEmergencyRestoreBtn" onclick="emergencyRestoreGame(activeModalGameId)" class="pixel-btn px-3 py-2 bg-[#181a2f] text-amber-400 hover:text-amber-300 text-xs border border-amber-500/40 hover:border-amber-400 font-bold transition flex items-center justify-center space-x-1.5 hidden" title="Khôi phục khẩn cấp: Quét sâu và hoàn nguyên toàn bộ file gốc .congu_bak nếu game bị sự cố">
+            <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+            <span>Khôi Phục Gốc Khẩn Cấp</span>
+          </button>
           <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="pixel-btn modal-action-btn btn-arcade-amber text-xs font-bold transition flex items-center justify-center space-x-2">
             <!-- Dynamic button -->
           </button>
-          <button onclick="launchGame(activeModalGameId)" class="pixel-btn modal-action-btn btn-neon-green text-xs font-bold transition flex items-center justify-center space-x-1.5">
+          <button id="modalLaunchBtn" onclick="launchGame(activeModalGameId)" class="pixel-btn modal-action-btn btn-neon-green text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a]">
             <i data-lucide="play" class="w-4 h-4 fill-black"></i>
-            <span>Chơi Game</span>
+            <span>Chơi Ngay</span>
           </button>
         </div>
       </div>
@@ -895,9 +910,13 @@
         </div>
       </div>
 
-      <div class="pt-2 flex justify-end">
-        <button id="progressCloseBtn" onclick="closeProgressModal()" class="pixel-btn px-4 py-2 bg-[#17192e] text-white text-xs font-semibold border border-[#2b2f52] hidden transition">
+      <div class="pt-3 flex items-center justify-between border-t border-white/10 mt-3">
+        <button id="progressCloseBtn" onclick="closeProgressModal()" class="pixel-btn px-4 py-2 bg-[#17192e] text-slate-300 hover:text-white text-xs font-semibold border border-[#2b2f52] hidden transition">
           Đóng
+        </button>
+        <button id="progressLaunchBtn" onclick="onProgressLaunchGame()" class="pixel-btn btn-neon-green px-5 py-2 text-xs font-bold flex items-center space-x-1.5 hidden shadow-[2px_2px_0px_#05050a]">
+          <i data-lucide="play" class="w-4 h-4 fill-black"></i>
+          <span>Chơi Ngay</span>
         </button>
       </div>
     </div>
@@ -1050,6 +1069,33 @@
   </footer>
 
   <script>
+    // -------------------------------------------------------------
+    // Core Engine Security & PyWebView Native IPC Bridge
+    // -------------------------------------------------------------
+    const SESSION_AUTH_TOKEN = document.querySelector('meta[name="session-auth-token"]')?.content || '';
+
+    // Auto-inject session authentication token to all fetch requests
+    const _originalFetch = window.fetch;
+    window.fetch = function (resource, config = {}) {
+      const url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+      if (url && (url.startsWith('/api/') || url.includes('/api/'))) {
+        config = Object.assign({}, config);
+        if (!config.headers) {
+          config.headers = {};
+        }
+        if (config.headers instanceof Headers) {
+          if (!config.headers.has('X-App-Auth-Token') && SESSION_AUTH_TOKEN) {
+            config.headers.set('X-App-Auth-Token', SESSION_AUTH_TOKEN);
+          }
+        } else if (Array.isArray(config.headers)) {
+          if (SESSION_AUTH_TOKEN) config.headers.push(['X-App-Auth-Token', SESSION_AUTH_TOKEN]);
+        } else {
+          if (SESSION_AUTH_TOKEN) config.headers['X-App-Auth-Token'] = SESSION_AUTH_TOKEN;
+        }
+      }
+      return _originalFetch.call(this, resource, config);
+    };
+
     let gamesList = [];
     let activeFilter = 'all';
     let activeGenreFilter = 'all';
@@ -1273,6 +1319,12 @@
         statusText.innerText = 'ĐÃ CÀI ĐẶT VIỆT HÓA';
         actionBtn.className = 'pixel-btn btn-neon-green px-6 py-2.5 text-sm flex items-center space-x-2';
         actionBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-black"></i><span>Chơi Ngay (Launch)</span>`;
+      } else if (game.status_code === 'UPDATE_DETECTED') {
+        badge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-400 flex items-center space-x-1.5 shadow-[2px_2px_0px_#05050a] tracking-wide';
+        badgeDot.className = 'w-2 h-2 bg-amber-400 inline-block animate-ping shadow-[0_0_8px_#F59E0B]';
+        statusText.innerText = '⚠️ GAME VỪA CẬP NHẬT - MẤT VIỆT HÓA';
+        actionBtn.className = 'pixel-btn btn-arcade-amber px-6 py-2.5 text-sm flex items-center space-x-2 font-bold';
+        actionBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Lại 1-Click (Dùng Cache)</span>`;
       } else if (game.status_code === 'GAME_MISSING') {
         badge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/70 flex items-center space-x-1.5 shadow-[2px_2px_0px_#05050a] tracking-wide';
         badgeDot.className = 'w-2 h-2 bg-[#00F0FF] inline-block animate-pulse shadow-[0_0_6px_#00F0FF]';
@@ -1296,6 +1348,8 @@
 
       if (game.status_code === 'INSTALLED') {
         launchGame(game.id);
+      } else if (game.status_code === 'UPDATE_DETECTED') {
+        toggleMod(game.id, true);
       } else if (game.status_code === 'GAME_MISSING') {
         openGameModal(game.id);
       } else {
@@ -1388,14 +1442,15 @@
         const card = document.createElement('div');
         card.className = 'group relative pixel-card overflow-hidden flex flex-col';
 
-        // 3-State Badge HTML (Cyber-Pixel Sharp Badges)
         let statusBadgeHtml = '';
         if (game.status_code === 'INSTALLED') {
           statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-emerald-400 border border-emerald-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><span class="w-1.5 h-1.5 rounded-[1px] bg-emerald-400/80 inline-block shrink-0"></span><span>ĐÃ CÀI ĐẶT</span></span>`;
+        } else if (game.status_code === 'UPDATE_DETECTED') {
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-amber-500/25 backdrop-blur-sm text-amber-300 border border-amber-400/80 flex items-center space-x-1.5 tracking-wide shadow-sm"><span class="w-1.5 h-1.5 rounded-[1px] bg-amber-400 inline-block animate-pulse"></span><span>⚠️ MẤT VIỆT HÓA</span></span>`;
         } else if (game.status_code === 'GAME_MISSING') {
-          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-pink-400/90 border border-pink-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="folder-x" class="w-3 h-3 text-pink-400/80"></i><span>CHƯA CÓ GAME</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-pink-400/90 border border-pink-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="folder-x" class="w-3.5 h-3.5 text-pink-400/80"></i><span>CHƯA CÓ GAME</span></span>`;
         } else {
-          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-amber-400/90 border border-amber-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="arrow-down-circle" class="w-3 h-3 text-amber-400/80"></i><span>CHƯA CÀI MOD</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-amber-400/90 border border-amber-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="arrow-down-circle" class="w-3.5 h-3.5 text-amber-400/80"></i><span>CHƯA CÀI MOD</span></span>`;
         }
 
         const noteBadgeHtml = game.important_note 
@@ -1429,15 +1484,21 @@
                      <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
                      <span>Chơi Ngay</span>
                    </button>`
-                : (game.status_code === 'GAME_MISSING'
-                  ? `<button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                       <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
-                       <span>Chọn Thư Mục</span>
+                : (game.status_code === 'UPDATE_DETECTED'
+                  ? `<button onclick="event.stopPropagation(); toggleMod('${game.id}', true)" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                       <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                       <span>Cài Lại 1-Click</span>
                      </button>`
-                  : `<button onclick="event.stopPropagation(); toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                       <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
-                       <span>Cài Việt Hóa</span>
-                     </button>`
+                  : (game.status_code === 'GAME_MISSING'
+                    ? `<button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                         <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
+                         <span>Chọn Thư Mục</span>
+                       </button>`
+                    : `<button onclick="event.stopPropagation(); toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                         <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                         <span>Cài Việt Hóa</span>
+                       </button>`
+                    )
                   )
               }
             </div>
@@ -1497,6 +1558,9 @@
       if (game.status_code === 'INSTALLED') {
         statusBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/70 shadow-[2px_2px_0px_#05050a] tracking-wide';
         statusBadge.innerText = 'ĐÃ CÀI ĐẶT VIỆT HÓA';
+      } else if (game.status_code === 'UPDATE_DETECTED') {
+        statusBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-400 shadow-[2px_2px_0px_#05050a] tracking-wide';
+        statusBadge.innerText = '⚠️ GAME VỪA CẬP NHẬT - MẤT VIỆT HÓA';
       } else if (game.status_code === 'GAME_MISSING') {
         statusBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/70 shadow-[2px_2px_0px_#05050a] tracking-wide';
         statusBadge.innerText = 'CHƯA CÓ GAME TRÊN MÁY';
@@ -1510,9 +1574,37 @@
       const pathStatus = document.getElementById('modalPathStatus');
       pathInput.value = game.game_path || 'Chưa tìm thấy thư mục cài đặt game trên máy';
       if (game.is_game_found) {
-        pathStatus.innerHTML = '<span class="text-[#00FF9D] font-bold flex items-center space-x-1"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Thư mục hợp lệ</span></span>';
+        if (game.requires_admin) {
+          pathStatus.innerHTML = '<span class="text-[#FFB800] font-bold flex items-center space-x-1"><i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-400"></i><span>Cần quyền Administrator (Program Files)</span></span>';
+        } else {
+          pathStatus.innerHTML = '<span class="text-[#00FF9D] font-bold flex items-center space-x-1"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Thư mục hợp lệ</span></span>';
+        }
       } else {
         pathStatus.innerHTML = '<span class="text-[#FF3344] font-bold flex items-center space-x-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Chưa phát hiện hoặc sai thư mục</span></span>';
+      }
+
+      // Early UAC Admin Warning Banner
+      const adminWarning = document.getElementById('modalAdminWarningBanner');
+      if (adminWarning) {
+        if (game.is_game_found && game.requires_admin) {
+          adminWarning.classList.remove('hidden');
+        } else {
+          adminWarning.classList.add('hidden');
+        }
+      }
+
+      // Steam Update Health Warning Banner
+      const updateWarning = document.getElementById('modalUpdateWarningBanner');
+      if (updateWarning) {
+        if (game.status_code === 'UPDATE_DETECTED' || game.update_detected) {
+          updateWarning.classList.remove('hidden');
+          const updateText = document.getElementById('modalUpdateWarningText');
+          if (updateText && game.health_reason) {
+            updateText.innerHTML = `${game.health_reason}. Bản dịch đã bị đè về tiếng Anh gốc. Bạn có thể bấm <strong>"Cài Lại 1-Click"</strong> bên dưới để khôi phục lại ngay lập tức từ bộ nhớ đệm Cache mà không cần tải lại!`;
+          }
+        } else {
+          updateWarning.classList.add('hidden');
+        }
       }
 
       // Mod Info
@@ -1524,13 +1616,41 @@
       }
 
       // Action Button in Modal (Arcade Micro-Switch Buttons)
+      const emergencyBtn = document.getElementById('modalEmergencyRestoreBtn');
+      if (emergencyBtn) {
+        if (game.is_game_found) {
+          emergencyBtn.classList.remove('hidden');
+        } else {
+          emergencyBtn.classList.add('hidden');
+        }
+      }
+
       const installBtn = document.getElementById('modalInstallBtn');
       if (game.status_code === 'INSTALLED') {
         installBtn.className = 'pixel-btn modal-action-btn btn-retro-crimson text-xs flex items-center justify-center space-x-2 font-bold';
         installBtn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Gỡ Bỏ Việt Hóa</span>`;
+      } else if (game.status_code === 'UPDATE_DETECTED') {
+        installBtn.className = 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
+        installBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Lại 1-Click (Dùng Cache)</span>`;
       } else {
         installBtn.className = 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
         installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa</span>`;
+      }
+
+      const launchBtn = document.getElementById('modalLaunchBtn');
+      if (launchBtn) {
+        if (!game.is_game_found) {
+          launchBtn.classList.add('hidden');
+        } else {
+          launchBtn.classList.remove('hidden');
+          if (game.status_code === 'INSTALLED') {
+            launchBtn.className = 'pixel-btn modal-action-btn btn-neon-green text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
+            launchBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-black"></i><span>Chơi Ngay (Đã Việt Hóa)</span>`;
+          } else {
+            launchBtn.className = 'pixel-btn modal-action-btn bg-[#181a2f] text-slate-300 hover:text-white border border-[#2b2f52] text-xs font-bold transition flex items-center justify-center space-x-1.5';
+            launchBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span>Chơi Bản Gốc</span>`;
+          }
+        }
       }
 
       // Populate Versions Tab
@@ -1775,14 +1895,29 @@
       }
     }
 
+    let activeProgressGameId = null;
+    let currentProgressOp = 'install';
+
+    function onProgressLaunchGame() {
+      const gId = activeProgressGameId;
+      closeProgressModal();
+      if (gId) {
+        launchGame(gId);
+      }
+    }
+
     // Modern Progress Modal
-    function showProgressModal(title, subTitle) {
+    function showProgressModal(title, subTitle, gameId = null, op = 'install') {
+      activeProgressGameId = gameId;
+      currentProgressOp = op;
       document.getElementById('progressTitle').innerText = title;
       document.getElementById('progressSubTitle').innerText = subTitle;
       document.getElementById('progressBarFill').style.width = '10%';
       document.getElementById('progressPercentText').innerText = '10%';
       document.getElementById('progressStepText').innerText = 'Đang khởi chạy...';
       document.getElementById('progressCloseBtn').classList.add('hidden');
+      const launchBtn = document.getElementById('progressLaunchBtn');
+      if (launchBtn) launchBtn.classList.add('hidden');
       document.getElementById('progressIcon').setAttribute('data-lucide', 'loader-2');
       document.getElementById('progressIcon').classList.add('animate-spin');
       document.getElementById('progressModal').classList.remove('hidden');
@@ -1792,21 +1927,30 @@
       if (progressInterval) clearInterval(progressInterval);
       progressInterval = setInterval(async () => {
         try {
-          const res = await fetch('/api/progress');
-          const p = await res.json();
-          if (p.percent) {
+          let p;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_progress === 'function') {
+            p = await window.pywebview.api.get_progress();
+          } else {
+            const res = await fetch('/api/progress');
+            p = await res.json();
+          }
+          if (p && p.percent !== undefined) {
             document.getElementById('progressBarFill').style.width = `${p.percent}%`;
             document.getElementById('progressPercentText').innerText = `${p.percent}%`;
           }
-          if (p.message) {
+          if (p && p.message) {
             document.getElementById('progressStepText').innerText = p.message;
           }
-          if (p.status === 'success' || p.status === 'error' || p.percent >= 100) {
+          if (p && (p.status === 'success' || p.status === 'error' || p.percent >= 100)) {
             clearInterval(progressInterval);
             document.getElementById('progressIcon').classList.remove('animate-spin');
             if (p.status === 'success') {
               document.getElementById('progressIcon').setAttribute('data-lucide', 'check-circle-2');
               document.getElementById('progressIcon').className = 'w-5 h-5 text-emerald-400';
+              if (currentProgressOp === 'install' && activeProgressGameId) {
+                const launchBtn = document.getElementById('progressLaunchBtn');
+                if (launchBtn) launchBtn.classList.remove('hidden');
+              }
             } else {
               document.getElementById('progressIcon').setAttribute('data-lucide', 'alert-triangle');
               document.getElementById('progressIcon').className = 'w-5 h-5 text-rose-400';
@@ -1815,7 +1959,7 @@
             lucide.createIcons();
           }
         } catch (e) {}
-      }, 400);
+      }, 350);
     }
 
     function closeProgressModal() {
@@ -1824,9 +1968,12 @@
     }
 
     // Install / Uninstall Trigger
-    async function toggleMod(gameId) {
+    async function toggleMod(gameId, force = false) {
       const game = gamesList.find(g => g.id === gameId);
       if (!game) return;
+      if (game.status_code === 'UPDATE_DETECTED') {
+        force = true;
+      }
 
       if (game.status_code === 'GAME_MISSING') {
         showToast('Vui lòng chọn đường dẫn game trước khi cài đặt!', 'warning');
@@ -1836,57 +1983,231 @@
 
       if (game.status_code === 'INSTALLED') {
         // Uninstall
-        showProgressModal('Đang Gỡ Bỏ Việt Hóa', `Khôi phục nguyên bản tiếng Anh cho ${game.title}`);
+        showProgressModal('Đang Gỡ Bỏ Việt Hóa', `Khôi phục nguyên bản tiếng Anh cho ${game.title}`, game.id, 'uninstall');
         try {
-          const res = await fetch('/api/uninstall', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ game_id: game.id })
-          });
-          const data = await res.json();
-          if (data.success) {
+          let data;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.uninstall_mod === 'function') {
+            data = await window.pywebview.api.uninstall_mod(game.id);
+          } else {
+            const res = await fetch('/api/uninstall', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ game_id: game.id })
+            });
+            data = await res.json();
+          }
+          if (data && data.is_game_running) {
+            closeProgressModal();
+            const confirmed = confirm(
+              `⚠️ [CẢNH BÁO: TIẾN TRÌNH GAME ĐANG CHẠY]\n\n` +
+              `Tiến trình "${data.running_process}" của ${game.title} đang mở trên máy tính.\n` +
+              `Nếu tiếp tục gỡ cài đặt, Windows sẽ khóa tệp tin (WinError 32) và gây lỗi.\n\n` +
+              `Bạn có muốn CỔ NGỮ tự động đóng tiến trình "${data.running_process}" và tiếp tục gỡ cài đặt không?`
+            );
+            if (confirmed) {
+              showToast(`Đang đóng tiến trình ${data.running_process}...`, 'info');
+              let killRes;
+              if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.kill_game_process === 'function') {
+                killRes = await window.pywebview.api.kill_game_process(gameId);
+              } else {
+                const kFetch = await fetch('/api/kill_process', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ game_id: gameId })
+                });
+                killRes = await kFetch.json();
+              }
+              if (killRes && killRes.success) {
+                showToast(killRes.message, 'success');
+                setTimeout(() => toggleMod(gameId, force), 600);
+              } else {
+                showToast((killRes && killRes.message) || 'Không thể đóng game tự động, vui lòng tắt thủ công!', 'error');
+              }
+            }
+            return;
+          }
+          if (data && data.requires_admin) {
+            closeProgressModal();
+            const confirmed = confirm(data.message + "\n\nBạn có muốn khởi động lại Cổ Ngữ với quyền Administrator để thao tác thư mục này không?");
+            if (confirmed) {
+              if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.elevate_admin === 'function') {
+                await window.pywebview.api.elevate_admin();
+              } else {
+                await fetch('/api/elevate_admin', { method: 'POST' });
+              }
+            }
+            return;
+          }
+          if (data && data.success) {
             showToast(data.message, 'success');
             gamesList = data.games;
             updateUI();
           } else {
-            showToast(data.message, 'error');
+            showToast((data && data.message) || 'Lỗi khi gỡ bỏ bản mod!', 'error');
           }
         } catch (err) {
           showToast('Lỗi khi gỡ bỏ bản mod!', 'error');
         }
       } else {
         // Install
-        showProgressModal('Đang Cài Đặt Việt Hóa', `Áp dụng gói dịch và font chuẩn cho ${game.title}`);
+        showProgressModal('Đang Cài Đặt Việt Hóa', `Áp dụng gói dịch và font chuẩn cho ${game.title}`, game.id, 'install');
         try {
-          const res = await fetch('/api/install', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ game_id: game.id })
-          });
-          const data = await res.json();
-          if (data.success) {
+          let data;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.install_mod === 'function') {
+            data = await window.pywebview.api.install_mod(game.id, force);
+          } else {
+            const res = await fetch('/api/install', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ game_id: game.id, force: force })
+            });
+            data = await res.json();
+          }
+          if (data && data.is_game_running) {
+            closeProgressModal();
+            const confirmed = confirm(
+              `⚠️ [CẢNH BÁO: TIẾN TRÌNH GAME ĐANG CHẠY]\n\n` +
+              `Tiến trình "${data.running_process}" của ${game.title} đang mở trên máy tính.\n` +
+              `Nếu tiếp tục cài đặt, Windows sẽ khóa tệp tin (WinError 32) và gây lỗi.\n\n` +
+              `Bạn có muốn CỔ NGỮ tự động đóng tiến trình "${data.running_process}" và tiếp tục cài đặt không?`
+            );
+            if (confirmed) {
+              showToast(`Đang đóng tiến trình ${data.running_process}...`, 'info');
+              let killRes;
+              if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.kill_game_process === 'function') {
+                killRes = await window.pywebview.api.kill_game_process(gameId);
+              } else {
+                const kFetch = await fetch('/api/kill_process', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ game_id: gameId })
+                });
+                killRes = await kFetch.json();
+              }
+              if (killRes && killRes.success) {
+                showToast(killRes.message, 'success');
+                setTimeout(() => toggleMod(gameId, force), 600);
+              } else {
+                showToast((killRes && killRes.message) || 'Không thể đóng game tự động, vui lòng tắt thủ công!', 'error');
+              }
+            }
+            return;
+          }
+          if (data && data.requires_admin) {
+            closeProgressModal();
+            const confirmed = confirm(data.message + "\n\nBạn có muốn khởi động lại Cổ Ngữ với quyền Administrator để thao tác thư mục này không?");
+            if (confirmed) {
+              if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.elevate_admin === 'function') {
+                await window.pywebview.api.elevate_admin();
+              } else {
+                await fetch('/api/elevate_admin', { method: 'POST' });
+              }
+            }
+            return;
+          }
+          if (data && data.warning_mismatch) {
+            closeProgressModal();
+            const confirmed = confirm(data.message);
+            if (confirmed) {
+              toggleMod(gameId, true);
+            }
+            return;
+          }
+          if (data && data.success) {
             let msg = data.message;
             if (game.important_note) msg += ` (Lưu ý: ${game.important_note})`;
             showToast(msg, 'success');
             gamesList = data.games;
+            heroGameId = gameId;
             updateUI();
+            if (activeModalGameId === gameId) {
+              openGameModal(gameId);
+            }
+            const launchBtn = document.getElementById('progressLaunchBtn');
+            if (launchBtn) launchBtn.classList.remove('hidden');
+            lucide.createIcons();
           } else {
-            showToast(data.message, 'error');
+            const errMsg = (data && data.message) || 'Lỗi khi cài đặt bản mod!';
+            showToast(errMsg, 'error');
+            document.getElementById('progressStepText').innerText = errMsg;
+            document.getElementById('progressIcon').classList.remove('animate-spin');
+            document.getElementById('progressIcon').setAttribute('data-lucide', 'alert-triangle');
+            document.getElementById('progressIcon').className = 'w-5 h-5 text-rose-400';
+            document.getElementById('progressCloseBtn').classList.remove('hidden');
+            lucide.createIcons();
           }
         } catch (err) {
-          showToast('Lỗi khi cài đặt bản mod!', 'error');
+          const errMsg = err && err.message ? err.message : 'Lỗi khi cài đặt bản mod!';
+          showToast(errMsg, 'error');
+          document.getElementById('progressStepText').innerText = errMsg;
+          document.getElementById('progressIcon').classList.remove('animate-spin');
+          document.getElementById('progressIcon').setAttribute('data-lucide', 'alert-triangle');
+          document.getElementById('progressIcon').className = 'w-5 h-5 text-rose-400';
+          document.getElementById('progressCloseBtn').classList.remove('hidden');
+          lucide.createIcons();
         }
+      }
+    }
+
+    async function emergencyRestoreGame(gameId) {
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game) return;
+
+      if (!game.is_game_found) {
+        showToast('Vui lòng chọn đường dẫn game trước khi khôi phục!', 'warning');
+        return;
+      }
+
+      const confirmed = confirm(
+        `[KHÔI PHỤC GỐC KHẨN CẤP / SỬA LỖI GAME]\n\n` +
+        `Hệ thống sẽ quét sâu toàn bộ thư mục game "${game.title}" để tìm và phục hồi 100% các tệp tin gốc (.congu_bak), đưa game trở về nguyên bản tiếng Anh sạch sẽ.\n\n` +
+        `Bạn có chắc chắn muốn tiến hành không?`
+      );
+      if (!confirmed) return;
+
+      showProgressModal('Đang Khôi Phục Gốc Khẩn Cấp', `Quét và phục hồi toàn bộ tệp gốc cho ${game.title}...`);
+      try {
+        let data;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.emergency_restore_game === 'function') {
+          data = await window.pywebview.api.emergency_restore_game(game.id);
+        } else {
+          const res = await fetch('/api/emergency_restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: game.id })
+          });
+          data = await res.json();
+        }
+        closeProgressModal();
+        if (data && data.success) {
+          showToast(data.message, 'success');
+          if (data.games) {
+            gamesList = data.games;
+            updateUI();
+            openGameModal(game.id);
+          }
+        } else {
+          showToast((data && data.message) || 'Lỗi khi khôi phục gốc!', 'error');
+        }
+      } catch (err) {
+        closeProgressModal();
+        showToast('Lỗi khi khôi phục gốc: ' + (err && err.message ? err.message : err), 'error');
       }
     }
 
     async function launchGame(gameId) {
       try {
-        const res = await fetch('/api/launch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game_id: gameId })
-        });
-        const data = await res.json();
+        let data;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.launch_game === 'function') {
+          data = await window.pywebview.api.launch_game(gameId);
+        } else {
+          const res = await fetch('/api/launch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: gameId })
+          });
+          data = await res.json();
+        }
         showToast(data.message, data.success ? 'success' : 'error');
       } catch (err) {
         showToast('Không thể gửi lệnh mở game!', 'error');
@@ -1932,6 +2253,20 @@
       }
     }
 
+    async function triggerAdminElevation() {
+      const confirmed = confirm(
+        "Ứng dụng sẽ khởi động lại với quyền Administrator để có đầy đủ quyền ghi tệp vào Program Files.\n\n" +
+        "Đường dẫn thư mục đã được lưu an toàn. Bạn có muốn tiếp tục nâng quyền không?"
+      );
+      if (confirmed) {
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.elevate_admin === 'function') {
+          await window.pywebview.api.elevate_admin();
+        } else {
+          await fetch('/api/elevate_admin', { method: 'POST' });
+        }
+      }
+    }
+
     async function chooseFolderForActiveGame() {
       if (!activeModalGameId) return;
       try {
@@ -1945,6 +2280,25 @@
           showToast(data.message || `Đã chọn thư mục: ${data.path}`, 'success');
           gamesList = data.games;
           updateUI();
+          if (activeModalGameId) {
+            openGameModal(activeModalGameId);
+          }
+          if (data.requires_admin) {
+            setTimeout(async () => {
+              const confirmed = confirm(
+                `Thư mục bạn vừa chọn:\n${data.path}\n\n` +
+                `Nằm trong phân vùng hệ thống (Program Files) yêu cầu quyền ghi đặc biệt của Windows.\n\n` +
+                `Đường dẫn đã được lưu. Bạn có muốn khởi động lại ứng dụng với quyền Administrator ngay bây giờ không?`
+              );
+              if (confirmed) {
+                if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.elevate_admin === 'function') {
+                  await window.pywebview.api.elevate_admin();
+                } else {
+                  await fetch('/api/elevate_admin', { method: 'POST' });
+                }
+              }
+            }, 300);
+          }
         } else if (data.message) {
           showToast(data.message, 'warning');
         }
@@ -2727,6 +3081,11 @@
 
     // Frameless Window Control Functions
     async function minimizeWindow() {
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.minimize_window === 'function') {
+        try {
+          return await window.pywebview.api.minimize_window();
+        } catch (e) {}
+      }
       try {
         await fetch('/api/window/minimize', { method: 'POST' });
       } catch (e) {
@@ -2735,6 +3094,11 @@
     }
 
     async function maximizeWindow() {
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.maximize_window === 'function') {
+        try {
+          return await window.pywebview.api.maximize_window();
+        } catch (e) {}
+      }
       try {
         await fetch('/api/window/maximize', { method: 'POST' });
       } catch (e) {
@@ -2742,30 +3106,37 @@
       }
     }
 
-    // Thoat hoan toan ung dung (Tat di la tat han)
+    // Thoat hoan toan ung dung (Tat di la tat han - 1-Click Instant Exit)
     function quitApp() {
-      if (confirm("Bạn có muốn thoát hoàn toàn ứng dụng CỔ NGỮ không?")) {
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.quit_app === 'function') {
         try {
-          navigator.sendBeacon('/api/app/quit');
-          fetch('/api/app/quit', { method: 'POST' });
+          window.pywebview.api.quit_app();
         } catch (e) {}
-        setTimeout(() => {
-          window.close();
-        }, 150);
       }
+      try {
+        const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
+        navigator.sendBeacon(quitUrl);
+        fetch(quitUrl, { method: 'POST' });
+      } catch (e) {}
+      setTimeout(() => {
+        window.close();
+      }, 50);
     }
 
     // Khi nguoi dung dong cua so / tab, tu dong gui tin hieu tat sach tien trinh
     window.addEventListener('beforeunload', () => {
       try {
-        navigator.sendBeacon('/api/app/quit');
+        const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
+        navigator.sendBeacon(quitUrl);
       } catch (e) {}
     });
 
-    // Titlebar Dragging System (Native Windows OS Drag via Win32 SendMessageW)
+    // Titlebar Dragging System (Native Windows OS Drag via Win32 SetWindowPos Tracking)
     (function initTitlebarDrag() {
       const titlebar = document.getElementById('appTitlebar');
       if (!titlebar) return;
+
+      let isDragging = false;
 
       titlebar.addEventListener('mousedown', function (e) {
         // Only primary mouse button (left click)
@@ -2778,9 +3149,24 @@
 
         // Prevent text selection or browser default drag ghost
         e.preventDefault();
+        isDragging = true;
 
-        // Trigger native Windows OS window dragging
-        fetch('/api/window/drag', { method: 'POST' }).catch(() => {});
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.drag_window === 'function') {
+          window.pywebview.api.drag_window().catch(() => {});
+        } else {
+          fetch('/api/window/drag', { method: 'POST' }).catch(() => {});
+        }
+      });
+
+      window.addEventListener('mouseup', function () {
+        if (isDragging) {
+          isDragging = false;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.drag_stop === 'function') {
+            window.pywebview.api.drag_stop().catch(() => {});
+          } else {
+            fetch('/api/window/drag_stop', { method: 'POST' }).catch(() => {});
+          }
+        }
       });
     })();
 
