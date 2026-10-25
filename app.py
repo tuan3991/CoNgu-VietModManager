@@ -1562,7 +1562,7 @@ class ModManagerAPI:
                 if not mod_installed and g.get("install_steps"):
                     for st in g["install_steps"]:
                         act = st.get("action")
-                        if act == "backup":
+                        if act in ["backup", "patch_binary"]:
                             bak_f = os.path.join(game_path, f"{st['target']}.congu_bak")
                             if os.path.exists(bak_f):
                                 mod_installed = True
@@ -1891,6 +1891,220 @@ class ModManagerAPI:
                 return {"success": False, "message": f"Lỗi khi lưu ảnh bìa: {e}"}
 
         return {"success": False, "message": "Chưa chọn ảnh nào."}
+
+    def search_game_for_avatar(self, query: str) -> list[dict]:
+        """Tìm danh sách game kèm ảnh preview từ cả games.json nội bộ và Steam Store."""
+        query = (query or "").strip()
+        if not query:
+            return []
+
+        results = []
+        seen_appids = set()
+        q_lower = query.lower()
+
+        # 1. Tìm ưu tiên trong kho games.json nội bộ trước
+        try:
+            games_json_path = get_active_games_json_path()
+            if os.path.exists(games_json_path):
+                with open(games_json_path, "r", encoding="utf-8") as f:
+                    local_games = json.load(f)
+                for g in local_games:
+                    title = g.get("title", "")
+                    vi_title = g.get("vietnamese_title", "")
+                    gid = g.get("id", "")
+                    appid = str(g.get("steam_appid", "")).strip()
+                    if (
+                        q_lower in title.lower()
+                        or q_lower in vi_title.lower()
+                        or q_lower in gid.lower()
+                        or (appid and appid == query)
+                    ):
+                        if appid:
+                            seen_appids.add(appid)
+                        poster = (
+                            g.get("assets", {}).get("poster")
+                            or (f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg" if appid else "")
+                        )
+                        header = (
+                            g.get("assets", {}).get("header")
+                            or (f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else "")
+                        )
+                        results.append({
+                            "steam_appid": appid,
+                            "title": title,
+                            "subtitle": vi_title or "Kho CỔ NGỮ",
+                            "source": "congu_db",
+                            "genre": g.get("genre", "Kho CỔ NGỮ"),
+                            "avatar_url": poster,
+                            "header_url": header
+                        })
+        except Exception as e:
+            print(f"[AvatarSearch] local games.json error: {e}")
+
+        # 2. Tìm trong cơ sở dữ liệu Steam offline (hơn 5,000 game)
+        try:
+            offline_db = get_steam_games()
+            exact, starts, word_starts, contains = [], [], [], []
+            for item in offline_db:
+                appid = str(item.get("id", ""))
+                name = item.get("name", "")
+                if not appid or appid in seen_appids:
+                    continue
+                name_low = name.lower()
+                if name_low == q_lower:
+                    exact.append(item)
+                elif name_low.startswith(q_lower):
+                    starts.append(item)
+                elif any(w.startswith(q_lower) for w in name_low.split()):
+                    word_starts.append(item)
+                elif q_lower in name_low:
+                    contains.append(item)
+                if len(exact) + len(starts) + len(word_starts) + len(contains) >= 30:
+                    break
+
+            for item in (exact + starts + word_starts + contains)[:10]:
+                appid = str(item["id"])
+                if appid in seen_appids:
+                    continue
+                seen_appids.add(appid)
+                results.append({
+                    "steam_appid": appid,
+                    "title": item.get("name", ""),
+                    "subtitle": f"Steam AppID: {appid}",
+                    "source": "steam",
+                    "genre": "Steam Store",
+                    "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                    "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                })
+        except Exception as e:
+            print(f"[AvatarSearch] offline steam db search error: {e}")
+
+        # 3. Tìm mở rộng trên toàn bộ kho Steam Store API
+        try:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            encoded_q = urllib.parse.quote(query)
+            url = f"https://store.steampowered.com/api/storesearch/?term={encoded_q}&l=english&cc=US"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                for item in data.get("items", [])[:10]:
+                    appid = str(item.get("id", ""))
+                    if not appid or appid in seen_appids:
+                        continue
+                    seen_appids.add(appid)
+                    tiny_img = item.get("tiny_image", "")
+                    header_img = (
+                        tiny_img.replace("capsule_sm_120", "header")
+                        if tiny_img
+                        else f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                    )
+                    results.append({
+                        "steam_appid": appid,
+                        "title": item.get("name", ""),
+                        "subtitle": f"Steam AppID: {appid}",
+                        "source": "steam",
+                        "genre": "Steam Store",
+                        "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                        "header_url": header_img
+                    })
+        except Exception as e:
+            print(f"[AvatarSearch] steam store search error: {e}")
+
+        return results
+
+    def apply_selected_avatar(self, target_game_id: str, selected_data: dict) -> dict:
+        """Gán cố định avatar + steam_appid người dùng đã chọn và tải ảnh lưu cache."""
+        if not target_game_id:
+            return {"status": "error", "success": False, "message": "Thiếu mã game (target_game_id)"}
+
+        appid = str(selected_data.get("steam_appid", "")).strip()
+        avatar_url = selected_data.get("avatar_url", "")
+        header_url = selected_data.get("header_url", "")
+        new_title = selected_data.get("title", "")
+        genre = selected_data.get("genre", "")
+
+        safe_gid = re.sub(r"[^\w\-]", "_", target_game_id)
+        os.makedirs(COVERS_DIR, exist_ok=True)
+        local_cover_path = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
+
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+
+        candidates = []
+        if appid:
+            candidates.extend([
+                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
+                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
+            ])
+        if avatar_url:
+            candidates.append(avatar_url)
+        if header_url:
+            candidates.append(header_url)
+
+        downloaded_ok = False
+        final_local_url = f"/api/covers/{safe_gid}.jpg?t={int(time.time())}"
+
+        for cand_url in candidates:
+            if not cand_url or not cand_url.startswith("http"):
+                continue
+            try:
+                req = urllib.request.Request(cand_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if resp.status == 200:
+                        content = resp.read()
+                        if len(content) > 1000:
+                            with open(local_cover_path, "wb") as f:
+                                f.write(content)
+                            downloaded_ok = True
+                            break
+            except Exception:
+                continue
+
+        # Lấy thêm thông tin Genre và tên từ Steam details nếu có appid
+        if appid:
+            try:
+                details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese&cc=VN"
+                req = urllib.request.Request(details_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    det = json.loads(resp.read().decode("utf-8"))
+                    if det.get(str(appid), {}).get("success"):
+                        app_data = det[str(appid)]["data"]
+                        genres_list = [g.get("description") for g in app_data.get("genres", [])]
+                        if genres_list:
+                            genre = ", ".join(genres_list)
+                        if not new_title:
+                            new_title = app_data.get("name", "")
+                        if not header_url:
+                            header_url = app_data.get("header_image", "")
+            except Exception:
+                pass
+
+        # Cập nhật cache covers_cache.json
+        c_cache = load_covers_cache()
+        c_cache[target_game_id] = {
+            "steam_appid": appid,
+            "title": new_title,
+            "genre": genre or "Game",
+            "poster_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg" if appid else "",
+            "local_cover": final_local_url if downloaded_ok else (avatar_url or ""),
+            "avatar_url": final_local_url if downloaded_ok else (avatar_url or ""),
+            "header_url": header_url or ""
+        }
+        save_covers_cache(c_cache)
+
+        return {
+            "status": "success",
+            "success": True,
+            "game_id": target_game_id,
+            "steam_appid": appid,
+            "title": new_title,
+            "genre": genre or "Game",
+            "avatar_url": final_local_url if downloaded_ok else (avatar_url or ""),
+            "local_cover": final_local_url if downloaded_ok else (avatar_url or ""),
+            "header_url": header_url,
+            "message": f"Đã áp dụng ảnh bìa cho game thành công!",
+            "games": self.get_games()
+        }
 
     def _backup_file_inplace(self, game_id, original_abs_path, relative_in_game, return_details=False):
         """
@@ -3225,6 +3439,7 @@ class ModManagerAPI:
 
     def install_mod(self, game_id, force=False):
         """Install Vietnamese mod package into game directory with in-place safe backup and progress"""
+        import security
         set_progress(10, "Đang kiểm tra thư mục cài đặt...", status="running", game_id=game_id, operation="install")
 
         with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
@@ -4436,6 +4651,26 @@ def api_game_metadata():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/game/search_avatar", method=["GET", "POST"])
+def api_game_search_avatar():
+    if request.method == "POST":
+        data = request.json or {}
+        query = data.get("query") or data.get("q") or ""
+    else:
+        query = request.query.get("q") or request.query.get("query") or ""
+    res = api_instance.search_game_for_avatar(query)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/game/apply_avatar", method="POST")
+def api_game_apply_avatar():
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    selected = data.get("selected") or data
+    res = api_instance.apply_selected_avatar(game_id, selected)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
 @server_app.route("/api/game/remap", method="POST")
 def api_game_remap():
     data = request.json or {}
@@ -4447,47 +4682,14 @@ def api_game_remap():
         response.status = 400
         return json.dumps({"success": False, "message": "Thiếu game_id hoặc steam_appid"})
     
-    details_url = f"https://store.steampowered.com/api/appdetails?appids={target_appid}&l=vietnamese&cc=VN"
-    try:
-        req = urllib.request.Request(details_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            det = json.loads(resp.read().decode("utf-8"))
-        if det.get(str(target_appid), {}).get("success"):
-            app_data = det[str(target_appid)]["data"]
-            poster_url = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900_2x.jpg"
-            out_cover = os.path.join(COVERS_DIR, f"{game_id}.jpg")
-            try:
-                urllib.request.urlretrieve(poster_url, out_cover)
-            except Exception:
-                poster_url = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg"
-                try:
-                    urllib.request.urlretrieve(poster_url, out_cover)
-                except Exception:
-                    pass
-            
-            c_cache = load_covers_cache()
-            genres_list = [g.get("description") for g in app_data.get("genres", [])]
-            c_cache[game_id] = {
-                "steam_appid": target_appid,
-                "title": app_data.get("name", target_title),
-                "genre": ", ".join(genres_list) if genres_list else "Game",
-                "poster_url": poster_url,
-                "local_cover": f"/api/covers/{game_id}.jpg",
-                "header_url": app_data.get("header_image", "")
-            }
-            save_covers_cache(c_cache)
-            response.content_type = "application/json"
-            return json.dumps({
-                "success": True, 
-                "message": f"Đã cập nhật Avatar & thông tin theo Steam AppID {target_appid}!",
-                "games": api_instance.get_games()
-            }, ensure_ascii=False)
-        else:
-            response.content_type = "application/json"
-            return json.dumps({"success": False, "message": "Không tìm thấy game trên Steam Store"}, ensure_ascii=False)
-    except Exception as e:
-        response.content_type = "application/json"
-        return json.dumps({"success": False, "message": f"Lỗi khi cập nhật Avatar: {e}"}, ensure_ascii=False)
+    res = api_instance.apply_selected_avatar(game_id, {
+        "steam_appid": target_appid,
+        "title": target_title,
+        "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg",
+        "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{target_appid}/header.jpg"
+    })
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
 
 @server_app.route("/api/games", method="GET")
 def api_get_games():
