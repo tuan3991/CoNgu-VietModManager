@@ -744,7 +744,8 @@
     "assets": {
       "poster": "/assets/rivage/library_600x900.jpg",
       "banner": "/assets/rivage/library_hero.jpg",
-      "header": "/assets/rivage/header.jpg"
+      "header": "/assets/rivage/header.jpg",
+      "logo": "/assets/rivage/logo.png"
     },
     "versions": [
       {
@@ -791,10 +792,10 @@
       "trailers": [
         {
           "id": "rivage_1",
-          "title": "Trailer Giới Thiệu - Rivage",
+          "title": "Rivage | Trailer Phát Hành Chính Thức",
           "badge": "TRAILER",
           "type": "youtube",
-          "youtube_id": "deROnCikabM",
+          "youtube_id": "ZLrrwo8NcQQ",
           "duration": "Trailer HD"
         }
       ]
