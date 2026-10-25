@@ -718,24 +718,24 @@
     "title": "Rivage",
     "vietnamese_title": "Rivage - Bến Đỗ Không Gian (Việt Hóa)",
     "developer": "Exnilo Studio / Raw Fury",
-    "engine": "Unreal Engine 5.3",
+    "engine": "Unreal Engine 5.7",
     "genre": "Phiêu lưu, Khoa học Viễn tưởng, Giải đố Escape Room, Bí ẩn Không gian",
     "description": "Tựa game giải đố khoa học viễn tưởng sinh tồn góc nhìn thứ nhất. Bạn tỉnh dậy trong vai Miranda Vigneau, một nhà khoa học tài ba mắc kẹt trên trạm vũ trụ A.R.E.S. đang trôi dạt gần hành tinh bí ẩn Vesta. Khi phi hành đoàn mất tích, trạm vũ trụ dần cạn kiệt năng lượng và hiện tượng dị thường không gian Connector xuất hiện, bạn phải giải quyết hàng loạt câu đố máy móc và đối phó với virus Eraser để tìm đường sống.",
     "translation_stats": {
       "progress": 100,
-      "total_lines": "2,838 dòng thoại & giao diện",
+      "total_lines": "2,838 dòng thoại, nhật ký & giao diện",
       "status": "Hoàn thành 100% (Zero Omission)",
       "version": "v1.0.0 (Bản Chuẩn UE5)",
       "author": "Antigravity Localization Team",
-      "font": "Roboto / Slate Engine có dấu đầy đủ 100%",
+      "font": "NotoSerif & Slate có dấu chuẩn 100% (U+00C0 - U+1EF9)",
       "last_updated": "25/10/2026",
-      "mod_size": "~283.2 KB"
+      "mod_size": "~2.2 MB"
     },
     "mod_subfolder": "Rivage [Viet Hoa]",
     "mod_type": "pak",
-    "mod_file": "Rivage-Windows_Vietnamese_P.pak",
-    "relative_install_path": "Rivage/Content/Paks/~mods",
-    "target_pak_name": "Rivage-Windows_Vietnamese_P.pak",
+    "mod_file": "Rivage-Windows_P.pak",
+    "relative_install_path": "Rivage/Content/Paks",
+    "target_pak_name": "Rivage-Windows_P.pak",
     "executable_name": "Rivage.exe",
     "default_folder_names": [
       "Rivage",
@@ -755,12 +755,12 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/Rivage.congu",
-    "mod_size": "~283.2 KB",
+    "mod_size": "~2.2 MB",
     "install_steps": [
       {
         "action": "copy_file",
-        "source": "Rivage/Content/Paks/~mods/Rivage-Windows_Vietnamese_P.pak",
-        "destination": "Rivage/Content/Paks/~mods/Rivage-Windows_Vietnamese_P.pak"
+        "source": "Rivage/Content/Paks/Rivage-Windows_P.pak",
+        "destination": "Rivage/Content/Paks/Rivage-Windows_P.pak"
       },
       {
         "action": "copy_file",
@@ -776,7 +776,7 @@
     "uninstall_steps": [
       {
         "action": "delete",
-        "target": "Rivage/Content/Paks/~mods/Rivage-Windows_Vietnamese_P.pak"
+        "target": "Rivage/Content/Paks/Rivage-Windows_P.pak"
       },
       {
         "action": "delete",
@@ -799,6 +799,6 @@
         }
       ]
     },
-    "congu_sha256": "1d3e776df10d6f7af11d42b5cf13968e63225e87533dcaf5a06e578154cd85a6"
+    "congu_sha256": "d5d3ef5c1fc6d31b0eeeaecfd4e39afd30743775d8deabe4e2802886ef948233"
   }
 ]
