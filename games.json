@@ -294,7 +294,55 @@
           "duration": "Trailer HD"
         }
       ]
-    }
+    },
+    "congu_sha256": "d23239e0567eb5370465bceced77e690b1c9f1d8a41baf3762680a89c8b478fb",
+    "install_steps": [
+      {
+        "action": "copy_folder",
+        "source": "BepInEx",
+        "destination": "BepInEx",
+        "optional": true
+      },
+      {
+        "action": "copy_folder",
+        "source": "Risk of Rain 2_Data",
+        "destination": "Risk of Rain 2_Data",
+        "optional": true
+      },
+      {
+        "action": "copy_file",
+        "source": "winhttp.dll",
+        "destination": "winhttp.dll",
+        "optional": true
+      },
+      {
+        "action": "copy_file",
+        "source": "doorstop_config.ini",
+        "destination": "doorstop_config.ini",
+        "optional": true
+      },
+      {
+        "action": "copy_file",
+        "source": ".doorstop_version",
+        "destination": ".doorstop_version",
+        "optional": true
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "delete",
+        "target": "Risk of Rain 2_Data/StreamingAssets/Language/vi"
+      },
+      {
+        "action": "delete",
+        "target": "Risk of Rain 2_Data/Language/vietnamese"
+      },
+      {
+        "action": "rename",
+        "source": "winhttp.dll",
+        "destination": "winhttp.dll.disabled"
+      }
+    ]
   },
   {
     "id": "fallout_tactics",
@@ -663,5 +711,94 @@
         }
       ]
     }
+  },
+  {
+    "id": "rivage",
+    "steam_appid": "4094660",
+    "title": "Rivage",
+    "vietnamese_title": "Rivage - Bến Đỗ Không Gian (Việt Hóa)",
+    "developer": "Exnilo Studio / Raw Fury",
+    "engine": "Unreal Engine 5.3",
+    "genre": "Phiêu lưu, Khoa học Viễn tưởng, Giải đố Escape Room, Bí ẩn Không gian",
+    "description": "Tựa game giải đố khoa học viễn tưởng sinh tồn góc nhìn thứ nhất. Bạn tỉnh dậy trong vai Miranda Vigneau, một nhà khoa học tài ba mắc kẹt trên trạm vũ trụ A.R.E.S. đang trôi dạt gần hành tinh bí ẩn Vesta. Khi phi hành đoàn mất tích, trạm vũ trụ dần cạn kiệt năng lượng và hiện tượng dị thường không gian Connector xuất hiện, bạn phải giải quyết hàng loạt câu đố máy móc và đối phó với virus Eraser để tìm đường sống.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "2,838 dòng thoại & giao diện",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Chuẩn UE5)",
+      "author": "Antigravity Localization Team",
+      "font": "Roboto / Slate Engine có dấu đầy đủ 100%",
+      "last_updated": "25/10/2026",
+      "mod_size": "~283.2 KB"
+    },
+    "mod_subfolder": "Rivage [Viet Hoa]",
+    "mod_type": "pak",
+    "mod_file": "Rivage-Windows_Vietnamese_P.pak",
+    "relative_install_path": "Rivage/Content/Paks/~mods",
+    "target_pak_name": "Rivage-Windows_Vietnamese_P.pak",
+    "executable_name": "Rivage.exe",
+    "default_folder_names": [
+      "Rivage",
+      "Rivage-Windows"
+    ],
+    "assets": {
+      "poster": "/assets/rivage/library_600x900.jpg",
+      "banner": "/assets/rivage/library_hero.jpg",
+      "header": "/assets/rivage/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn UE5)",
+        "release_date": "25/10/2026",
+        "changelog": "Phát hành bản Việt hóa chuẩn Unreal Engine 5 cho toàn bộ cốt truyện, nhật ký A.R.E.S., câu đố và menu.",
+        "is_latest": true
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/Rivage.congu",
+    "mod_size": "~283.2 KB",
+    "install_steps": [
+      {
+        "action": "copy_file",
+        "source": "Rivage/Content/Paks/~mods/Rivage-Windows_Vietnamese_P.pak",
+        "destination": "Rivage/Content/Paks/~mods/Rivage-Windows_Vietnamese_P.pak"
+      },
+      {
+        "action": "copy_file",
+        "source": "Rivage/Content/Localization/Rivage/en/Rivage.locres",
+        "destination": "Rivage/Content/Localization/Rivage/en/Rivage.locres"
+      },
+      {
+        "action": "copy_file",
+        "source": "Rivage/Plugins/FuryPlugin/Content/Localization/FuryPlugin/en/FuryPlugin.locres",
+        "destination": "Rivage/Plugins/FuryPlugin/Content/Localization/FuryPlugin/en/FuryPlugin.locres"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "delete",
+        "target": "Rivage/Content/Paks/~mods/Rivage-Windows_Vietnamese_P.pak"
+      },
+      {
+        "action": "delete",
+        "target": "Rivage/Content/Localization/Rivage/en/Rivage.locres"
+      },
+      {
+        "action": "delete",
+        "target": "Rivage/Plugins/FuryPlugin/Content/Localization/FuryPlugin/en/FuryPlugin.locres"
+      }
+    ],
+    "media": {
+      "trailers": [
+        {
+          "id": "rivage_1",
+          "title": "Trailer Giới Thiệu - Rivage",
+          "badge": "TRAILER",
+          "type": "youtube",
+          "youtube_id": "deROnCikabM",
+          "duration": "Trailer HD"
+        }
+      ]
+    },
+    "congu_sha256": "1d3e776df10d6f7af11d42b5cf13968e63225e87533dcaf5a06e578154cd85a6"
   }
 ]
