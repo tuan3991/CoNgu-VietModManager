@@ -256,6 +256,25 @@ def extract_local_steam_appid(game_dir: str) -> str | None:
             except OSError:
                 pass
 
+    # Quét đệ quy nếu file .ini nằm sâu trong thư mục Engine hoặc Plugins (như Unreal Engine / Unity)
+    deep_ini_patterns = [
+        os.path.join(game_dir, "**", "steam_emu.ini"),
+        os.path.join(game_dir, "**", "*tenoke*.ini"),
+        os.path.join(game_dir, "**", "*rune*.ini"),
+        os.path.join(game_dir, "**", "*codex*.ini"),
+        os.path.join(game_dir, "**", "cream_api.ini")
+    ]
+    for deep_pat in deep_ini_patterns:
+        for path in glob.glob(deep_pat, recursive=True):
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    text = f.read()
+                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId)\s*=\s*(\d{3,10})", text, re.IGNORECASE)
+                    if match and match.group(1) != "0":
+                        return match.group(1)
+            except OSError:
+                pass
+
     # 3. Quét tệp goggame-*.info (JSON metadata của GOG)
     for path in glob.glob(os.path.join(game_dir, "goggame-*.info")) + glob.glob(os.path.join(game_dir, "*", "goggame-*.info")):
         try:
