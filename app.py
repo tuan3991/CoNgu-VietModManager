@@ -170,6 +170,9 @@ from bottle import Bottle, static_file, request, response, abort
 import socketserver
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 import webview
+import glob
+import urllib.request
+import urllib.parse
 
 # Base paths with PyInstaller frozen support
 if getattr(sys, 'frozen', False):
@@ -192,6 +195,272 @@ CONFIG_JSON = os.path.join(APP_DIR, "user_config.json")
 APPDATA_DIR = os.path.join(os.environ.get("APPDATA", APP_DIR), "VietModHub")
 BACKUP_ROOT = os.path.join(APPDATA_DIR, "backups")
 USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
+COVERS_DIR = os.path.join(APPDATA_DIR, "covers")
+COVERS_CACHE_FILE = os.path.join(APPDATA_DIR, "covers_cache.json")
+os.makedirs(COVERS_DIR, exist_ok=True)
+
+def load_covers_cache():
+    """Nạp cache metadata & avatar đã tìm được của game lẻ từ tệp JSON."""
+    if os.path.exists(COVERS_CACHE_FILE):
+        try:
+            with open(COVERS_CACHE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_covers_cache(cache):
+    """Lưu cache metadata & avatar của game lẻ vào tệp JSON."""
+    try:
+        with open(COVERS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[!] Error saving covers cache: {e}")
+
+def extract_local_steam_appid(game_dir: str) -> str | None:
+    """Lớp 1: Quét nhanh steam_appid có sẵn trong các file cấu hình của game lẻ/repack (Độ chính xác 100%, 0 giây)."""
+    if not game_dir or not os.path.exists(game_dir):
+        return None
+
+    # 1. Tìm trực tiếp file steam_appid.txt (ở gốc hoặc trong các thư mục con gần nhất)
+    for pattern in ["steam_appid.txt", "*/steam_appid.txt", "*/*/steam_appid.txt"]:
+        for path in glob.glob(os.path.join(game_dir, pattern)):
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read().strip()
+                    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+                    if lines and lines[0].isdigit() and int(lines[0]) > 0:
+                        return lines[0]
+            except OSError:
+                pass
+
+    # 2. Quét trong các file .ini phổ biến của game cài ngoài (steam_emu.ini, tenoke.ini, rune.ini...)
+    ini_patterns = [
+        "steam_emu.ini", "*/steam_emu.ini", "*/*/steam_emu.ini",
+        "*tenoke*.ini", "*/*tenoke*.ini",
+        "*rune*.ini", "*/*rune*.ini",
+        "*codex*.ini", "*/*codex*.ini",
+        "*onlinefix*.ini", "*/*onlinefix*.ini",
+        "*flt*.ini", "*/*flt*.ini",
+        "*ali213*.ini", "*/*ali213*.ini",
+        "cream_api.ini", "*/cream_api.ini"
+    ]
+    for pattern in ini_patterns:
+        for path in glob.glob(os.path.join(game_dir, pattern)):
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    text = f.read()
+                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId)\s*=\s*(\d{3,10})", text, re.IGNORECASE)
+                    if match and match.group(1) != "0":
+                        return match.group(1)
+            except OSError:
+                pass
+
+    # 3. Quét tệp goggame-*.info (JSON metadata của GOG)
+    for path in glob.glob(os.path.join(game_dir, "goggame-*.info")) + glob.glob(os.path.join(game_dir, "*", "goggame-*.info")):
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                gog_data = json.load(f)
+                gog_appid = gog_data.get("steam_appid") or gog_data.get("gameId")
+                if gog_appid and str(gog_appid).isdigit():
+                    return str(gog_appid)
+        except Exception:
+            pass
+
+    return None
+
+def resolve_clean_game_title(game_dir: str, exe_name: str = "") -> str:
+    """Lớp 2: Trích xuất và làm sạch tên game thật từ thư mục hoặc Unity app.info."""
+    if not game_dir:
+        return ""
+
+    # 1. Nếu là game Unity, đọc dòng thứ 2 trong *_Data/app.info (chứa Product Name chuẩn)
+    for app_info in glob.glob(os.path.join(game_dir, "*_Data", "app.info")) + glob.glob(os.path.join(game_dir, "*", "*_Data", "app.info")):
+        try:
+            with open(app_info, "r", encoding="utf-8", errors="ignore") as f:
+                lines = [line.strip() for line in f.readlines() if line.strip()]
+                if len(lines) >= 2 and len(lines[1]) > 1:
+                    return lines[1]
+        except OSError:
+            pass
+
+    # 2. Lấy từ tên thư mục gốc hoặc tên exe và lọc bỏ rác kỹ thuật
+    raw_name = os.path.basename(os.path.normpath(game_dir))
+    if raw_name.lower() in ("binaries", "win64", "win32", "x64", "x86", "game", "bin") and exe_name:
+        raw_name = os.path.splitext(os.path.basename(exe_name))[0]
+    elif raw_name.lower() in ("binaries", "win64", "win32", "x64", "x86", "game", "bin"):
+        raw_name = os.path.basename(os.path.dirname(os.path.normpath(game_dir)))
+
+    # Xóa các hậu tố Engine, phiên bản và nhóm Repack
+    clean = re.sub(r"(-Win64-Shipping|-Win32-Shipping|_x64|_x86|_DX11|_DX12|-Shipping)", "", raw_name, flags=re.IGNORECASE)
+    clean = re.sub(r"\[.*?\]|\(.*?\)", " ", clean)
+    clean = re.sub(r"\b(v?\d+(\.\d+)+|repack|portable|gog|fitgirl|dodi|elamigos|tenoke|rune|codex|flt|goldberg|cpi|skidrow)\b", " ", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"[._\-]+", " ", clean)
+    # Tách chữ CamelCase (VD: RavenousDevils -> Ravenous Devils)
+    clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", clean)
+    return re.sub(r"\s+", " ", clean).strip()
+
+def extract_exe_icon(exe_path: str, output_img_path: str) -> bool:
+    """Lớp 4 Fallback: Trích xuất icon gốc từ file .exe trên Windows thành file PNG."""
+    if not exe_path or not os.path.exists(exe_path) or not sys.platform.startswith("win"):
+        return False
+    try:
+        clean_exe = os.path.abspath(exe_path).replace("'", "''")
+        clean_out = os.path.abspath(output_img_path).replace("'", "''")
+        ps_cmd = (
+            f"Add-Type -AssemblyName System.Drawing; "
+            f"$icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{clean_exe}'); "
+            f"if ($icon) {{ $bitmap = $icon.ToBitmap(); $bitmap.Save('{clean_out}', [System.Drawing.Imaging.ImageFormat]::Png); exit 0 }} else {{ exit 1 }}"
+        )
+        res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], capture_output=True, timeout=5)
+        return res.returncode == 0 and os.path.exists(output_img_path) and os.path.getsize(output_img_path) > 500
+    except Exception:
+        return False
+
+def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallback_title: str = "", game_id: str = "") -> dict:
+    """
+    Lớp 3 & Lớp 4: Tự động tìm steam_appid, link ảnh bìa dọc 600x900 và thể loại cho game lẻ.
+    Đồng thời lưu cache ảnh bìa tại chỗ (%APPDATA%/VietModHub/covers/{game_id}.jpg).
+    """
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    appid = extract_local_steam_appid(game_dir) if game_dir else None
+    clean_title = fallback_title or resolve_clean_game_title(game_dir, exe_name)
+
+    # 1. Nếu chưa có appid trong thư mục, tìm nhanh trong cơ sở dữ liệu steam_games.json offline (hơn 5,000 game)
+    if not appid and clean_title:
+        try:
+            games_db = get_steam_games()
+            q_clean = clean_title.lower().strip()
+            for item in games_db:
+                item_name = item.get("name", "").lower()
+                if item_name == q_clean or item_name.startswith(q_clean):
+                    appid = str(item["id"])
+                    clean_title = item.get("name", clean_title)
+                    break
+            if not appid:
+                for item in games_db:
+                    if q_clean in item.get("name", "").lower():
+                        appid = str(item["id"])
+                        clean_title = item.get("name", clean_title)
+                        break
+        except Exception as e:
+            print(f"[Metadata] Offline steam db search error: {e}")
+
+    # Nếu vẫn chưa có appid, gọi Steam StoreSearch API từ Backend (tránh CORS)
+    if not appid and clean_title:
+        try:
+            query = urllib.parse.quote(clean_title)
+            search_url = f"https://store.steampowered.com/api/storesearch/?term={query}&l=english&cc=US"
+            req = urllib.request.Request(search_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                items = data.get("items", [])
+                if items:
+                    appid = str(items[0]["id"])
+                    clean_title = items[0].get("name", clean_title)
+        except Exception:
+            pass
+
+    result = {
+        "steam_appid": appid,
+        "title": clean_title,
+        "avatar_url": None,
+        "header_url": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else None,
+        "local_cover": None,
+        "genre": "GAME LẺ"
+    }
+
+    # Kiểm tra xem đã có custom cover do người dùng chọn hoặc cover tải trước đó chưa
+    safe_gid = re.sub(r"[^\w\-]", "_", game_id or appid or clean_title or "unknown")
+    local_cover_file = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
+    local_cover_png = os.path.join(COVERS_DIR, f"{safe_gid}.png")
+    if os.path.exists(local_cover_file) and os.path.getsize(local_cover_file) > 1000:
+        result["local_cover"] = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_file))}"
+        result["avatar_url"] = result["local_cover"]
+    elif os.path.exists(local_cover_png) and os.path.getsize(local_cover_png) > 500:
+        result["local_cover"] = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
+        result["avatar_url"] = result["local_cover"]
+
+    if not appid:
+        # Nếu không có appid, thử trích xuất icon từ file exe
+        if not result["local_cover"] and game_dir and exe_name:
+            full_exe = os.path.join(game_dir, exe_name)
+            if not os.path.exists(full_exe):
+                cand = os.path.join(game_dir, os.path.basename(exe_name))
+                if os.path.exists(cand):
+                    full_exe = cand
+            if os.path.exists(full_exe):
+                if extract_exe_icon(full_exe, local_cover_png):
+                    result["local_cover"] = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
+                    result["avatar_url"] = result["local_cover"]
+        return result
+
+    # 2. Kiểm tra xem ảnh dọc 600x900 chuẩn có tồn tại không (Fallback Chain: Cloudflare -> Fastly -> Akamai)
+    candidate_posters = [
+        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900_2x.jpg",
+        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
+        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
+        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+        f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/library_600x900.jpg"
+    ]
+    for url in candidate_posters:
+        try:
+            req = urllib.request.Request(url, method="HEAD", headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                if resp.status == 200:
+                    result["avatar_url"] = url
+                    break
+        except Exception:
+            continue
+
+    # 3. Gọi thêm appdetails để lấy thể loại (Genre) và lấy ảnh dự phòng nếu game dùng URL chứa mã hash mới
+    try:
+        details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese"
+        req = urllib.request.Request(details_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            details_data = json.loads(resp.read().decode("utf-8"))
+            app_data = details_data.get(str(appid), {}).get("data", {})
+            if app_data:
+                result["title"] = app_data.get("name", result["title"])
+                result["header_url"] = app_data.get("header_image") or result["header_url"]
+                if not result["avatar_url"]:
+                    result["avatar_url"] = result["header_url"]
+                genres = app_data.get("genres", [])
+                if genres:
+                    result["genre"] = genres[0].get("description", "PHIÊU LƯU").upper()
+    except Exception:
+        pass
+
+    # 4. Lớp 4: Tự động tải và cache ảnh bìa xuống %APPDATA%/VietModHub/covers/{safe_gid}.jpg
+    if (result.get("avatar_url") or result.get("header_url")) and not os.path.exists(local_cover_file):
+        download_target_url = result.get("avatar_url") or result.get("header_url")
+        if download_target_url and download_target_url.startswith("http"):
+            try:
+                req = urllib.request.Request(download_target_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    img_bytes = resp.read()
+                    if len(img_bytes) > 1000:
+                        with open(local_cover_file, "wb") as f_out:
+                            f_out.write(img_bytes)
+                        result["local_cover"] = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_file))}"
+                        result["avatar_url"] = result["local_cover"]
+            except Exception as e:
+                print(f"[Metadata] Cache download error: {e}")
+
+    # 5. Nếu vẫn chưa có ảnh, thử trích xuất icon từ .exe
+    if not result.get("local_cover") and game_dir and exe_name:
+        full_exe = os.path.join(game_dir, exe_name)
+        if not os.path.exists(full_exe):
+            cand = os.path.join(game_dir, os.path.basename(exe_name))
+            if os.path.exists(cand):
+                full_exe = cand
+        if os.path.exists(full_exe):
+            if extract_exe_icon(full_exe, local_cover_png):
+                result["local_cover"] = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
+                if not result.get("avatar_url"):
+                    result["avatar_url"] = result["local_cover"]
+
+    return result
 
 def compute_file_sha256(file_path):
     """Compute SHA-256 hash of a file safely in 1MB chunks."""
@@ -1130,6 +1399,7 @@ class ModManagerAPI:
         user_cfg = load_user_config()
         libraries = detect_steam_libraries()
         user_data = load_user_data()
+        covers_cache = load_covers_cache()
         cfg_changed = False
 
         for g in games:
@@ -1364,6 +1634,27 @@ class ModManagerAPI:
             g["user_rating"] = user_data.get("ratings", {}).get(gid, 5)
             g["user_comment"] = user_data.get("comments", {}).get(gid, "")
 
+            # Metadata & Cover Enrichment (4 Lớp Tự Động Hóa cho Game Lẻ & Game Cài Ngoài)
+            safe_gid = re.sub(r"[^\w\-]", "_", gid)
+            local_cover_jpg = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
+            local_cover_png = os.path.join(COVERS_DIR, f"{safe_gid}.png")
+            local_cover = None
+            if os.path.exists(local_cover_jpg) and os.path.getsize(local_cover_jpg) > 1000:
+                local_cover = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_jpg))}"
+            elif os.path.exists(local_cover_png) and os.path.getsize(local_cover_png) > 500:
+                local_cover = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
+            
+            g["local_cover"] = local_cover
+
+            cached_meta = covers_cache.get(gid) or {}
+            g["avatar_url"] = local_cover or cached_meta.get("avatar_url")
+            g["header_url"] = cached_meta.get("header_url")
+            if not g.get("steam_appid") and cached_meta.get("steam_appid"):
+                g["steam_appid"] = cached_meta.get("steam_appid")
+            if not g.get("genre") or g.get("genre") == "Game":
+                if cached_meta.get("genre"):
+                    g["genre"] = cached_meta["genre"]
+
         if cfg_changed:
             save_user_config(user_cfg)
 
@@ -1444,6 +1735,21 @@ class ModManagerAPI:
                 cfg[f"{game_id}_path"] = resolved_path
                 save_user_config(cfg)
 
+                # Tự động nhận diện metadata và poster cho game lẻ (4 Lớp)
+                try:
+                    meta = fetch_game_metadata_and_avatar(
+                        resolved_path, 
+                        g_target.get("executable_name", ""), 
+                        g_target.get("title", ""), 
+                        game_id
+                    )
+                    if meta:
+                        c_cache = load_covers_cache()
+                        c_cache[game_id] = meta
+                        save_covers_cache(c_cache)
+                except Exception as e:
+                    print(f"[!] Metadata extraction error: {e}")
+
                 # Early Write Permission Check (Program Files / UAC restriction)
                 is_admin = is_running_as_admin()
                 is_writable = is_admin or check_directory_writable(resolved_path)
@@ -1482,6 +1788,21 @@ class ModManagerAPI:
         cfg[f"{game_id}_path"] = resolved_path
         save_user_config(cfg)
 
+        # Tự động nhận diện metadata và poster cho game lẻ (4 Lớp)
+        try:
+            meta = fetch_game_metadata_and_avatar(
+                resolved_path, 
+                g_target.get("executable_name", ""), 
+                g_target.get("title", ""), 
+                game_id
+            )
+            if meta:
+                c_cache = load_covers_cache()
+                c_cache[game_id] = meta
+                save_covers_cache(c_cache)
+        except Exception as e:
+            print(f"[!] Metadata extraction error: {e}")
+
         # Early Write Permission Check (Program Files / UAC restriction)
         is_admin = is_running_as_admin()
         is_writable = is_admin or check_directory_writable(resolved_path)
@@ -1501,6 +1822,56 @@ class ModManagerAPI:
             "requires_admin": requires_admin,
             "games": self.get_games()
         }
+
+    def select_custom_cover(self, game_id):
+        """Cho phép người dùng chọn ảnh bìa tùy chỉnh (JPG, PNG, WEBP) từ máy tính."""
+        chosen_file = None
+        if self.window:
+            try:
+                file_types = ('Image Files (*.jpg;*.jpeg;*.png;*.webp)', 'All files (*.*)')
+                res = self.window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types)
+                if res and len(res) > 0:
+                    chosen_file = res[0]
+            except Exception as e:
+                print(f"[!] PyWebView file dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.askopenfilename(
+                    title="Chọn ảnh bìa poster cho game",
+                    filetypes=[("Image files", "*.jpg;*.jpeg;*.png;*.webp"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+
+        if chosen_file and os.path.exists(chosen_file):
+            safe_gid = re.sub(r"[^\w\-]", "_", game_id)
+            dest_cover = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
+            try:
+                shutil.copyfile(chosen_file, dest_cover)
+                c_cache = load_covers_cache()
+                if game_id not in c_cache:
+                    c_cache[game_id] = {}
+                local_url = f"/api/covers/{safe_gid}.jpg?t={int(time.time())}"
+                c_cache[game_id]["local_cover"] = local_url
+                c_cache[game_id]["avatar_url"] = local_url
+                save_covers_cache(c_cache)
+                return {
+                    "success": True, 
+                    "cover_url": local_url, 
+                    "message": "Đã đổi ảnh bìa thành công!", 
+                    "games": self.get_games()
+                }
+            except Exception as e:
+                return {"success": False, "message": f"Lỗi khi lưu ảnh bìa: {e}"}
+
+        return {"success": False, "message": "Chưa chọn ảnh nào."}
 
     def _backup_file_inplace(self, game_id, original_abs_path, relative_in_game, return_details=False):
         """
@@ -4018,6 +4389,33 @@ def serve_static(filepath):
 @server_app.route("/assets/<filepath:path>")
 def serve_assets(filepath):
     return static_file(filepath, root=os.path.join(STATIC_DIR, "assets"))
+
+@server_app.route("/api/covers/<filepath:path>")
+def serve_covers(filepath):
+    return static_file(filepath, root=COVERS_DIR)
+
+@server_app.route("/api/game/custom_cover", method="POST")
+def api_game_custom_cover():
+    data = request.json or {}
+    game_id = data.get("game_id")
+    res = api_instance.select_custom_cover(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/game/metadata", method="POST")
+def api_game_metadata():
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    game_path = data.get("game_path", "")
+    exe_name = data.get("exe_name", "")
+    title = data.get("title", "")
+    res = fetch_game_metadata_and_avatar(game_path, exe_name, title, game_id)
+    if res and game_id:
+        c_cache = load_covers_cache()
+        c_cache[game_id] = res
+        save_covers_cache(c_cache)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
 
 @server_app.route("/api/games", method="GET")
 def api_get_games():
