@@ -967,5 +967,179 @@
       }
     ],
     "status_marker": "TastyChef_Data/resources.assets.congu_bak"
+  },
+  {
+    "id": "vellum",
+    "steam_appid": "917950",
+    "title": "Vellum",
+    "vietnamese_title": "Vellum (Bí Lục Thư Viện Cổ)",
+    "developer": "Alvios",
+    "engine": "Unity 2021.3 (Mono)",
+    "genre": "Hành động Roguelike, Co-op Phép Thuật, Bút Tích Sách Vở",
+    "description": "Bước vào thế giới Vellum nơi các trang sách cổ là chiến trường ma thuật! Cùng bạn bè vẽ nên những trang sử thi bằng mực phép, giải phóng sức mạnh của các Bí Lục Cổ Điển và bảo vệ Thư Viện Khai Sáng trước hiểm họa từ Quân Xé Sách.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "1,212 chuỗi hội thoại, thuật ngữ & giao diện",
+      "status": "Hoàn thành 100% (Zero Omission & 134 ký tự tiếng Việt)",
+      "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
+      "author": "Antigravity Localization Team",
+      "font": "LiberationSans SDF tái tạo (134/134 ký tự tiếng Việt chuẩn sắc nét)",
+      "last_updated": "26/10/2026",
+      "mod_size": "~186.2 KB"
+    },
+    "mod_subfolder": "Vellum",
+    "mod_type": "pipeline",
+    "mod_file": "VELLUM_Viethoa.congu",
+    "congu_sha256": "867215e3f99567e5524934a101d568e913b1d3cb66c77cc5b2aea2faaf8c589e",
+    "relative_install_path": "Vellum_Data",
+    "target_pak_name": "VELLUM_Viethoa.congu",
+    "executable_name": "Vellum.exe",
+    "default_folder_names": [
+      "Vellum"
+    ],
+    "assets": {
+      "poster": "/static/posters/917950.jpg",
+      "banner": "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/917950/header.jpg",
+      "header": "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/917950/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
+        "release_date": "26/10/2026",
+        "changelog": "Bản phát hành chính thức Việt hóa trọn vẹn 100% cốt truyện, giao diện, phép thuật, hệ thống Mực & Bí Lục; font chữ SDF độ nét cao không lỗi ô vuông.",
+        "is_latest": true
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/VELLUM_Viethoa.congu",
+    "mod_size": "~186.2 KB",
+    "install_steps": [
+      {
+        "action": "patch_binary",
+        "target": "Vellum_Data/resources.assets.resS",
+        "patch": "Vellum_Data/resources.assets.resS.xdelta.diff",
+        "original_sha256": "66fb3bb26ed2afbf086ccbc2a9a4c655b0b1f594dc5ef84a4ecc17d0980a9d67",
+        "patched_sha256": "1b9de5bea0f6ad91cb806fbf41bd8236822ff28d4aa07914f37eefbadaf9124e"
+      },
+      {
+        "action": "copy_file",
+        "source": "Vellum_Data/Managed/Unity.TextMeshPro.dll",
+        "destination": "Vellum_Data/Managed/Unity.TextMeshPro.dll"
+      },
+      {
+        "action": "copy_file",
+        "source": "Vellum_Data/Managed/VellumVietnamese.dll",
+        "destination": "Vellum_Data/Managed/VellumVietnamese.dll"
+      },
+      {
+        "action": "copy_file",
+        "source": "Vellum_Data/Vietnamese.json",
+        "destination": "Vellum_Data/Vietnamese.json"
+      },
+      {
+        "action": "copy_file",
+        "source": "Vellum_Data/VietFontData.bin",
+        "destination": "Vellum_Data/VietFontData.bin"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "restore_backup",
+        "target": "Vellum_Data/resources.assets.resS"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Vellum_Data/Managed/Unity.TextMeshPro.dll"
+      },
+      {
+        "action": "delete_file",
+        "target": "Vellum_Data/Managed/VellumVietnamese.dll"
+      },
+      {
+        "action": "delete_file",
+        "target": "Vellum_Data/Vietnamese.json"
+      },
+      {
+        "action": "delete_file",
+        "target": "Vellum_Data/VietFontData.bin"
+      }
+    ],
+    "status_marker": "Vellum_Data/Managed/Unity.TextMeshPro.dll.congu_bak"
+  },
+  {
+    "id": "castlevania_belmonts_curse",
+    "steam_appid": "4231820",
+    "title": "Castlevania: Belmont's Curse",
+    "vietnamese_title": "Castlevania: Lời Nguyền Dòng Họ Belmont",
+    "developer": "KONAMI",
+    "engine": "Unity 2022.3 (IL2CPP)",
+    "genre": "Hành Động, Phiêu Lưu, Gothic Horror, Metroidvania",
+    "description": "Theo chân nữ thợ săn Rose Belmont trong hành trình khám phá bí ẩn tăm tối tại Paris thế kỷ 18. Đối đầu với bóng ma của Dracula, Thần Chết và giải phóng sức mạnh của các vị tiền bối dòng họ Belmont qua các lá bài Arcana huyền bí.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "2,759 chuỗi hội thoại, giao diện, trang bị, phép thuật & truyền thuyết",
+      "status": "Hoàn thành 100% (Zero Omission & 134 ký tự tiếng Việt)",
+      "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
+      "author": "Antigravity Localization Team",
+      "font": "LatinFont & NotoSans SDF tái tạo (134/134 ký tự tiếng Việt chuẩn sắc nét)",
+      "last_updated": "26/10/2026",
+      "mod_size": "~336.2 KB"
+    },
+    "mod_subfolder": "castlevania",
+    "mod_type": "pipeline",
+    "mod_file": "CASTLEVANIA_BELMONTS_CURSE_Viethoa.congu",
+    "congu_sha256": "dfef7f521c9244c6d9f4c22d2f77dd019f3e7cd3e0a506a73272b8ddf14a5bf2",
+    "relative_install_path": "Castlevania Belmont's Curse_Data",
+    "target_pak_name": "CASTLEVANIA_BELMONTS_CURSE_Viethoa.congu",
+    "executable_name": "Castlevania Belmont's Curse.exe",
+    "default_folder_names": [
+      "Castlevania - Belmont's Curse",
+      "Castlevania Belmont's Curse"
+    ],
+    "assets": {
+      "poster": "/static/posters/4231820.jpg",
+      "banner": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4231820/6b65aec2c398006aea8b76e1463cc34d0e4ba68b/header.jpg",
+      "header": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4231820/6b65aec2c398006aea8b76e1463cc34d0e4ba68b/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
+        "release_date": "26/10/2026",
+        "changelog": "Bản phát hành chính thức Việt hóa trọn vẹn 100% cốt truyện ACT 1-3, giao diện, trang bị, vũ khí, bùa chú, bài Arcana; font chữ SDF độ nét cao không lỗi ô vuông.",
+        "is_latest": true
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/CASTLEVANIA_BELMONTS_CURSE_Viethoa.congu",
+    "mod_size": "~336.2 KB",
+    "install_steps": [
+      {
+        "action": "backup",
+        "target": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/04dedb3c4aeabfd88b34737251b56126.bundle"
+      },
+      {
+        "action": "copy_file",
+        "source": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/04dedb3c4aeabfd88b34737251b56126.bundle",
+        "destination": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/04dedb3c4aeabfd88b34737251b56126.bundle"
+      },
+      {
+        "action": "backup",
+        "target": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/ef46b77e332bc513057a1ff442ecffcd.bundle"
+      },
+      {
+        "action": "copy_file",
+        "source": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/ef46b77e332bc513057a1ff442ecffcd.bundle",
+        "destination": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/ef46b77e332bc513057a1ff442ecffcd.bundle"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "restore_backup",
+        "target": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/04dedb3c4aeabfd88b34737251b56126.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/ef46b77e332bc513057a1ff442ecffcd.bundle"
+      }
+    ],
+    "status_marker": "Castlevania Belmont's Curse_Data/StreamingAssets/aa/StandaloneWindows64/04dedb3c4aeabfd88b34737251b56126.bundle.congu_bak"
   }
 ]
