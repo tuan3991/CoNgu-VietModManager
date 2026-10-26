@@ -2199,6 +2199,18 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ game_id: game.id, force: force })
             });
+            if (!res.ok) {
+              let errMsg = `Lỗi máy chủ (${res.status})`;
+              try {
+                const errData = await res.json();
+                errMsg = errData.message || errMsg;
+              } catch (_) {
+                const text = await res.text();
+                if (text.includes('Forbidden')) errMsg = 'Phiên làm việc hết hạn hoặc bị chặn truy cập (403 Forbidden). Vui lòng khởi động lại app!';
+                else if (text) errMsg = text.slice(0, 150);
+              }
+              throw new Error(errMsg);
+            }
             data = await res.json();
           }
           if (data && data.is_game_running) {

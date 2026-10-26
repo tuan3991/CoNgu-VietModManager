@@ -4497,14 +4497,26 @@ class ModManagerAPI:
             mod_file_name = g.get("mod_file", "")
             if mod_file_name:
                 active_repo = get_repo_dir()
-                for cand in [
+                exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+                cand_list = [
                     os.path.join(active_repo, mod_file_name),
                     os.path.join(DEFAULT_REPO_DIR, mod_file_name),
                     os.path.join(FALLBACK_REPO_DIR, mod_file_name),
                     os.path.join(APP_DIR, "mods", mod_file_name),
                     os.path.join(APP_DIR, mod_file_name),
+                    os.path.join(exe_dir, "mods", mod_file_name),
+                    os.path.join(exe_dir, mod_file_name),
                     os.path.join(source_mod_dir, mod_file_name) if source_mod_dir else ""
-                ]:
+                ]
+                # Deep search in subdirectories of DEFAULT_REPO_DIR
+                if os.path.exists(DEFAULT_REPO_DIR):
+                    try:
+                        for entry in os.scandir(DEFAULT_REPO_DIR):
+                            if entry.is_dir():
+                                cand_list.append(os.path.join(entry.path, mod_file_name))
+                    except Exception:
+                        pass
+                for cand in cand_list:
                     if cand and os.path.isfile(cand) and security.is_congu_package(cand):
                         existing_congu = cand
                         break
