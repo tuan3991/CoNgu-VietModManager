@@ -825,7 +825,7 @@
       "author": "Antigravity Localization Team",
       "font": "BO-TBMDGoStd & FOT-RODINNTLGPRO SDF (134/134 ký tự tiếng Việt, xóa bỏ hoàn toàn lỗi Fallback Font)",
       "last_updated": "26/10/2026",
-      "mod_size": "~70.5 MB"
+      "mod_size": "~70.7 MB"
     },
     "mod_subfolder": "DEMONS' NIGHT FEVER",
     "mod_type": "pipeline",
@@ -852,7 +852,7 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/DEMONS_NIGHT_FEVER_Viethoa.congu",
-    "mod_size": "~70.5 MB",
+    "mod_size": "~70.7 MB",
     "install_steps": [
       {
         "action": "copy_file",
@@ -879,7 +879,7 @@
         "target": "DNFever_Data/StreamingAssets/aa/catalog.json",
         "patch": "catalog.json.xdelta.diff",
         "original_sha256": "c37e5240a750e0a3a6ae970933237fc9826ddcd60381e94ec66c8452c3631ea1",
-        "patched_sha256": "adb17d686df15788742c4cebc1913cf8096ffabed5fd28302985e291527c392b"
+        "patched_sha256": "c82d9fa425a2686e0dace3eadd66ed393171fa05b9bfaa93d3df1d9593d30a20"
       }
     ],
     "uninstall_steps": [
@@ -904,7 +904,7 @@
         "target": "DNFever_Data/StreamingAssets/aa/catalog.json"
       }
     ],
-    "congu_sha256": "b161ba3df7d0b28477f66d2a530b8ca3d1fd2cedced761cd15999e6f308df80e"
+    "congu_sha256": "949452abc1340acffc38452266a33fb62a4ad9f4e2bd824105bc7f1a955aeb5f"
   },
   {
     "id": "tasty_chef",
