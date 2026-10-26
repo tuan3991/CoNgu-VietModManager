@@ -47,18 +47,30 @@ if exist "dist\VietModHub\VietModHub.exe" (
 )
 
 :: 2. Neu khong co file .exe (dang chay tu ma nguon GitHub), kiem tra Python
-echo [*] Khong tim thay ban dong goi .exe san. Dang kiem tra Python runtime...
+echo [*] Dang kiem tra moi truong Python runtime...
 
 where python >nul 2>nul
 if %errorlevel% neq 0 (
     echo.
     echo [!] CANH BAO: Ban dang chay tu ma nguon GitHub ma may tinh chua cai Python!
-    echo [!] De su dung nhanh khong can cai dat, vui long tai ban:
-    echo     CoNgu_v2.0_Portable.zip tu muc Releases tren GitHub:
+    echo [!] Vui long cai dat Python 3.10 hoac 3.11 tu https://www.python.org/ (nho tich vao "Add Python to PATH")
+    echo [!] Hoac tai ban CoNgu_v2.0_Portable.zip tu muc Releases tren GitHub:
     echo     https://github.com/tuan3991/CoNgu-VietModManager/releases
     echo.
     pause
     exit /b
+)
+
+:: Kiem tra va tu dong cai dat cac thu vien Python can thiet neu thieu
+python -c "import bottle, webview, cryptography" >nul 2>nul
+if %errorlevel% neq 0 (
+    echo.
+    echo [*] Phat hien thieu thu vien can thiet de khoi chay CO NGU.
+    echo [*] Dang tu dong cai dat cac thu vien phu hop (bottle, pywebview, cryptography, pythonnet, Pillow)...
+    python -m pip install --upgrade pip >nul 2>nul
+    python -m pip install bottle pywebview cryptography pythonnet Pillow
+    echo [*] Cai dat thu vien hoan tat!
+    echo.
 )
 
 if exist "..\.venv\Scripts\python.exe" (
@@ -71,6 +83,7 @@ if exist "..\.venv\Scripts\python.exe" (
 
 if %errorlevel% neq 0 (
     echo.
-    echo [!] Khoi dong that bai. Vui long kiem tra cac thu vien da cai dat.
+    echo [!] Khoi dong that bai. Ma loi: %errorlevel%
+    echo [!] Kiem tra file log tai: %%APPDATA%%\VietModHub\startup.log
     pause
 )

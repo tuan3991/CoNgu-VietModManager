@@ -1,4 +1,10 @@
+import os
 import sys
+
+# Force bypass Windows system proxy/VPN for local loopback (fixes ERR_CONNECTION_REFUSED on 127.0.0.1)
+os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--no-proxy-server --disable-features=msSmartScreenProtection"
+os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+os.environ["no_proxy"] = "127.0.0.1,localhost"
 
 # Ensure stdout and stderr never raise UnicodeEncodeError on Windows cp1252 consoles
 if sys.stdout is not None and hasattr(sys.stdout, 'reconfigure'):
@@ -5591,9 +5597,20 @@ class ThreadingWSGIServer(socketserver.ThreadingMixIn, WSGIServer):
         pass
 
 
+class SafeNullWriter:
+    def write(self, *args, **kwargs):
+        pass
+    def flush(self):
+        pass
+
 class QuietWSGIRequestHandler(WSGIRequestHandler):
     def log_message(self, format, *args):
         pass  # Suppress WSGI HTTP request logs
+
+    def get_stderr(self):
+        if sys.stderr is not None:
+            return sys.stderr
+        return SafeNullWriter()
 
 @server_app.hook("before_request")
 def verify_session_token():
@@ -6142,12 +6159,24 @@ def get_app_icon_path():
             return os.path.abspath(c)
     return ""
 
+def log_startup(msg: str):
+    """Ghi log khoi dong ung dung de chan doan su co tren moi may tinh."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    formatted = f"[{timestamp}] {msg}"
+    print(formatted)
+    try:
+        log_file = os.path.join(APPDATA_DIR, "startup.log")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(formatted + "\n")
+    except Exception:
+        pass
+
 def launch_app_window_fallback(url):
     """
     Fallback Desktop Window Mode:
     Launch Microsoft Edge or Chrome in standalone App Mode (--app=URL).
     Displays a clean native desktop window without tabs, address bar, or navigation buttons.
-    When the user closes the window, proc.wait() terminates and exits cleanly.
+    Bypasses system proxy, disables Edge Startup Boost handoff, and protects against premature exit.
     """
     import subprocess
     potential_browsers = [
@@ -6165,38 +6194,78 @@ def launch_app_window_fallback(url):
                 f"--user-data-dir={app_data_edge}",
                 "--window-size=1340,900",
                 "--no-first-run",
-                "--no-default-browser-check"
+                "--no-default-browser-check",
+                "--no-proxy-server",
+                "--disable-features=msEdgeStartupBoost",
+                "--disable-background-mode",
+                "--new-window"
             ]
             try:
+                log_startup(f"Khoi chay cua so Standalone qua: {exe}")
+                t0 = time.time()
                 proc = subprocess.Popen(cmd)
                 proc.wait()
-                os._exit(0)
-                return True
-            except Exception:
-                pass
+                elapsed = time.time() - t0
+                if elapsed > 1.5:
+                    log_startup("Cua so ung dung da dong boi nguoi dung. Thoat tien trinh.")
+                    os._exit(0)
+                else:
+                    log_startup("Trinh duyet chuyen quyen sang tien trinh nen. Duy tri may chu backend phuc vu UI.")
+                    return True
+            except Exception as e:
+                log_startup(f"[!] Loi khoi chay trinh duyet {exe}: {e}")
     
+    log_startup("Khong tim thay Edge/Chrome doc lap. Dang mo tren trinh duyet mac dinh...")
     import webbrowser
     webbrowser.open(url)
     return False
 
+def create_http_server():
+    """
+    Thu khoi tao may chu tren cong co dinh 49200 truoc de tranh bi Firewall chan cong dong (ephemeral ports),
+    neu cong da bi chiem thi tu dong chuyen sang ephemeral port 0 linh hoat.
+    """
+    for try_port in [49200, 49201, 0]:
+        try:
+            srv = make_server(
+                "127.0.0.1",
+                try_port,
+                server_app,
+                server_class=ThreadingWSGIServer,
+                handler_class=QuietWSGIRequestHandler
+            )
+            return srv
+        except OSError:
+            continue
+    return make_server("127.0.0.1", 0, server_app, server_class=ThreadingWSGIServer, handler_class=QuietWSGIRequestHandler)
+
 def main():
     global SERVER_PORT, HTTP_SERVER
 
-    # Dynamic ephemeral port binding (Port 0) với Multi-Threaded WSGI Server (Mục 1.4):
-    # Xử lý đa luồng đồng thời, loại bỏ triệt để nguy cơ nghẽn luồng UI khi vừa tải vừa polling progress
-    HTTP_SERVER = make_server(
-        "127.0.0.1",
-        0,
-        server_app,
-        server_class=ThreadingWSGIServer,
-        handler_class=QuietWSGIRequestHandler
-    )
+    # Dynamic ephemeral / consistent port binding (Port 49200 / 0) voi Multi-Threaded WSGI Server
+    HTTP_SERVER = create_http_server()
     SERVER_PORT = HTTP_SERVER.server_address[1]
-    print(f"[*] Co Ngu Core Engine initialized on 127.0.0.1:{SERVER_PORT} (Ephemeral Port 0 & Token Protected)")
+    log_startup(f"[*] Co Ngu Core Engine initialized on 127.0.0.1:{SERVER_PORT} (Token Protected)")
 
     t = threading.Thread(target=HTTP_SERVER.serve_forever, daemon=True)
     t.start()
-    
+
+    # Pre-flight health check: Dam bao may chu HTTP tren 127.0.0.1 san sang truoc khi mo giao dien
+    server_ready = False
+    for _ in range(30):
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{SERVER_PORT}/api/version/check", timeout=0.2) as resp:
+                if resp.status == 200:
+                    server_ready = True
+                    break
+        except Exception:
+            time.sleep(0.1)
+
+    if not server_ready:
+        log_startup(f"[!] Canh bao: May chu HTTP tren 127.0.0.1:{SERVER_PORT} chua phan hoi trong 3 giay.")
+    else:
+        log_startup(f"[OK] May chu HTTP tren 127.0.0.1:{SERVER_PORT} da hoat dong hoan hao.")
+
     # Background silent cloud sync
     def _bg_cloud_sync():
         import time
@@ -6239,10 +6308,10 @@ def main():
         # When PyWebView window is closed by user (X button), terminate immediately:
         os._exit(0)
     except Exception as e:
-        print(f"[!] PyWebView window error ({e}). Launching Standalone Desktop Window mode...")
+        log_startup(f"[!] PyWebView window error ({e}). Launching Standalone Desktop Window mode...")
         launched = launch_app_window_fallback(url)
-        if not launched:
-            t.join()
+        # Luon duy tri luong may chu backend HTTP de giao dien trinh duyet khong bi mat ket noi
+        t.join()
         os._exit(0)
 
 if __name__ == "__main__":
