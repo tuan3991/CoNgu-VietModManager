@@ -1541,11 +1541,11 @@
         const posterSrc = game.local_cover 
           || (game.assets && game.assets.poster) 
           || game.avatar_url 
-          || (game.steam_appid ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${game.steam_appid}/library_600x900.jpg` : '');
+          || (game.steam_appid ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.steam_appid}/library_600x900.jpg` : '');
 
         const fallbackHeaderSrc = game.header_url 
           || (game.assets && game.assets.header) 
-          || (game.steam_appid ? `https://cdn.akamai.steamstatic.com/steam/apps/${game.steam_appid}/header.jpg` : '');
+          || (game.steam_appid ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.steam_appid}/header.jpg` : '');
 
         let statusBadgeHtml = '';
         if (game.status_code === 'INSTALLED') {
@@ -1563,21 +1563,14 @@
           : '';
 
         card.innerHTML = `
-          <!-- Poster Thumbnail Image (2:3 Standard Steam Grid) -->
+          <!-- Poster Thumbnail Image (2:3 Standard Steam Grid, Full-Bleed Edge-to-Edge) -->
           <div class="relative aspect-[2/3] w-full overflow-hidden bg-[#070814] cursor-pointer flex items-center justify-center" onclick="openGameModal('${game.id}')" oncontextmenu="openCardContextMenu(event, '${game.id}')" title="Nhấp chuột trái: Chi tiết & Cài đặt | Chuột phải: Đổi ảnh bìa">
-            <!-- Ambient blurred background for non-standard aspect ratios -->
-            <img 
-              src="${posterSrc}" 
-              alt=""
-              class="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-125 pointer-events-none" 
-              onerror="if (this.dataset.fallback !== '1' && '${fallbackHeaderSrc}') { this.dataset.fallback = '1'; this.src = '${fallbackHeaderSrc}'; } else { this.style.display = 'none'; }"
-            />
-            <!-- Main Crisp Image (auto-switches to object-contain if falling back to horizontal header) -->
+            <!-- Main Crisp Image (luôn tràn viền w-full h-full object-cover, không co nhỏ) -->
             <img 
               src="${posterSrc}" 
               alt="${game.title}" 
               class="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-              onerror="if (this.dataset.fallback !== '1' && '${fallbackHeaderSrc}') { this.dataset.fallback = '1'; this.src = '${fallbackHeaderSrc}'; this.className='relative z-10 max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]'; } else { this.style.display = 'none'; if (this.nextElementSibling) this.nextElementSibling.classList.remove('hidden'); }"
+              onerror="if (this.dataset.fallback !== '1' && '${fallbackHeaderSrc}') { this.dataset.fallback = '1'; this.src = '${fallbackHeaderSrc}'; } else { this.style.display = 'none'; if (this.nextElementSibling) this.nextElementSibling.classList.remove('hidden'); }"
             />
             <!-- Lớp Poster Cyberpunk dự phòng khi hoàn toàn không có ảnh -->
             <div class="hidden w-full h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 text-center border border-cyan-500/30">
@@ -2644,7 +2637,7 @@
             : 'bg-[#00F0FF] text-black border border-[#00F0FF]/60';
           const badgeText = isCongu ? 'KHO CỔ NGỮ' : 'STEAM STORE';
           const posterUrl = item.avatar_url || item.header_url || item.capsule || '';
-          const headerFallback = item.header_url || (item.steam_appid ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${item.steam_appid}/header.jpg` : '');
+          const headerFallback = item.header_url || (item.steam_appid ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.steam_appid}/header.jpg` : '');
           const capsuleFallback = item.capsule || '';
 
           const safeTitle = (item.title || '').replace(/"/g, '&quot;');
@@ -2655,18 +2648,15 @@
           return `
             <div onclick="selectGameCandidate(${idx})" 
                  class="group cursor-pointer bg-[#070914] border border-[#1e2340] hover:border-[#00F0FF] rounded-[2px] overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_4px_16px_rgba(0,240,255,0.25)] relative">
-              <div class="aspect-[2/3] w-full bg-[#05060f] relative overflow-hidden flex items-center justify-center p-1">
-                <!-- Ambient blurred background for non-vertical banners -->
-                <img id="cand-bg-${idx}" src="${posterUrl}" class="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-125 pointer-events-none" />
-                
-                <!-- Crisp foreground image: object-contain prevents horizontal banners from getting cropped/zoomed in -->
+              <div class="aspect-[2/3] w-full bg-[#05060f] relative overflow-hidden flex items-center justify-center">
+                <!-- Crisp foreground image: full bleed 2:3 vertical poster preview -->
                 <img id="cand-fg-${idx}" 
                      src="${posterUrl}" 
                      data-header="${safeHeader}" 
                      data-capsule="${safeCapsule}"
                      onerror="handleCandidateImgError(this, ${idx})"
                      alt="${safeTitle}"
-                     class="relative z-10 max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]" />
+                     class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 drop-shadow-md" />
                 
                 <!-- Source Badge -->
                 <span class="absolute top-1.5 left-1.5 z-20 font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] ${badgeClass} shadow-md tracking-wider">
@@ -3591,16 +3581,28 @@
     }
 
     // Thoat hoan toan ung dung (Tat di la tat han - 1-Click Instant Exit)
-    function quitApp() {
+    async function quitApp() {
+      if (typeof progressInterval !== 'undefined' && progressInterval) {
+        showToast('Đang trong quá trình cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ hoàn tất để không làm hỏng tệp game.', 'error');
+        return;
+      }
       if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.quit_app === 'function') {
         try {
-          window.pywebview.api.quit_app();
+          const res = await window.pywebview.api.quit_app();
+          if (res && res.success === false) {
+            showToast(res.message || 'Không thể thoát ứng dụng lúc này.', 'error');
+            return;
+          }
         } catch (e) {}
       }
       try {
         const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
-        navigator.sendBeacon(quitUrl);
-        fetch(quitUrl, { method: 'POST' });
+        const res = await fetch(quitUrl, { method: 'POST' });
+        if (res && res.status === 409) {
+          const errData = await res.json();
+          showToast(errData.message || 'Đang cài đặt mod, không thể thoát!', 'error');
+          return;
+        }
       } catch (e) {}
       setTimeout(() => {
         window.close();
@@ -3608,7 +3610,12 @@
     }
 
     // Khi nguoi dung dong cua so / tab, tu dong gui tin hieu tat sach tien trinh
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', (e) => {
+      if (typeof progressInterval !== 'undefined' && progressInterval) {
+        e.preventDefault();
+        e.returnValue = 'Đang tiến hành vá tệp game, bạn có chắc chắn muốn thoát?';
+        return;
+      }
       try {
         const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
         navigator.sendBeacon(quitUrl);

@@ -823,9 +823,9 @@
       "status": "Hoàn thành 100% (Zero Omission)",
       "version": "v1.0.0 (Bản Chuẩn CỔ NGỮ)",
       "author": "Antigravity Localization Team",
-      "font": "FOT-RODINNTLGPRO-UB SDF JA & EN (134/134 ký tự tiếng Việt chuẩn sắc nét)",
+      "font": "BO-TBMDGoStd & FOT-RODINNTLGPRO SDF (134/134 ký tự tiếng Việt, xóa bỏ hoàn toàn lỗi Fallback Font)",
       "last_updated": "26/10/2026",
-      "mod_size": "~32.2 MB"
+      "mod_size": "~36.1 MB"
     },
     "mod_subfolder": "DEMONS' NIGHT FEVER",
     "mod_type": "pipeline",
@@ -852,7 +852,7 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/DEMONS_NIGHT_FEVER_Viethoa.congu",
-    "mod_size": "~32.2 MB",
+    "mod_size": "~36.1 MB",
     "install_steps": [
       {
         "action": "copy_file",
@@ -863,6 +863,11 @@
         "action": "copy_file",
         "source": "5f79f6e33d257e173f7ed4dcfc489702.bundle",
         "destination": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/5f79f6e33d257e173f7ed4dcfc489702.bundle"
+      },
+      {
+        "action": "copy_file",
+        "source": "2ce1fc097006da3c9bb3a94d43296fca.bundle",
+        "destination": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/2ce1fc097006da3c9bb3a94d43296fca.bundle"
       },
       {
         "action": "copy_file",
@@ -888,6 +893,10 @@
       },
       {
         "action": "restore_backup",
+        "target": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/2ce1fc097006da3c9bb3a94d43296fca.bundle"
+      },
+      {
+        "action": "restore_backup",
         "target": "DNFever_Data/StreamingAssets/aa/StandaloneWindows64/c5a5aba1d7020603d2c280e671f4e5dd.bundle"
       },
       {
@@ -895,7 +904,7 @@
         "target": "DNFever_Data/StreamingAssets/aa/catalog.json"
       }
     ],
-    "congu_sha256": "f6896f58c564f6f98154d93c11009f2dda7e2747390788578889b6ac6875c609"
+    "congu_sha256": "8eb613c0074731478d79460e3f5eb0de055d520e739e329137458134a08ec71c"
   },
   {
     "id": "tasty_chef",

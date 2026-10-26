@@ -189,14 +189,15 @@ else:
 DEFAULT_REPO_DIR = r"G:\My Drive\Viethoagame"
 FALLBACK_REPO_DIR = r"C:\Users\tuan3\Documents\antigravity google\Viethoagame"
 GAMES_JSON = os.path.join(APP_DIR, "games.json")
-CONFIG_JSON = os.path.join(APP_DIR, "user_config.json")
 
-# AppData safe backup directory
+# AppData safe directory (chống mất cấu hình và lỗi quyền ghi khi đóng gói PyInstaller)
 APPDATA_DIR = os.path.join(os.environ.get("APPDATA", APP_DIR), "VietModHub")
+CONFIG_JSON = os.path.join(APPDATA_DIR, "user_config.json")
 BACKUP_ROOT = os.path.join(APPDATA_DIR, "backups")
 USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
 COVERS_DIR = os.path.join(APPDATA_DIR, "covers")
 COVERS_CACHE_FILE = os.path.join(APPDATA_DIR, "covers_cache.json")
+os.makedirs(APPDATA_DIR, exist_ok=True)
 os.makedirs(COVERS_DIR, exist_ok=True)
 
 def load_covers_cache():
@@ -660,11 +661,15 @@ def calculate_sha256(filepath):
     except Exception:
         return None
 
-def get_running_process_names():
-    """Enumerate running process names using native Win32 Toolhelp API (0ms, 0 external dependencies)"""
+def get_running_processes():
+    """
+    Enumerate running processes returning a list of tuples: (process_name_lower, full_path_or_None).
+    Uses native Win32 Toolhelp API and QueryFullProcessImageNameW (0ms, 0 external dependencies).
+    """
     import ctypes
     from ctypes import wintypes
     TH32CS_SNAPPROCESS = 0x00000002
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
     class PROCESSENTRY32(ctypes.Structure):
         _fields_ = [
@@ -683,24 +688,41 @@ def get_running_process_names():
     try:
         hSnapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
         if hSnapshot == -1:
-            return set()
-        procs = set()
+            return []
+        procs = []
         pe = PROCESSENTRY32()
         pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
         if ctypes.windll.kernel32.Process32First(hSnapshot, ctypes.byref(pe)):
             while True:
-                procs.add(pe.szExeFile.decode('latin-1', errors='ignore').lower())
+                proc_name = pe.szExeFile.decode('latin-1', errors='ignore').lower()
+                pid = pe.th32ProcessID
+                full_path = None
+                hProc = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if hProc:
+                    try:
+                        buf = ctypes.create_unicode_buffer(1024)
+                        size = wintypes.DWORD(1024)
+                        if ctypes.windll.kernel32.QueryFullProcessImageNameW(hProc, 0, buf, ctypes.byref(size)):
+                            full_path = buf.value
+                    finally:
+                        ctypes.windll.kernel32.CloseHandle(hProc)
+                procs.append((proc_name, full_path))
                 if not ctypes.windll.kernel32.Process32Next(hSnapshot, ctypes.byref(pe)):
                     break
         ctypes.windll.kernel32.CloseHandle(hSnapshot)
         return procs
     except Exception:
-        return set()
+        return []
+
+def get_running_process_names():
+    """Enumerate running process names using native Win32 Toolhelp API"""
+    return {p[0] for p in get_running_processes()}
 
 def check_game_running(g, game_path=None):
     """
     Check if the game executable or its crash handler / engine helper is currently running.
-    Scans target executable, shipping variants, executables inside game_path, and crash handlers.
+    Scans target executable, shipping variants, executables inside game_path, and verifies full process paths.
+    Avoids false positives from generic crash handlers (UnityCrashHandler, CrashReportClient) running from other games/apps.
     Returns (is_running: bool, process_name: str | None)
     """
     target_exes = set()
@@ -717,7 +739,15 @@ def check_game_running(g, game_path=None):
         target_exes.add(f"{root_name.replace(' ', '')}{ext}")
         target_exes.add(f"{root_name.replace(' ', '_')}{ext}")
 
-    # 2. Automatically scan executables in game_path if available
+    # Generic crash handlers & engine helper processes that should ONLY match if running from inside game_path
+    generic_helpers = {
+        "unitycrashhandler64.exe",
+        "unitycrashhandler32.exe",
+        "crashreportclient.exe",
+        "unrealcefsubprocess.exe"
+    }
+
+    # 2. Automatically scan executables in game_path if available (excluding generic helpers)
     if game_path and os.path.exists(game_path):
         try:
             for root, dirs, files in os.walk(game_path):
@@ -725,8 +755,9 @@ def check_game_running(g, game_path=None):
                 if len(rel_parts) > 3:
                     continue
                 for f in files:
-                    if f.lower().endswith('.exe'):
-                        target_exes.add(f.lower())
+                    fl = f.lower()
+                    if fl.endswith('.exe') and fl not in generic_helpers:
+                        target_exes.add(fl)
         except Exception:
             pass
     
@@ -753,22 +784,53 @@ def check_game_running(g, game_path=None):
     elif gid == "erra_exordium":
         target_exes.update(["erra.exe", "erra exordium.exe"])
 
-    # 4. Crash handlers & engine helper processes that might lock files
-    crash_handlers = {"unitycrashhandler64.exe", "unitycrashhandler32.exe", "crashreportclient.exe", "unrealcefsubprocess.exe"}
-    
-    running = get_running_process_names()
-    for exe in target_exes:
-        if exe in running:
-            return True, exe
+    # 4. Check running processes against target_exes & game_path
+    running_procs = get_running_processes()
 
-    for ch in crash_handlers:
-        if ch in running:
-            return True, ch
-            
+    game_path_norm = None
+    if game_path:
+        try:
+            game_path_norm = os.path.normcase(os.path.realpath(game_path) if os.path.exists(game_path) else os.path.abspath(game_path))
+        except Exception:
+            pass
+
+    for proc_name, proc_path in running_procs:
+        proc_path_norm = os.path.normcase(os.path.realpath(proc_path)) if proc_path else None
+
+        # Trường hợp 1: Có cả đường dẫn thực thi của tiến trình và thư mục game
+        if game_path_norm and proc_path_norm:
+            is_inside_game = (
+                proc_path_norm == game_path_norm
+                or proc_path_norm.startswith(game_path_norm + os.sep)
+            )
+            if is_inside_game:
+                # Nếu tiến trình đang chạy thuộc chính thư mục của game này
+                if proc_name in target_exes or proc_name in generic_helpers:
+                    return True, proc_name
+            # Nếu proc_path không nằm trong thư mục game này, bỏ qua (không nhận nhầm)
+            continue
+
+        # Trường hợp 2: Fallback (không lấy được proc_path hoặc không có game_path)
+        # Chỉ đối chiếu theo target_exes riêng của game (TUYỆT ĐỐI không đối chiếu generic_helpers)
+        if proc_name in target_exes:
+            return True, proc_name
+
     return False, None
 
 def load_user_config():
     cfg = {"repo_dir": DEFAULT_REPO_DIR}
+    # Tự động di chuyển cấu hình cũ từ APP_DIR sang APPDATA_DIR nếu chưa có
+    legacy_config = os.path.join(APP_DIR, "user_config.json")
+    if not os.path.exists(CONFIG_JSON) and os.path.exists(legacy_config):
+        try:
+            with open(legacy_config, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                cfg.update(saved)
+            save_user_config(cfg)
+            return cfg
+        except Exception:
+            pass
+
     if os.path.exists(CONFIG_JSON):
         try:
             with open(CONFIG_JSON, "r", encoding="utf-8") as f:
@@ -780,6 +842,7 @@ def load_user_config():
 
 def save_user_config(cfg):
     try:
+        os.makedirs(os.path.dirname(CONFIG_JSON), exist_ok=True)
         with open(CONFIG_JSON, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -1453,7 +1516,7 @@ def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
                 sock.sendall(out)
 
         http_req = (
-            f"GET {path} HTTP/1.1\r\n"
+            f"GET {path} HTTP/1.0\r\n"
             f"Host: {hostname}\r\n"
             f"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\n"
             f"Accept: application/json, image/*, text/plain, */*\r\n"
@@ -1478,13 +1541,19 @@ def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
                 incoming.write(raw)
         sock.close()
         parts = resp_body.split(b"\r\n\r\n", 1)
-        return parts[1] if len(parts) > 1 else resp_body
+        if len(parts) > 1:
+            first_line = parts[0].split(b"\r\n", 1)[0].decode("latin-1", errors="ignore")
+            if "200 OK" in first_line:
+                return parts[1]
+        return b""
     except Exception as e:
         # Fallback về urllib thông thường nếu mạng không bị chặn DPI
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return resp.read()
+                if resp.status == 200:
+                    return resp.read()
+                return b""
         except Exception:
             return b""
 
@@ -1519,7 +1588,7 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                 header = (
                     tiny.replace("capsule_sm_120", "header")
                     if tiny
-                    else f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                    else f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
                 )
                 results.append({
                     "id": int(appid) if appid.isdigit() else appid,
@@ -1529,7 +1598,7 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                     "subtitle": f"Steam AppID: {appid}",
                     "source": "steam",
                     "genre": "Steam Store",
-                    "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                    "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
                     "header_url": header,
                     "capsule": tiny or f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
                 })
@@ -1555,7 +1624,7 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                         header = logo or (
                             icon.replace("capsule_sm_120", "header")
                             if icon
-                            else f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                            else f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
                         )
                         results.append({
                             "id": int(appid) if appid.isdigit() else appid,
@@ -1565,7 +1634,7 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                             "subtitle": f"Steam AppID: {appid}",
                             "source": "steam",
                             "genre": "Steam Store",
-                            "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                            "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
                             "header_url": header,
                             "capsule": icon or f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
                         })
@@ -1578,48 +1647,20 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
 def make_vertical_poster(image_bytes: bytes, target_w: int = 600, target_h: int = 900) -> bytes:
     """
     Chuẩn hóa mọi ảnh (kể cả ảnh ngang 16:9, banner capsule 231x87, header 460x215)
-    thành Poster dọc tỉ lệ 2:3 (600x900) chuẩn Steam Library:
-    - Nếu ảnh gốc đã là ảnh dọc (0.58 <= w/h <= 0.75): resize chất lượng cao về 600x900.
-    - Nếu ảnh gốc là ảnh ngang (w/h > 0.8):
-      + Lớp nền: Phóng to ảnh gốc lấp đầy 600x900, áp dụng Gaussian Blur (radius=28) và làm tối (0.35) để tạo không gian ambient huyền ảo đồng nhất tông màu.
-      + Lớp trung tâm: Đặt banner gốc sắc nét ở giữa, tỉ lệ chuẩn, viền nhẹ và đổ bóng để không bị kéo giãn hay phóng đại vỡ hạt.
+    thành Poster dọc tỉ lệ 2:3 (600x900) tràn viền (Full-Bleed) chuẩn Steam Library:
+    - Tự động căn chỉnh trọng tâm (centering=(0.5, 0.35)) và phóng to lấp đầy 100% khung hình
+    - Tuyệt đối không co nhỏ thành dải ngang ở giữa (chống co cụm letterbox).
     """
     try:
-        from PIL import Image, ImageFilter, ImageEnhance, ImageOps
+        from PIL import Image, ImageOps
         import io
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         w, h = img.size
         if w <= 0 or h <= 0:
             return image_bytes
-        aspect = w / h
 
-        # Nếu đã là ảnh dọc tỉ lệ ~2:3 (từ 0.58 đến 0.75)
-        if 0.58 <= aspect <= 0.75:
-            result = ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS)
-        else:
-            # 1. Nền ambient mờ
-            scale = max(target_w / w, target_h / h)
-            bg_w, bg_h = int(w * scale), int(h * scale)
-            bg = img.resize((bg_w, bg_h), Image.Resampling.LANCZOS)
-            left = (bg_w - target_w) // 2
-            top = (bg_h - target_h) // 2
-            bg = bg.crop((left, top, left + target_w, top + target_h))
-            bg = bg.filter(ImageFilter.GaussianBlur(radius=28))
-            bg = ImageEnhance.Brightness(bg).enhance(0.35)
-
-            # 2. Foreground sắc nét ở giữa
-            fg_w = int(target_w * 0.94)  # 564px
-            fg_h = int(h * (fg_w / w))
-            if fg_h > int(target_h * 0.75):
-                fg_h = int(target_h * 0.75)
-                fg_w = int(w * (fg_h / h))
-
-            fg = img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
-
-            paste_x = (target_w - fg_w) // 2
-            paste_y = (target_h - fg_h) // 2
-            bg.paste(fg, (paste_x, paste_y))
-            result = bg
+        # Lấp đầy 100% khung hình 600x900 (Full Bleed) bằng thuật toán Lanczos cao cấp
+        result = ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.35))
 
         out = io.BytesIO()
         result.save(out, format="JPEG", quality=95)
@@ -1702,7 +1743,16 @@ class ModManagerAPI:
 
             # Check safe backup in AppData or in-place .congu_bak
             game_backup_dir = os.path.join(BACKUP_ROOT, gid)
-            has_safe_backup = os.path.exists(os.path.join(game_backup_dir, "backup_manifest.json"))
+            has_safe_backup = False
+            manifest_file = os.path.join(game_backup_dir, "backup_manifest.json")
+            if os.path.exists(manifest_file):
+                try:
+                    with open(manifest_file, "r", encoding="utf-8") as mf:
+                        m_data = json.load(mf)
+                        if m_data.get("files") and len(m_data["files"]) > 0:
+                            has_safe_backup = True
+                except Exception:
+                    pass
             if not has_safe_backup and game_path and os.path.exists(game_path):
                 rel_p = g.get("relative_install_path", "")
                 tpak = g.get("target_pak_name", "")
@@ -1816,6 +1866,7 @@ class ModManagerAPI:
                     with open(manifest_path, "r", encoding="utf-8") as mf:
                         m_data = json.load(mf)
                     mod_files = m_data.get("files", [])
+                    manifest_dirty = False
                     if mod_files:
                         for it in mod_files:
                             target_f = it.get("target_file")
@@ -1836,17 +1887,45 @@ class ModManagerAPI:
                                 size_diff = (mod_size is not None and curr_size != mod_size)
                                 mtime_diff = (mod_mtime is not None and abs(curr_mtime - mod_mtime) > 2.0)
 
-                                if size_diff or mtime_diff:
+                                if size_diff:
+                                    # Kích thước file đã khác, chắc chắn 100% nội dung đã thay đổi -> không cần băm SHA-256
+                                    update_detected = True
+                                    health_reason = f"Tệp '{os.path.basename(target_f)}' đã bị cập nhật mới bởi Steam/Epic"
+                                    break
+                                elif mtime_diff:
+                                    # Kích thước file trùng khớp nhưng mtime thay đổi (do Windows/Antivirus chạm vào hoặc Steam update cùng size)
                                     if mod_hash:
                                         curr_hash = compute_file_sha256(target_f)
                                         if curr_hash and curr_hash.lower() != mod_hash.lower():
                                             update_detected = True
                                             health_reason = f"Tệp '{os.path.basename(target_f)}' đã bị cập nhật mới bởi Steam/Epic"
                                             break
+                                        else:
+                                            # File vẫn là bản mod nguyên vẹn, cập nhật lại mtime mới vào manifest để không phải băm lại ở lần sau
+                                            it["modded_mtime"] = curr_mtime
+                                            manifest_dirty = True
+                                elif mod_size is None and mod_hash:
+                                    # Tự động vá bổ sung size và mtime cho manifest phiên bản cũ
+                                    curr_hash = compute_file_sha256(target_f)
+                                    if curr_hash and curr_hash.lower() != mod_hash.lower():
+                                        update_detected = True
+                                        health_reason = f"Tệp '{os.path.basename(target_f)}' đã bị cập nhật mới bởi Steam/Epic"
+                                        break
+                                    else:
+                                        it["modded_size"] = curr_size
+                                        it["modded_mtime"] = curr_mtime
+                                        manifest_dirty = True
                             elif target_f and not os.path.exists(target_f):
                                 update_detected = True
                                 health_reason = f"Tệp '{rel_f or os.path.basename(target_f)}' không còn tồn tại"
                                 break
+
+                        if manifest_dirty and not update_detected:
+                            try:
+                                with open(manifest_path, "w", encoding="utf-8") as mf:
+                                    json.dump(m_data, mf, ensure_ascii=False, indent=2)
+                            except Exception as e:
+                                print(f"[Health Check Warning] Error updating manifest mtime for {gid}: {e}")
                 except Exception as e:
                     print(f"[Health Check Warning] Error inspecting manifest for {gid}: {e}")
 
@@ -2155,11 +2234,11 @@ class ModManagerAPI:
                             seen_appids.add(appid)
                         poster = (
                             g.get("assets", {}).get("poster")
-                            or (f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg" if appid else "")
+                            or (f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg" if appid else "")
                         )
                         header = (
                             g.get("assets", {}).get("header")
-                            or (f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else "")
+                            or (f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else "")
                         )
                         results.append({
                             "id": int(appid) if appid.isdigit() else appid,
@@ -2195,7 +2274,7 @@ class ModManagerAPI:
             for item in offline_db:
                 appid = str(item.get("id", ""))
                 name = item.get("name", "")
-                if not appid or appid in seen_appids:
+                if not appid or not name or appid in seen_appids:
                     continue
                 name_low = name.lower()
                 if name_low == q_lower:
@@ -2222,8 +2301,8 @@ class ModManagerAPI:
                     "subtitle": f"Steam AppID: {appid}",
                     "source": "steam",
                     "genre": "Steam Store",
-                    "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
-                    "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg",
+                    "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                    "header_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg",
                     "capsule": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
                 })
         except Exception as e:
@@ -2250,6 +2329,10 @@ class ModManagerAPI:
         candidates = []
         if appid:
             candidates.extend([
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                f"https://steamcdn-a.akamaihd.net/steam/apps/{appid}/library_600x900.jpg",
+                f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
                 f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
                 f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
                 f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
@@ -2670,21 +2753,50 @@ class ModManagerAPI:
                 except Exception as e:
                     print(f"Error restoring legacy core_locale: {e}")
 
-        # Clean up manifest file after restoration
-        if os.path.exists(manifest_path):
+        # Clean up manifest file or preserve preexisting flags
+        cleaned_manifest = {
+            "game_id": game_id,
+            "backup_type": "inplace",
+            "files": []
+        }
+        has_preexisting_flags = False
+        for flag in ("winhttp_preexisting", "bepinex_preexisting", "doorstop_preexisting"):
+            if flag in manifest:
+                cleaned_manifest[flag] = manifest[flag]
+                has_preexisting_flags = True
+
+        if has_preexisting_flags:
             try:
-                os.remove(manifest_path)
-            except Exception:
-                pass
+                os.makedirs(game_backup_dir, exist_ok=True)
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    json.dump(cleaned_manifest, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                print(f"[Manifest Update Warning] Lỗi lưu manifest bảo tồn cờ tiền tồn tại: {e}")
+        else:
+            if os.path.exists(manifest_path):
+                try:
+                    os.remove(manifest_path)
+                except Exception:
+                    pass
 
-        return restored_any
-
-        # 4. Clean up AppData backup dir to free drive C: space
+        # 4. Clean up AppData backup dir to free drive C: space (giữ lại backup_manifest.json nếu có cờ bảo vệ)
         if os.path.exists(game_backup_dir):
             try:
-                shutil.rmtree(game_backup_dir, ignore_errors=True)
-            except Exception:
-                pass
+                for entry in os.listdir(game_backup_dir):
+                    if entry == "backup_manifest.json" and has_preexisting_flags:
+                        continue
+                    entry_path = os.path.join(game_backup_dir, entry)
+                    if os.path.isdir(entry_path):
+                        shutil.rmtree(entry_path, ignore_errors=True)
+                    else:
+                        try:
+                            os.remove(entry_path)
+                        except Exception:
+                            pass
+                if not os.listdir(game_backup_dir):
+                    os.rmdir(game_backup_dir)
+            except Exception as e:
+                print(f"[AppData Cleanup Warning] {e}")
 
         return restored_any
 
@@ -3117,12 +3229,19 @@ class ModManagerAPI:
 
                     os.makedirs(os.path.dirname(d_file), exist_ok=True)
                     shutil.copy2(s_file, d_file)
-                    if operation == "install":
-                        self._record_modded_state(game_id, d_file, d_rel)
                     copied_files.append((d_rel, existed, created_new_bak, has_tx_tmp))
 
+            # Ghi danh sách backup vào manifest trước
             if backup_records:
                 self._record_backup_manifest(game_id, backup_records)
+
+            # Sau đó mới cập nhật modded_sha256, modded_size, modded_mtime
+            if operation == "install":
+                for item in copied_files:
+                    d_rel = item[0]
+                    d_abs = validate_safe_path(game_path, d_rel, allow_base_itself=False)
+                    self._record_modded_state(game_id, d_abs, d_rel)
+
             return {"action": "copy_folder", "target": dst_rel, "destination": dst_rel, "copied_files": copied_files}
 
         elif action in ("extract_all", "extract_zip"):
@@ -3181,12 +3300,6 @@ class ModManagerAPI:
                                 shutil.copyfileobj(s_in, d_out, length=65536)
 
                             extracted_files.append((t_rel, existed, created_new_bak, has_tx_tmp))
-
-                    if operation == "install":
-                        for item in extracted_files:
-                            t_rel = item[0]
-                            t_abs = validate_safe_path(game_path, t_rel, allow_base_itself=False)
-                            self._record_modded_state(game_id, t_abs, t_rel)
             elif os.path.isdir(src_abs):
                 for root, dirs, files in os.walk(src_abs):
                     for f in files:
@@ -3227,15 +3340,22 @@ class ModManagerAPI:
 
                         os.makedirs(os.path.dirname(d_file), exist_ok=True)
                         shutil.copy2(s_file, d_file)
-                        if operation == "install":
-                            self._record_modded_state(game_id, d_file, d_rel)
                         extracted_files.append((d_rel, existed, created_new_bak, has_tx_tmp))
             else:
                 if not step.get("optional", False):
                     raise FileNotFoundError(f"Archive file not found: {src_rel}")
 
+            # Ghi danh sách backup vào manifest trước
             if backup_records:
                 self._record_backup_manifest(game_id, backup_records)
+
+            # Sau đó mới cập nhật modded_sha256, modded_size, modded_mtime
+            if operation == "install":
+                for item in extracted_files:
+                    t_rel = item[0]
+                    t_abs = validate_safe_path(game_path, t_rel, allow_base_itself=False)
+                    self._record_modded_state(game_id, t_abs, t_rel)
+
             return {"action": "extract_all", "target": dst_rel, "extracted_files": extracted_files}
 
         elif action == "patch_ini":
@@ -3929,7 +4049,14 @@ class ModManagerAPI:
                         elif zipfile.is_zipfile(cache_archive):
                             set_progress(62, "Đang giải nén gói Việt Hóa...", status="running", game_id=game_id)
                             with zipfile.ZipFile(cache_archive, 'r') as zf:
-                                zf.extractall(cache_dir)
+                                for member in zf.namelist():
+                                    if member.endswith("/") or member.endswith("\\"):
+                                        continue
+                                    # Anti Zip-Slip: validate member target against cache_dir
+                                    target_dest = validate_safe_path(cache_dir, member, allow_base_itself=False)
+                                    os.makedirs(os.path.dirname(target_dest), exist_ok=True)
+                                    with zf.open(member, "r") as s_in, open(target_dest, "wb") as d_out:
+                                        shutil.copyfileobj(s_in, d_out, length=65536)
 
                         source_mod_dir = cache_dir
                         if mod_subfolder and os.path.exists(os.path.join(cache_dir, mod_subfolder)):
@@ -4207,10 +4334,13 @@ class ModManagerAPI:
         mtype = g.get("mod_type", "pak")
 
         try:
+            # 1.5 Tải trước manifest sao lưu để bảo vệ các cờ môi trường tiền tồn tại (winhttp, bepinex...)
+            manifest_data = self._load_backup_manifest(game_id)
+
             # 2. Restore from In-Place Backup (.congu_bak) & legacy AppData backup
             restored = self._restore_files_inplace(game_id, game_path)
 
-            # 2. Cleanup mod specific files
+            # 3. Cleanup mod specific files
             if mtype == "pak":
                 target_pak = validate_safe_path(game_path, os.path.join(g["relative_install_path"], g["target_pak_name"]), allow_base_itself=False)
                 if os.path.exists(target_pak):
@@ -4243,7 +4373,6 @@ class ModManagerAPI:
                     shutil.rmtree(lang_dir, ignore_errors=True)
 
                 # Mục 1.5: BepInEx Safe Uninstall Guard
-                manifest_data = self._load_backup_manifest(game_id)
                 winhttp_pre = manifest_data.get("winhttp_preexisting", False)
                 if not winhttp_pre:
                     winhttp = validate_safe_path(game_path, "winhttp.dll", allow_base_itself=False)
@@ -4344,13 +4473,44 @@ class ModManagerAPI:
 
             set_progress(80, "Đang dọn dẹp bộ nhớ đệm và thiết lập lại trạng thái...", status="running", game_id=game_id, operation="restore")
 
-            # Dọn dẹp backup manifest trong AppData
+            # Dọn dẹp backup manifest trong AppData nhưng giữ lại cờ tiền tồn tại
             game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-            if os.path.exists(game_backup_dir):
+            manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
+            manifest = self._load_backup_manifest(game_id)
+            cleaned_manifest = {"game_id": game_id, "backup_type": "inplace", "files": []}
+            has_preexisting_flags = False
+            for flag in ("winhttp_preexisting", "bepinex_preexisting", "doorstop_preexisting"):
+                if flag in manifest:
+                    cleaned_manifest[flag] = manifest[flag]
+                    has_preexisting_flags = True
+
+            if has_preexisting_flags:
                 try:
-                    shutil.rmtree(game_backup_dir, ignore_errors=True)
+                    with open(manifest_path, "w", encoding="utf-8") as f:
+                        json.dump(cleaned_manifest, f, ensure_ascii=False, indent=2)
                 except Exception:
                     pass
+                if os.path.exists(game_backup_dir):
+                    try:
+                        for entry in os.listdir(game_backup_dir):
+                            if entry == "backup_manifest.json":
+                                continue
+                            ep = os.path.join(game_backup_dir, entry)
+                            if os.path.isdir(ep):
+                                shutil.rmtree(ep, ignore_errors=True)
+                            else:
+                                try:
+                                    os.remove(ep)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+            else:
+                if os.path.exists(game_backup_dir):
+                    try:
+                        shutil.rmtree(game_backup_dir, ignore_errors=True)
+                    except Exception:
+                        pass
 
             # Cập nhật trạng thái cấu hình
             cfg[f"{game_id}_status"] = "not_installed"
@@ -4744,6 +4904,12 @@ class ModManagerAPI:
 
     def quit_app(self):
         """Immediately and cleanly terminate the application"""
+        if INSTALL_PROGRESS.get("status") == "running":
+            return {
+                "success": False,
+                "message": "Không thể thoát ứng dụng khi đang thực thi cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ tiến trình hoàn tất để tránh làm hỏng tệp game."
+            }
+
         def _delayed_exit():
             time.sleep(0.12)
             os._exit(0)
@@ -4834,7 +5000,7 @@ def verify_session_token():
     Blocks unauthorized external websites, browser tabs, or malicious local processes
     from calling /api/ endpoints. Only requests bearing the valid per-session Auth-Token are permitted.
     """
-    if request.path == "/api/app/quit":
+    if request.path.startswith("/api/covers/"):
         return
     if request.path.startswith("/api/"):
         token = request.headers.get("X-App-Auth-Token") or request.query.get("token")
@@ -4936,8 +5102,8 @@ def api_game_remap():
     res = api_instance.apply_selected_avatar(game_id, {
         "steam_appid": target_appid,
         "title": target_title,
-        "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg",
-        "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{target_appid}/header.jpg"
+        "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg",
+        "header_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/header.jpg"
     })
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
@@ -5238,9 +5404,17 @@ def api_request_game():
     return json.dumps(res, ensure_ascii=False)
 
 
-@server_app.route("/api/app/quit", method=["GET", "POST"])
+@server_app.route("/api/app/quit", method="POST")
 def api_app_quit():
     """Immediately and completely shut down the application and all background processes"""
+    if INSTALL_PROGRESS.get("status") == "running":
+        response.status = 409  # Conflict
+        response.content_type = "application/json"
+        return json.dumps({
+            "success": False,
+            "message": "Không thể thoát ứng dụng khi đang thực thi cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ hoàn tất."
+        }, ensure_ascii=False)
+
     res = api_instance.quit_app()
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
