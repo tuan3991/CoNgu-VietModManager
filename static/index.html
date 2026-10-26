@@ -697,28 +697,28 @@
             <p id="modalNoteText" class="text-xs text-rose-200 font-sans leading-relaxed pl-6"></p>
           </div>
 
-          <!-- Translation Statistics Card (Pixel Arcade Data) -->
-          <div class="bg-[#111326] border border-[#232747] rounded-[2px] p-4 shadow-[3px_3px_0px_#05050a] space-y-3">
-            <h4 class="text-xs font-pixel text-[#00F0FF] tracking-wide flex items-center space-x-1.5">
+          <!-- Translation Statistics Section (Surface Elevation: Clean, No Borders, Soft 6px Radius) -->
+          <div class="space-y-2.5">
+            <h4 class="text-xs font-display font-bold text-slate-300 tracking-wide flex items-center space-x-1.5">
               <i data-lucide="award" class="w-4 h-4 text-[#00F0FF]"></i>
               <span>Thông Số Bản Dịch Việt Hóa</span>
             </h4>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
-                <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wide">Dung lượng</span>
-                <span id="modalStatSize" class="text-sm font-pixel font-bold text-[#00FF9D]">~15 MB</span>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+              <div class="p-3 rounded-[6px] bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                <span class="block text-[11px] font-sans text-slate-400 font-medium mb-1">Dung lượng</span>
+                <span id="modalStatSize" class="text-sm font-mono font-bold text-[#00FF9D]">~15 MB</span>
               </div>
-              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
-                <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wide">Khối lượng</span>
-                <span id="modalStatLines" class="text-xs font-pixel font-bold text-[#FFB800]"></span>
+              <div class="p-3 rounded-[6px] bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                <span class="block text-[11px] font-sans text-slate-400 font-medium mb-1">Khối lượng</span>
+                <span id="modalStatLines" class="text-xs font-mono font-bold text-[#FFB800]"></span>
               </div>
-              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
-                <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wide">Phiên bản</span>
-                <span id="modalStatVersion" class="text-xs font-pixel font-bold text-[#00F0FF]"></span>
+              <div class="p-3 rounded-[6px] bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                <span class="block text-[11px] font-sans text-slate-400 font-medium mb-1">Phiên bản</span>
+                <span id="modalStatVersion" class="text-xs font-mono font-bold text-[#00F0FF]"></span>
               </div>
-              <div class="p-2.5 rounded-[2px] bg-[#090b17] border border-[#232747] shadow-[2px_2px_0px_#05050a]">
-                <span class="block text-[11px] font-pixel text-slate-400 font-bold mb-0.5 tracking-wide">Font chữ</span>
-                <span id="modalStatFont" class="text-xs font-pixel font-bold text-[#FFB800]">Có dấu chuẩn</span>
+              <div class="p-3 rounded-[6px] bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                <span class="block text-[11px] font-sans text-slate-400 font-medium mb-1">Font chữ</span>
+                <span id="modalStatFont" class="text-xs font-sans font-bold text-slate-200">Có dấu chuẩn</span>
               </div>
             </div>
           </div>
@@ -729,12 +729,9 @@
             <p id="modalDesc" class="text-xs leading-relaxed text-slate-300 font-sans"></p>
           </div>
 
-          
-
-
-          <!-- Game Installation Path (Cyber-Pixel) -->
+          <!-- Game Installation Path (Surface Elevation: Clean & Modern) -->
           <div class="space-y-2">
-            <h4 class="text-xs font-pixel text-[#00F0FF] tracking-wide flex items-center justify-between">
+            <h4 class="text-xs font-display font-bold text-slate-300 tracking-wide flex items-center justify-between">
               <span>Đường Dẫn Cài Đặt Game Trên Máy Tính</span>
               <span id="modalPathStatus" class="text-[11px] font-normal font-mono"></span>
             </h4>
@@ -743,17 +740,17 @@
                 id="modalPathInput" 
                 type="text" 
                 readonly 
-                class="flex-1 px-3.5 py-2 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF] shadow-[2px_2px_0px_#05050a]"
+                class="flex-1 px-3.5 py-2 bg-white/[0.03] border border-white/10 rounded-[6px] text-xs text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF]/60 transition-colors"
               />
-              <button onclick="chooseFolderForActiveGame()" class="pixel-btn btn-neon-cyan px-3.5 py-2 text-xs flex items-center space-x-1.5">
+              <button onclick="chooseFolderForActiveGame()" class="pixel-btn btn-neon-cyan px-3.5 py-2 text-xs flex items-center space-x-1.5 rounded-[6px]">
                 <i data-lucide="folder-search" class="w-4 h-4 stroke-[2.5]"></i>
                 <span>Chọn Thư Mục</span>
               </button>
-              <button onclick="changeGameCover(activeModalGameId)" class="pixel-btn bg-[#181a33] text-slate-200 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] px-3 py-2 text-xs flex items-center space-x-1.5" title="Chọn ảnh bìa poster tùy chỉnh từ máy tính">
+              <button onclick="changeGameCover(activeModalGameId)" class="pixel-btn bg-white/[0.04] text-slate-300 hover:text-[#00F0FF] hover:bg-white/[0.08] border border-white/10 hover:border-[#00F0FF]/50 px-3 py-2 text-xs flex items-center space-x-1.5 rounded-[6px] transition-all" title="Chọn ảnh bìa poster tùy chỉnh từ máy tính">
                 <i data-lucide="upload" class="w-4 h-4 text-[#00F0FF]"></i>
                 <span class="hidden sm:inline">Đổi Ảnh Bìa</span>
               </button>
-              <button onclick="openAvatarPicker(activeModalGameId)" class="pixel-btn bg-[#181a33] text-slate-200 hover:text-[#00FF9D] border border-[#2b2f52] hover:border-[#00FF9D] px-3 py-2 text-xs flex items-center space-x-1.5" title="Tìm và chọn lại game từ Steam Store / Kho CỔ NGỮ để sửa đúng Poster">
+              <button onclick="openAvatarPicker(activeModalGameId)" class="pixel-btn bg-white/[0.04] text-slate-300 hover:text-[#00FF9D] hover:bg-white/[0.08] border border-white/10 hover:border-[#00FF9D]/50 px-3 py-2 text-xs flex items-center space-x-1.5 rounded-[6px] transition-all" title="Tìm và chọn lại game từ Steam Store / Kho CỔ NGỮ để sửa đúng Poster">
                 <i data-lucide="image-plus" class="w-4 h-4 text-[#00FF9D]"></i>
                 <span class="hidden sm:inline">Tìm & Chọn lại game</span>
               </button>
@@ -826,11 +823,11 @@
           </div>
         </div>
 
-        <!-- TAB 3: FEEDBACK & BUG REPORT (CYBER-PIXEL) -->
-        <div id="tabContent-feedback" class="hidden space-y-5">
+        <!-- TAB 3: FEEDBACK & BUG REPORT (SURFACE ELEVATION) -->
+        <div id="tabContent-feedback" class="hidden space-y-4">
           <!-- Rating Section -->
-          <div class="bg-[#111326] border border-[#232747] rounded-[2px] p-4 shadow-[3px_3px_0px_#05050a] space-y-3">
-            <h4 class="text-xs font-pixel text-[#FFB800] tracking-wide flex items-center space-x-1.5">
+          <div class="bg-white/[0.02] border border-white/5 rounded-[8px] p-4 space-y-3">
+            <h4 class="text-xs font-display font-bold text-amber-300 tracking-wide flex items-center space-x-1.5">
               <i data-lucide="star" class="w-4 h-4 text-[#FFB800]"></i>
               <span>Đánh Giá Chất Lượng Bản Dịch</span>
             </h4>
@@ -838,22 +835,22 @@
               <div id="starRatingContainer" class="flex items-center space-x-1 cursor-pointer">
                 <!-- 5 Stars generated -->
               </div>
-              <span id="starRatingLabel" class="text-xs font-pixel font-bold text-[#FFB800] ml-2">5/5 Tuyệt vời</span>
+              <span id="starRatingLabel" class="text-xs font-mono font-bold text-[#FFB800] ml-2">5/5 Tuyệt vời</span>
             </div>
             <textarea 
               id="userCommentInput" 
               placeholder="Chia sẻ cảm nghĩ của bạn về bản dịch (tùy chọn)..." 
               rows="2" 
-              class="w-full px-3 py-2 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] font-sans shadow-[2px_2px_0px_#05050a]"
+              class="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-[6px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF]/60 font-sans transition-colors"
             ></textarea>
-            <button onclick="submitUserRating()" class="pixel-btn btn-neon-green px-4 py-1.5 text-xs font-bold">
+            <button onclick="submitUserRating()" class="pixel-btn btn-neon-green px-4 py-1.5 text-xs font-bold rounded-[6px]">
               Lưu Đánh Giá
             </button>
           </div>
 
           <!-- Bug Report Section -->
-          <div class="bg-[#111326] border border-[#232747] rounded-[2px] p-4 shadow-[3px_3px_0px_#05050a] space-y-3">
-            <h4 class="text-xs font-pixel text-[#FF3344] tracking-wide flex items-center space-x-1.5">
+          <div class="bg-white/[0.02] border border-white/5 rounded-[8px] p-4 space-y-3">
+            <h4 class="text-xs font-display font-bold text-rose-400 tracking-wide flex items-center space-x-1.5">
               <i data-lucide="bug" class="w-4 h-4 text-[#FF3344]"></i>
               <span>Báo Lỗi Dịch Thuật / Đóng Góp</span>
             </h4>
@@ -864,9 +861,9 @@
               id="bugReportInput" 
               placeholder="Mô tả lỗi câu thoại, đoạn hội thoại hoặc vị trí xuất hiện trong game..." 
               rows="3" 
-              class="w-full px-3 py-2 bg-[#090b17] border border-[#232747] rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#FF3344] font-sans shadow-[2px_2px_0px_#05050a]"
+              class="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-[6px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#FF3344]/60 font-sans transition-colors"
             ></textarea>
-            <button onclick="submitBugReport()" class="pixel-btn btn-retro-crimson px-4 py-1.5 text-xs font-bold flex items-center space-x-1.5">
+            <button onclick="submitBugReport()" class="pixel-btn btn-retro-crimson px-4 py-1.5 text-xs font-bold flex items-center space-x-1.5 rounded-[6px]">
               <i data-lucide="send" class="w-3.5 h-3.5"></i>
               <span>Gửi Báo Cáo Lỗi</span>
             </button>
@@ -1939,11 +1936,11 @@
 
       versions.forEach((v, idx) => {
         const vCard = document.createElement('div');
-        vCard.className = 'p-3.5 rounded-[2px] bg-[#111326] border border-[#232747] shadow-[2px_2px_0px_#05050a] space-y-1.5';
+        vCard.className = 'p-3.5 rounded-[6px] bg-white/[0.03] hover:bg-white/[0.05] transition-colors space-y-1.5';
         vCard.innerHTML = `
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
-              <span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] ${idx === 0 ? 'bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40 shadow-[2px_2px_0px_#05050a]' : 'bg-[#070814] text-slate-300 border border-[#232747]'}">${v.version}</span>
+              <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-[4px] ${idx === 0 ? 'bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/30' : 'bg-white/[0.05] text-slate-300'}">${v.version}</span>
               ${idx === 0 ? '<span class="text-[10px] font-bold text-brand-400">Mới nhất</span>' : ''}
             </div>
             <span class="text-[11px] text-slate-400 font-mono">${v.release_date}</span>
