@@ -454,31 +454,36 @@
     </div>
 
 
-    <!-- Right Quick Controls (Sharp Pixel Buttons with 4 Neon Colors & Window Controls) -->
-    <div class="flex items-center space-x-2.5 no-drag">
-      <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3.5 py-1.5 text-xs flex items-center space-x-1.5 no-drag" title="Quét và làm mới danh sách game mới nhất">
-        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline font-bold">Làm Mới</span>
-      </button>
-
-      <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5 no-drag" title="Gửi yêu cầu dịch game mới">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-        <span class="hidden lg:inline">Yêu cầu game</span>
-      </button>
-
-      <!-- Frameless Window Control Buttons -->
-      <div class="flex items-center space-x-1.5 pl-2 border-l border-[#232747]">
-        <button onclick="minimizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a] no-drag" title="Thu nhỏ ứng dụng xuống Taskbar">
-          <i data-lucide="minus" class="w-3.5 h-3.5 stroke-[2.5]"></i>
+    <!-- Right Actions: App Quick Features & Windows Standard Titlebar Controls -->
+    <div class="flex items-center space-x-3 no-drag">
+      <!-- App Functional Buttons (Làm Mới, Yêu cầu game) -->
+      <div class="flex items-center space-x-2">
+        <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px]" title="Quét và làm mới danh sách game mới nhất">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline font-bold">Làm Mới</span>
         </button>
 
-        <button onclick="maximizeWindow()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-300 hover:text-[#00F0FF] border border-[#2b2f52] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a] no-drag" title="Phóng to / Khôi phục kích thước cửa sổ">
-          <i data-lucide="square" class="w-3.5 h-3.5 stroke-[2.5]"></i>
+        <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px]" title="Gửi yêu cầu dịch game mới">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span class="hidden lg:inline">Yêu cầu game</span>
+        </button>
+      </div>
+
+      <!-- Safe Visual Divider -->
+      <div class="h-4 w-px bg-white/10 mx-1"></div>
+
+      <!-- Standard Windows Minimal Window Controls (Sát góc phải, không viền thô, 3 icon tối giản) -->
+      <div class="flex items-center -mr-2 space-x-0.5" title="Điều khiển cửa sổ">
+        <button onclick="minimizeWindow()" class="w-9 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-[3px] transition-colors" title="Thu nhỏ (Minimize)">
+          <i data-lucide="minus" class="w-3.5 h-3.5 stroke-[2]"></i>
         </button>
 
-        <button onclick="quitApp()" class="pixel-btn btn-retro-crimson p-1.5 px-2.5 text-xs flex items-center space-x-1 font-bold shadow-[2px_2px_0px_#05050a] no-drag" title="Thoát hoàn toàn ứng dụng">
-          <i data-lucide="power" class="w-3.5 h-3.5 stroke-[2.5]"></i>
-          <span class="hidden sm:inline">Thoát</span>
+        <button onclick="maximizeWindow()" class="w-9 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-[3px] transition-colors" title="Phóng to / Khôi phục (Maximize)">
+          <i data-lucide="square" class="w-3 h-3 stroke-[2]"></i>
+        </button>
+
+        <button onclick="quitApp()" class="w-9 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#e81123] rounded-[3px] transition-colors" title="Đóng (Close)">
+          <i data-lucide="x" class="w-4 h-4 stroke-[2]"></i>
         </button>
       </div>
     </div>
