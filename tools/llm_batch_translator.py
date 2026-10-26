@@ -102,10 +102,13 @@ def normalize_vn(text: str) -> str:
 
 def validate_translation(source: str, translated: str) -> Tuple[bool, List[str]]:
     """Kiểm tra tính toàn vẹn của thẻ điều khiển và phát hiện lỗi dịch máy cơ bản."""
-    issues = []
+    if not source or not source.strip():
+        return True, []
+
     if not translated or not translated.strip():
         return False, ["Chuỗi dịch bị rỗng"]
 
+    issues = []
     src_tags = extract_tags(source)
     dst_tags = extract_tags(translated)
     for tag in set(src_tags):

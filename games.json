@@ -1082,12 +1082,12 @@
       "author": "Antigravity Localization Team",
       "font": "LatinFont & NotoSans SDF tái tạo (134/134 ký tự tiếng Việt chuẩn sắc nét)",
       "last_updated": "26/10/2026",
-      "mod_size": "~336.2 KB"
+      "mod_size": "~811.2 KB"
     },
     "mod_subfolder": "castlevania",
     "mod_type": "pipeline",
     "mod_file": "CASTLEVANIA_BELMONTS_CURSE_Viethoa.congu",
-    "congu_sha256": "dfef7f521c9244c6d9f4c22d2f77dd019f3e7cd3e0a506a73272b8ddf14a5bf2",
+    "congu_sha256": "5776c07cd9705cb32ede3a8cce430132729542fb55ae8735d5e421b408ce0116",
     "relative_install_path": "Castlevania Belmont's Curse_Data",
     "target_pak_name": "CASTLEVANIA_BELMONTS_CURSE_Viethoa.congu",
     "executable_name": "Castlevania Belmont's Curse.exe",
@@ -1109,7 +1109,7 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/CASTLEVANIA_BELMONTS_CURSE_Viethoa.congu",
-    "mod_size": "~336.2 KB",
+    "mod_size": "~811.2 KB",
     "install_steps": [
       {
         "action": "backup",
