@@ -2,7 +2,7 @@ import os
 import sys
 
 # Force bypass Windows system proxy/VPN for local loopback (fixes ERR_CONNECTION_REFUSED on 127.0.0.1)
-os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--no-proxy-server --disable-features=msSmartScreenProtection"
+os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--no-proxy-server --proxy-bypass-list=<-loopback> --disable-features=msSmartScreenProtection"
 os.environ["NO_PROXY"] = "127.0.0.1,localhost"
 os.environ["no_proxy"] = "127.0.0.1,localhost"
 
@@ -6171,12 +6171,26 @@ def log_startup(msg: str):
     except Exception:
         pass
 
+def wait_for_local_server(port: int, timeout_sec: float = 5.0) -> bool:
+    """
+    Kiểm tra trực tiếp qua Raw Socket xem 127.0.0.1:port đã thực sự mở cổng lắng nghe chưa.
+    Không bị ảnh hưởng bởi Proxy hệ thống hay CSRF Token 403.
+    """
+    import socket
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
+
 def launch_app_window_fallback(url):
     """
     Fallback Desktop Window Mode:
-    Launch Microsoft Edge or Chrome in standalone App Mode (--app=URL).
-    Displays a clean native desktop window without tabs, address bar, or navigation buttons.
-    Bypasses system proxy, disables Edge Startup Boost handoff, and protects against premature exit.
+    Khởi chạy Edge/Chrome ở chế độ App Mode với thư mục profile riêng biệt.
+    Tuyệt đối KHÔNG gọi os._exit(0) sớm khi trình duyệt chỉ mới handoff tiến trình!
     """
     import subprocess
     potential_browsers = [
@@ -6187,7 +6201,9 @@ def launch_app_window_fallback(url):
     ]
     for exe in potential_browsers:
         if os.path.exists(exe):
-            app_data_edge = os.path.join(APPDATA_DIR, "app_profile")
+            # Tạo profile riêng biệt để ép Edge/Chrome mở tiến trình độc lập
+            app_data_edge = os.path.join(APPDATA_DIR, "congu_edge_profile")
+            os.makedirs(app_data_edge, exist_ok=True)
             cmd = [
                 exe,
                 f"--app={url}",
@@ -6196,8 +6212,10 @@ def launch_app_window_fallback(url):
                 "--no-first-run",
                 "--no-default-browser-check",
                 "--no-proxy-server",
-                "--disable-features=msEdgeStartupBoost",
+                "--proxy-bypass-list=<-loopback>",
+                "--disable-features=msEdgeStartupBoost,msSmartScreenProtection",
                 "--disable-background-mode",
+                "--disable-extensions",
                 "--new-window"
             ]
             try:
@@ -6206,26 +6224,31 @@ def launch_app_window_fallback(url):
                 proc = subprocess.Popen(cmd)
                 proc.wait()
                 elapsed = time.time() - t0
-                if elapsed > 1.5:
-                    log_startup("Cua so ung dung da dong boi nguoi dung. Thoat tien trinh.")
+                # Chỉ thoát nếu người dùng thực sự đã mở và sử dụng ứng dụng (> 8 giây)
+                # Nếu thoát nhanh (< 8 giây), đó là do Edge handoff sang tiến trình chạy sẵn -> Giữ sống Backend!
+                if elapsed > 8.0:
+                    log_startup(f"Cua so ung dung da dong sau {elapsed:.1f}s. Thoat tien trinh.")
                     os._exit(0)
                 else:
-                    log_startup("Trinh duyet chuyen quyen sang tien trinh nen. Duy tri may chu backend phuc vu UI.")
+                    log_startup(
+                        f"Trinh duyet handoff nhanh ({elapsed:.1f}s). "
+                        f"Duy tri may chu 127.0.0.1 de phuc vu giao dien!"
+                    )
                     return True
             except Exception as e:
                 log_startup(f"[!] Loi khoi chay trinh duyet {exe}: {e}")
-    
+
     log_startup("Khong tim thay Edge/Chrome doc lap. Dang mo tren trinh duyet mac dinh...")
     import webbrowser
     webbrowser.open(url)
-    return False
+    return True
 
 def create_http_server():
     """
-    Thu khoi tao may chu tren cong co dinh 49200 truoc de tranh bi Firewall chan cong dong (ephemeral ports),
-    neu cong da bi chiem thi tu dong chuyen sang ephemeral port 0 linh hoat.
+    Khởi tạo máy chủ HTTP đa luồng trên 127.0.0.1.
+    Thử các cổng cố định 49200-49205 trước, nếu bận thì dùng cổng động (0).
     """
-    for try_port in [49200, 49201, 0]:
+    for try_port in [49200, 49201, 49202, 49203, 0]:
         try:
             srv = make_server(
                 "127.0.0.1",
@@ -6235,14 +6258,15 @@ def create_http_server():
                 handler_class=QuietWSGIRequestHandler
             )
             return srv
-        except OSError:
+        except OSError as e:
+            log_startup(f"[!] Cong {try_port} dang ban ({e}), thu cong tiep theo...")
             continue
     return make_server("127.0.0.1", 0, server_app, server_class=ThreadingWSGIServer, handler_class=QuietWSGIRequestHandler)
 
 def main():
     global SERVER_PORT, HTTP_SERVER
 
-    # Dynamic ephemeral / consistent port binding (Port 49200 / 0) voi Multi-Threaded WSGI Server
+    # 1. Khởi tạo HTTP Server
     HTTP_SERVER = create_http_server()
     SERVER_PORT = HTTP_SERVER.server_address[1]
     log_startup(f"[*] Co Ngu Core Engine initialized on 127.0.0.1:{SERVER_PORT} (Token Protected)")
@@ -6250,31 +6274,24 @@ def main():
     t = threading.Thread(target=HTTP_SERVER.serve_forever, daemon=True)
     t.start()
 
-    # Pre-flight health check: Dam bao may chu HTTP tren 127.0.0.1 san sang truoc khi mo giao dien
-    server_ready = False
-    for _ in range(30):
-        try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{SERVER_PORT}/api/version/check", timeout=0.2) as resp:
-                if resp.status == 200:
-                    server_ready = True
-                    break
-        except Exception:
-            time.sleep(0.1)
-
-    if not server_ready:
-        log_startup(f"[!] Canh bao: May chu HTTP tren 127.0.0.1:{SERVER_PORT} chua phan hoi trong 3 giay.")
+    # 2. Kiểm tra Socket 127.0.0.1 đã sẵn sàng 100% trước khi mở WebView
+    if wait_for_local_server(SERVER_PORT, timeout_sec=5.0):
+        log_startup(f"[OK] May chu HTTP tren 127.0.0.1:{SERVER_PORT} da san sang lang nghe.")
     else:
-        log_startup(f"[OK] May chu HTTP tren 127.0.0.1:{SERVER_PORT} da hoat dong hoan hao.")
+        log_startup(f"[!] Canh bao: Socket 127.0.0.1:{SERVER_PORT} phan hoi cham.")
 
-    # Background silent cloud sync
+    # 3. Đồng bộ danh mục ngầm
     def _bg_cloud_sync():
-        import time
         time.sleep(2.5)
         sync_remote_catalog(force=False)
     threading.Thread(target=_bg_cloud_sync, daemon=True).start()
 
     url = f"http://127.0.0.1:{SERVER_PORT}"
     icon_path = get_app_icon_path()
+
+    # Biến cờ đánh dấu người dùng chủ động đóng cửa sổ PyWebView
+    user_closed_window = {"closed": False}
+    webview_started_at = time.time()
 
     try:
         window = webview.create_window(
@@ -6295,24 +6312,35 @@ def main():
             t_icon.start()
 
         def on_closed():
-            os._exit(0)
+            # Nếu cửa sổ tồn tại > 3 giây rồi mới đóng -> Người dùng chủ động tắt
+            if time.time() - webview_started_at > 3.0:
+                user_closed_window["closed"] = True
+                os._exit(0)
 
         window.events.closed += on_closed
 
+        # Ép sử dụng edgechromium nếu có, tự động fallback nếu máy thiếu WebView2
         webview.start(
             func=on_shown,
             args=(window, icon_path),
             debug=False,
             icon=icon_path if icon_path else None
         )
-        # When PyWebView window is closed by user (X button), terminate immediately:
+
+        # QUAN TRỌNG: Nếu webview.start() tự thoát quá nhanh (< 3 giây) trên PC thiếu WebView2 Runtime,
+        # TUYỆT ĐỐI KHÔNG gọi os._exit(0) mà phải chuyển sang chế độ Fallback Browser!
+        if time.time() - webview_started_at < 3.0 and not user_closed_window["closed"]:
+            raise RuntimeError("WebView2 exited prematurely (< 3s) on target PC")
+
         os._exit(0)
+
     except Exception as e:
-        log_startup(f"[!] PyWebView window error ({e}). Launching Standalone Desktop Window mode...")
-        launched = launch_app_window_fallback(url)
-        # Luon duy tri luong may chu backend HTTP de giao dien trinh duyet khong bi mat ket noi
-        t.join()
-        os._exit(0)
+        log_startup(f"[!] PyWebView fallback triggered ({e}). Launching Standalone Desktop Window mode...")
+        launch_app_window_fallback(url)
+        # Giữ luồng chính sống để HTTP_SERVER tiếp tục phục vụ 127.0.0.1:{SERVER_PORT}
+        # Khi người dùng bấm nút [X] trên giao diện web của ứng dụng, hàm /api/app/quit sẽ gọi os._exit(0)
+        while True:
+            time.sleep(1.0)
 
 if __name__ == "__main__":
     main()
