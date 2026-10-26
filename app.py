@@ -1403,6 +1403,232 @@ def stop_window_drag():
     return {"success": True}
 
 
+def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
+    """Gửi HTTP GET trực tiếp tới các máy chủ Steam (store.steampowered.com, steamcommunity.com, steamstatic.com)
+    sử dụng cơ chế phân mảnh ClientHello (DPI bypass) nhằm vượt qua việc các nhà mạng chặn SNI tại Việt Nam."""
+    import socket
+    import ssl
+    import urllib.parse
+    import time
+
+    p = urllib.parse.urlparse(url)
+    hostname = p.netloc or "store.steampowered.com"
+    path = p.path or "/"
+    if p.query:
+        path += "?" + p.query
+
+    try:
+        ctx = ssl.create_default_context()
+        incoming = ssl.MemoryBIO()
+        outgoing = ssl.MemoryBIO()
+        sslobj = ctx.wrap_bio(incoming, outgoing, server_hostname=hostname)
+        try:
+            sslobj.do_handshake()
+        except ssl.SSLWantReadError:
+            pass
+
+        client_hello = outgoing.read()
+        ip = socket.gethostbyname(hostname)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        sock.connect((ip, 443))
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+        # Gửi 5 bytes đầu tiên (TLS record header), nghỉ 20ms rồi gửi phần còn lại để bypass DPI
+        sock.sendall(client_hello[:5])
+        time.sleep(0.02)
+        sock.sendall(client_hello[5:])
+
+        while True:
+            try:
+                sslobj.do_handshake()
+                break
+            except ssl.SSLWantReadError:
+                data = sock.recv(4096)
+                if not data:
+                    break
+                incoming.write(data)
+            out = outgoing.read()
+            if out:
+                sock.sendall(out)
+
+        http_req = (
+            f"GET {path} HTTP/1.1\r\n"
+            f"Host: {hostname}\r\n"
+            f"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\n"
+            f"Accept: application/json, image/*, text/plain, */*\r\n"
+            f"Connection: close\r\n\r\n"
+        )
+        sslobj.write(http_req.encode("utf-8"))
+        out = outgoing.read()
+        if out:
+            sock.sendall(out)
+
+        resp_body = b""
+        while True:
+            try:
+                data = sslobj.read(8192)
+                if not data:
+                    break
+                resp_body += data
+            except ssl.SSLWantReadError:
+                raw = sock.recv(8192)
+                if not raw:
+                    break
+                incoming.write(raw)
+        sock.close()
+        parts = resp_body.split(b"\r\n\r\n", 1)
+        return parts[1] if len(parts) > 1 else resp_body
+    except Exception as e:
+        # Fallback về urllib thông thường nếu mạng không bị chặn DPI
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except Exception:
+            return b""
+
+
+def search_steam_online(query: str, limit: int = 15) -> list[dict]:
+    """Tìm kiếm trực tiếp trên toàn bộ kho game Steam thông qua Store Search API và Community Search."""
+    import re
+    import json
+    import urllib.parse
+
+    clean_q = re.sub(r"\s+", " ", (query or "")).strip()
+    if not clean_q or len(clean_q) < 2:
+        return []
+
+    encoded_q = urllib.parse.quote(clean_q)
+    results = []
+    seen = set()
+
+    # 1. Store Search API (store.steampowered.com)
+    try:
+        url = f"https://store.steampowered.com/api/storesearch/?term={encoded_q}&l=english&cc=US"
+        raw = steam_direct_request(url, timeout=3.5)
+        if raw:
+            data = json.loads(raw.decode("utf-8", "ignore"))
+            for it in data.get("items", [])[:limit]:
+                appid = str(it.get("id", ""))
+                name = it.get("name", "")
+                if not appid or not name or appid in seen:
+                    continue
+                seen.add(appid)
+                tiny = it.get("tiny_image", "")
+                header = (
+                    tiny.replace("capsule_sm_120", "header")
+                    if tiny
+                    else f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                )
+                results.append({
+                    "id": int(appid) if appid.isdigit() else appid,
+                    "steam_appid": appid,
+                    "name": name,
+                    "title": name,
+                    "subtitle": f"Steam AppID: {appid}",
+                    "source": "steam",
+                    "genre": "Steam Store",
+                    "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                    "header_url": header,
+                    "capsule": tiny or f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
+                })
+    except Exception as e:
+        print(f"[SteamOnline] Store search failed: {e}")
+
+    # 2. Community SearchApps API (steamcommunity.com)
+    if len(results) < limit:
+        try:
+            url = f"https://steamcommunity.com/actions/SearchApps/{encoded_q}"
+            raw = steam_direct_request(url, timeout=3.0)
+            if raw:
+                data = json.loads(raw.decode("utf-8", "ignore"))
+                if isinstance(data, list):
+                    for it in data[:limit]:
+                        appid = str(it.get("appid", ""))
+                        name = it.get("name", "")
+                        if not appid or not name or appid in seen:
+                            continue
+                        seen.add(appid)
+                        logo = it.get("logo", "")
+                        icon = it.get("icon", "")
+                        header = logo or (
+                            icon.replace("capsule_sm_120", "header")
+                            if icon
+                            else f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                        )
+                        results.append({
+                            "id": int(appid) if appid.isdigit() else appid,
+                            "steam_appid": appid,
+                            "name": name,
+                            "title": name,
+                            "subtitle": f"Steam AppID: {appid}",
+                            "source": "steam",
+                            "genre": "Steam Store",
+                            "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+                            "header_url": header,
+                            "capsule": icon or f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
+                        })
+        except Exception as e:
+            print(f"[SteamOnline] Community search failed: {e}")
+
+    return results
+
+
+def make_vertical_poster(image_bytes: bytes, target_w: int = 600, target_h: int = 900) -> bytes:
+    """
+    Chuẩn hóa mọi ảnh (kể cả ảnh ngang 16:9, banner capsule 231x87, header 460x215)
+    thành Poster dọc tỉ lệ 2:3 (600x900) chuẩn Steam Library:
+    - Nếu ảnh gốc đã là ảnh dọc (0.58 <= w/h <= 0.75): resize chất lượng cao về 600x900.
+    - Nếu ảnh gốc là ảnh ngang (w/h > 0.8):
+      + Lớp nền: Phóng to ảnh gốc lấp đầy 600x900, áp dụng Gaussian Blur (radius=28) và làm tối (0.35) để tạo không gian ambient huyền ảo đồng nhất tông màu.
+      + Lớp trung tâm: Đặt banner gốc sắc nét ở giữa, tỉ lệ chuẩn, viền nhẹ và đổ bóng để không bị kéo giãn hay phóng đại vỡ hạt.
+    """
+    try:
+        from PIL import Image, ImageFilter, ImageEnhance, ImageOps
+        import io
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        w, h = img.size
+        if w <= 0 or h <= 0:
+            return image_bytes
+        aspect = w / h
+
+        # Nếu đã là ảnh dọc tỉ lệ ~2:3 (từ 0.58 đến 0.75)
+        if 0.58 <= aspect <= 0.75:
+            result = ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS)
+        else:
+            # 1. Nền ambient mờ
+            scale = max(target_w / w, target_h / h)
+            bg_w, bg_h = int(w * scale), int(h * scale)
+            bg = img.resize((bg_w, bg_h), Image.Resampling.LANCZOS)
+            left = (bg_w - target_w) // 2
+            top = (bg_h - target_h) // 2
+            bg = bg.crop((left, top, left + target_w, top + target_h))
+            bg = bg.filter(ImageFilter.GaussianBlur(radius=28))
+            bg = ImageEnhance.Brightness(bg).enhance(0.35)
+
+            # 2. Foreground sắc nét ở giữa
+            fg_w = int(target_w * 0.94)  # 564px
+            fg_h = int(h * (fg_w / w))
+            if fg_h > int(target_h * 0.75):
+                fg_h = int(target_h * 0.75)
+                fg_w = int(w * (fg_h / h))
+
+            fg = img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
+
+            paste_x = (target_w - fg_w) // 2
+            paste_y = (target_h - fg_h) // 2
+            bg.paste(fg, (paste_x, paste_y))
+            result = bg
+
+        out = io.BytesIO()
+        result.save(out, format="JPEG", quality=95)
+        return out.getvalue()
+    except Exception as e:
+        print(f"[make_vertical_poster] Error formatting poster: {e}")
+        return image_bytes
+
+
 class ModManagerAPI:
     def __init__(self):
         self.window = None
@@ -1570,10 +1796,12 @@ class ModManagerAPI:
                                 break
                         elif act == "copy_file" and not mod_installed:
                             dst_f = os.path.join(game_path, st.get("destination", ""))
-                            if os.path.exists(dst_f):
+                            bak_f = f"{dst_f}.congu_bak"
+                            if os.path.exists(bak_f):
                                 mod_installed = True
-                                installed_size = os.path.getsize(dst_f)
+                                installed_size = os.path.getsize(dst_f) if os.path.exists(dst_f) else 0
                                 installed_date = "Đang hoạt động"
+                                break
 
             g["is_mod_installed"] = mod_installed
             g["installed_size_mb"] = round(installed_size / (1024 * 1024), 2) if installed_size else 0
@@ -1873,7 +2101,11 @@ class ModManagerAPI:
             safe_gid = re.sub(r"[^\w\-]", "_", game_id)
             dest_cover = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
             try:
-                shutil.copyfile(chosen_file, dest_cover)
+                with open(chosen_file, "rb") as f:
+                    raw_bytes = f.read()
+                formatted_bytes = make_vertical_poster(raw_bytes)
+                with open(dest_cover, "wb") as f:
+                    f.write(formatted_bytes)
                 c_cache = load_covers_cache()
                 if game_id not in c_cache:
                     c_cache[game_id] = {}
@@ -1893,14 +2125,14 @@ class ModManagerAPI:
         return {"success": False, "message": "Chưa chọn ảnh nào."}
 
     def search_game_for_avatar(self, query: str) -> list[dict]:
-        """Tìm danh sách game kèm ảnh preview từ cả games.json nội bộ và Steam Store."""
-        query = (query or "").strip()
-        if not query:
+        """Tìm danh sách game kèm ảnh preview từ Kho CỔ NGỮ, Steam Store trực tiếp trên mạng, và DB bổ trợ."""
+        clean_q = re.sub(r"\s+", " ", (query or "")).strip()
+        if not clean_q:
             return []
 
         results = []
         seen_appids = set()
-        q_lower = query.lower()
+        q_lower = clean_q.lower()
 
         # 1. Tìm ưu tiên trong kho games.json nội bộ trước
         try:
@@ -1917,7 +2149,7 @@ class ModManagerAPI:
                         q_lower in title.lower()
                         or q_lower in vi_title.lower()
                         or q_lower in gid.lower()
-                        or (appid and appid == query)
+                        or (appid and appid == clean_q)
                     ):
                         if appid:
                             seen_appids.add(appid)
@@ -1930,18 +2162,33 @@ class ModManagerAPI:
                             or (f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else "")
                         )
                         results.append({
+                            "id": int(appid) if appid.isdigit() else appid,
                             "steam_appid": appid,
                             "title": title,
+                            "name": title,
                             "subtitle": vi_title or "Kho CỔ NGỮ",
                             "source": "congu_db",
                             "genre": g.get("genre", "Kho CỔ NGỮ"),
                             "avatar_url": poster,
-                            "header_url": header
+                            "header_url": header,
+                            "capsule": header
                         })
         except Exception as e:
             print(f"[AvatarSearch] local games.json error: {e}")
 
-        # 2. Tìm trong cơ sở dữ liệu Steam offline (hơn 5,000 game)
+        # 2. Tìm kiếm TRỰC TIẾP trên kho Steam Store & Community qua mạng (DPI bypass)
+        try:
+            online_items = search_steam_online(clean_q, limit=12)
+            for item in online_items:
+                appid = str(item.get("steam_appid", ""))
+                if appid and appid in seen_appids:
+                    continue
+                seen_appids.add(appid)
+                results.append(item)
+        except Exception as e:
+            print(f"[AvatarSearch] online steam search error: {e}")
+
+        # 3. Bổ sung từ cơ sở dữ liệu Steam offline (hơn 5,000 game)
         try:
             offline_db = get_steam_games()
             exact, starts, word_starts, contains = [], [], [], []
@@ -1962,53 +2209,25 @@ class ModManagerAPI:
                 if len(exact) + len(starts) + len(word_starts) + len(contains) >= 30:
                     break
 
-            for item in (exact + starts + word_starts + contains)[:10]:
+            for item in (exact + starts + word_starts + contains)[:8]:
                 appid = str(item["id"])
                 if appid in seen_appids:
                     continue
                 seen_appids.add(appid)
                 results.append({
+                    "id": int(appid) if appid.isdigit() else appid,
                     "steam_appid": appid,
+                    "name": item.get("name", ""),
                     "title": item.get("name", ""),
                     "subtitle": f"Steam AppID: {appid}",
                     "source": "steam",
                     "genre": "Steam Store",
                     "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
-                    "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+                    "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg",
+                    "capsule": f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
                 })
         except Exception as e:
             print(f"[AvatarSearch] offline steam db search error: {e}")
-
-        # 3. Tìm mở rộng trên toàn bộ kho Steam Store API
-        try:
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-            encoded_q = urllib.parse.quote(query)
-            url = f"https://store.steampowered.com/api/storesearch/?term={encoded_q}&l=english&cc=US"
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                for item in data.get("items", [])[:10]:
-                    appid = str(item.get("id", ""))
-                    if not appid or appid in seen_appids:
-                        continue
-                    seen_appids.add(appid)
-                    tiny_img = item.get("tiny_image", "")
-                    header_img = (
-                        tiny_img.replace("capsule_sm_120", "header")
-                        if tiny_img
-                        else f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
-                    )
-                    results.append({
-                        "steam_appid": appid,
-                        "title": item.get("name", ""),
-                        "subtitle": f"Steam AppID: {appid}",
-                        "source": "steam",
-                        "genre": "Steam Store",
-                        "avatar_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
-                        "header_url": header_img
-                    })
-        except Exception as e:
-            print(f"[AvatarSearch] steam store search error: {e}")
 
         return results
 
@@ -2020,14 +2239,13 @@ class ModManagerAPI:
         appid = str(selected_data.get("steam_appid", "")).strip()
         avatar_url = selected_data.get("avatar_url", "")
         header_url = selected_data.get("header_url", "")
+        capsule_url = selected_data.get("capsule", "")
         new_title = selected_data.get("title", "")
         genre = selected_data.get("genre", "")
 
         safe_gid = re.sub(r"[^\w\-]", "_", target_game_id)
         os.makedirs(COVERS_DIR, exist_ok=True)
         local_cover_path = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
-
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
         candidates = []
         if appid:
@@ -2040,6 +2258,8 @@ class ModManagerAPI:
             candidates.append(avatar_url)
         if header_url:
             candidates.append(header_url)
+        if capsule_url:
+            candidates.append(capsule_url)
 
         downloaded_ok = False
         final_local_url = f"/api/covers/{safe_gid}.jpg?t={int(time.time())}"
@@ -2048,15 +2268,19 @@ class ModManagerAPI:
             if not cand_url or not cand_url.startswith("http"):
                 continue
             try:
-                req = urllib.request.Request(cand_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    if resp.status == 200:
-                        content = resp.read()
-                        if len(content) > 1000:
-                            with open(local_cover_path, "wb") as f:
-                                f.write(content)
-                            downloaded_ok = True
-                            break
+                content = steam_direct_request(cand_url, timeout=4.0)
+                if (
+                    content
+                    and len(content) > 1000
+                    and not content.startswith(b"<html>")
+                    and not content.startswith(b"HTTP/1.1 404")
+                    and not content.startswith(b"HTTP/1.1 50")
+                ):
+                    formatted_poster = make_vertical_poster(content)
+                    with open(local_cover_path, "wb") as f:
+                        f.write(formatted_poster)
+                    downloaded_ok = True
+                    break
             except Exception:
                 continue
 
@@ -2064,9 +2288,9 @@ class ModManagerAPI:
         if appid:
             try:
                 details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese&cc=VN"
-                req = urllib.request.Request(details_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    det = json.loads(resp.read().decode("utf-8"))
+                raw = steam_direct_request(details_url, timeout=3.5)
+                if raw:
+                    det = json.loads(raw.decode("utf-8", "ignore"))
                     if det.get(str(appid), {}).get("success"):
                         app_data = det[str(appid)]["data"]
                         genres_list = [g.get("description") for g in app_data.get("genres", [])]
@@ -2076,6 +2300,19 @@ class ModManagerAPI:
                             new_title = app_data.get("name", "")
                         if not header_url:
                             header_url = app_data.get("header_image", "")
+                        # Nếu các candidate trước chưa tải được, thử tải header_image từ appdetails
+                        if not downloaded_ok and header_url:
+                            h_content = steam_direct_request(header_url, timeout=4.0)
+                            if (
+                                h_content
+                                and len(h_content) > 1000
+                                and not h_content.startswith(b"<html>")
+                                and not h_content.startswith(b"HTTP/1.1 404")
+                            ):
+                                formatted_poster = make_vertical_poster(h_content)
+                                with open(local_cover_path, "wb") as f:
+                                    f.write(formatted_poster)
+                                downloaded_ok = True
             except Exception:
                 pass
 
@@ -3556,10 +3793,24 @@ class ModManagerAPI:
             return False
 
         existing_congu = os.path.join(cache_dir, "mod_package.congu")
+        if not (os.path.exists(existing_congu) and security.is_congu_package(existing_congu)):
+            mod_file_name = g.get("mod_file", "")
+            if mod_file_name:
+                for cand in [
+                    os.path.join(APP_DIR, "mods", mod_file_name),
+                    os.path.join(APP_DIR, mod_file_name),
+                    os.path.join(r"C:\Users\tuan3\Documents\Viethoagame", mod_file_name),
+                    os.path.join(load_user_config().get("repo_dir", ""), mod_file_name),
+                    os.path.join(source_mod_dir, mod_file_name) if source_mod_dir else ""
+                ]:
+                    if cand and os.path.isfile(cand) and security.is_congu_package(cand):
+                        existing_congu = cand
+                        break
+
         if not local_found and os.path.exists(existing_congu) and security.is_congu_package(existing_congu):
             expected_sha = g.get("congu_sha256") or g.get("sha256")
             if not expected_sha or security.verify_package_checksum(existing_congu, expected_sha):
-                set_progress(25, "Đã tìm thấy gói bảo mật CỔ NGỮ trong bộ nhớ đệm...", status="running", game_id=game_id)
+                set_progress(25, "Đã tìm thấy gói bảo mật CỔ NGỮ trên thiết bị...", status="running", game_id=game_id)
                 def on_sec_progress(pct, msg):
                     set_progress(pct, msg, status="running", game_id=game_id, operation="install")
 
@@ -4880,50 +5131,49 @@ def get_steam_games():
 
 @server_app.route("/api/steam/search")
 def api_steam_search():
-    query = (request.query.get("q") or "").strip().lower()
+    query = (request.query.get("q") or "").strip()
     if not query or len(query) < 2:
         response.content_type = "application/json"
         return json.dumps([])
     
-    games = get_steam_games()
-    exact = []
-    starts = []
-    word_starts = []
-    contains = []
-    seen_ids = set()
-    
-    for g in games:
-        app_id = g.get("id")
-        if app_id in seen_ids:
-            continue
-        name = g.get("name", "")
-        name_low = name.lower()
-        if name_low == query:
-            exact.append(g)
-            seen_ids.add(app_id)
-        elif name_low.startswith(query):
-            starts.append(g)
-            seen_ids.add(app_id)
-        elif any(w.startswith(query) for w in name_low.split()):
-            word_starts.append(g)
-            seen_ids.add(app_id)
-        elif query in name_low:
-            contains.append(g)
-            seen_ids.add(app_id)
-            
-        if len(seen_ids) >= 30:
-            break
-            
-    matched = (exact + starts + word_starts + contains)[:10]
-    results = []
-    for m in matched:
-        app_id = m.get("id")
-        results.append({
-            "id": app_id,
-            "name": m.get("name"),
-            "capsule": f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/capsule_sm_120.jpg"
-        })
-        
+    # 1. Tìm trực tiếp trên toàn bộ kho Steam Store & Community
+    results = search_steam_online(query, limit=12)
+    seen_ids = {str(r.get("id")) for r in results}
+
+    # 2. Bổ sung từ offline db nếu cần thêm gợi ý
+    if len(results) < 10:
+        games = get_steam_games()
+        q_low = query.lower()
+        exact = []
+        starts = []
+        word_starts = []
+        contains = []
+        for g in games:
+            app_id = str(g.get("id"))
+            if app_id in seen_ids:
+                continue
+            name = g.get("name", "")
+            name_low = name.lower()
+            if name_low == q_low:
+                exact.append(g)
+            elif name_low.startswith(q_low):
+                starts.append(g)
+            elif any(w.startswith(q_low) for w in name_low.split()):
+                word_starts.append(g)
+            elif q_low in name_low:
+                contains.append(g)
+            if len(exact) + len(starts) + len(word_starts) + len(contains) >= 20:
+                break
+
+        for m in (exact + starts + word_starts + contains)[:10 - len(results)]:
+            app_id = m.get("id")
+            seen_ids.add(str(app_id))
+            results.append({
+                "id": app_id,
+                "name": m.get("name"),
+                "capsule": f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/capsule_sm_120.jpg"
+            })
+
     response.content_type = "application/json"
     return json.dumps(results, ensure_ascii=False)
 

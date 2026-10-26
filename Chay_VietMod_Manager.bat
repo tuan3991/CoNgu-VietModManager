@@ -9,7 +9,23 @@ echo        // CO NGU v2.0 - KHO GAME VIET HOA
 echo ========================================================
 echo.
 
-:: 1. Kiem tra xem co file thuc thi Portable san khong
+:: 1. Uu tien khoi dong tu ma nguon moi nhat neu may da co VirtualEnv Python
+if exist "..\.venv\Scripts\python.exe" (
+    if exist "app.py" (
+        echo [*] Khoi dong CO NGU tu ma nguon cap nhat voi VirtualEnv...
+        "..\.venv\Scripts\python.exe" "app.py"
+        exit /b
+    )
+)
+if exist ".venv\Scripts\python.exe" (
+    if exist "app.py" (
+        echo [*] Khoi dong CO NGU tu ma nguon cap nhat voi VirtualEnv...
+        ".venv\Scripts\python.exe" "app.py"
+        exit /b
+    )
+)
+
+:: 2. Kiem tra xem co file thuc thi Portable san khong
 if exist "VietModHub.exe" (
     echo [*] Dang khoi chay CO NGU Standalone...
     start "" "VietModHub.exe"
