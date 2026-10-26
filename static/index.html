@@ -374,14 +374,13 @@
       box-shadow: 3px 3px 0px #05050a, 0 0 15px rgba(0, 240, 255, 0.45) !important;
     }
 
-    /* Modals with Pixel Borders */
+    /* Modals with Softened Cyber Borders (25% Opacity, Non-Distracting) */
     .pixel-modal {
-      border-radius: 2px !important;
-      border: 2px solid #00F0FF !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(0, 240, 255, 0.25) !important;
       background: #0e0f22 !important;
-      box-shadow: 8px 8px 0px #05050a, 0 0 35px rgba(0, 240, 255, 0.25) !important;
-      outline: 1px solid rgba(255, 42, 133, 0.5);
-      outline-offset: 4px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 240, 255, 0.08) !important;
+      outline: none !important;
     }
     /* Frameless Window Drag Region (Native + Webkit Drag) */
     .pywebview-drag-region {
@@ -933,7 +932,7 @@
 
       <!-- COMMUNITY LOCALIZATION WISHLIST & VOTING MODAL -->
   <div id="requestModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md hidden">
-    <div class="w-full max-w-3xl pixel-modal p-0 overflow-hidden bg-[#0a0c1b] border-2 border-[#00F0FF]/60 shadow-[0_0_40px_rgba(0,240,255,0.25)] flex flex-col max-h-[90vh]">
+    <div class="w-full max-w-3xl pixel-modal p-0 overflow-hidden bg-[#0a0c1b] flex flex-col max-h-[90vh]">
       
       <!-- MODAL HEADER -->
       <div class="p-4 border-b border-[#00F0FF]/25 bg-[#070815] flex items-center justify-between">
@@ -1092,7 +1091,7 @@
 
   <!-- MODAL TÌM KIẾM & CHỌN LẠI GAME / AVATAR (LIVE VISUAL SEARCH) -->
   <div id="avatarPickerModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-[#0b0d1e] border-2 border-[#00F0FF]/70 shadow-[0_0_40px_rgba(0,240,255,0.3)] rounded-[2px] w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="w-full max-w-3xl pixel-modal overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-[#00F0FF]/30 bg-[#070814]/90">
         <div class="flex items-center space-x-3">
