@@ -5,7 +5,14 @@ import io
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-REPO_DIR = r"G:\My Drive\Viethoagame"
+USER_DOCS = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Documents")
+DEFAULT_CANDIDATES = [
+    r"G:\My Drive\Viethoagame",
+    os.path.join(USER_DOCS, "Viethoagame"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "Viethoagame"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Viethoagame")
+]
+REPO_DIR = next((p for p in DEFAULT_CANDIDATES if os.path.exists(p)), os.path.join(USER_DOCS, "Viethoagame"))
 OUTPUT_DIR = os.path.join(REPO_DIR, "_gdrive_zips")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

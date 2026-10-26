@@ -1,15 +1,15 @@
 {
-  "version": "2.0.2",
-  "name": "// CỔ NGỮ PRO v2.0.2",
-  "release_date": "2026-10-19",
+  "version": "2.0.3",
+  "name": "// CỔ NGỮ PRO v2.0.3",
+  "release_date": "2026-10-26",
   "min_required_version": "2.0.0",
   "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest",
-  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/v2.0.2/CoNgu_v2.0.2_Portable.zip",
+  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/v2.0.3/CoNgu_v2.0.3_Portable.zip",
   "changelog": [
-    "Tích hợp toàn diện Cloud CDN (GitHub Releases) cho 11 tựa game: Tải và cài đặt 1-click trực tiếp từ mọi máy tính!",
-    "Cơ chế Multi-Source Cloud Downloader: Tải siêu tốc từ GitHub CDN, tự động fallback Google Drive/Mirror nếu cần.",
-    "Smart Cache: Nhớ gói Việt Hóa đã tải vào bộ nhớ đệm, cho phép cài đặt tức thì mà không cần tải lại.",
-    "Nút 'Cài Việt Hóa' màu Vàng Cyberpunk nổi bật, phân biệt 100% với 'Chơi Ngay'.",
-    "Banner Hero tự động chuyển sau 5s, bấm avatar xem chi tiết & bối cảnh game."
+    "Hỗ trợ lấy Poster dọc 600x900 (2x) nét căng chính thức từ Steam với mã hash chuẩn cho mọi game mới & cũ.",
+    "Bộ lọc Glassmorphism tự động dựng Poster dọc cho các game/demo chỉ có ảnh ngang, giữ nguyên 100% logo không bị cắt chữ.",
+    "Tích hợp kho Poster cộng đồng SteamGridDB hiển thị song song các mẫu ảnh bìa nghệ thuật trong hộp thoại Chọn lại ảnh.",
+    "Hỗ trợ chọn mẫu game & poster từ Kho Cổ Ngữ, tự động ánh xạ Steam AppID và tải lưu ảnh cục bộ sắc nét.",
+    "Tối ưu hóa đa luồng ThreadPoolExecutor tìm kiếm siêu tốc đa nguồn và khắc phục triệt để lỗi hiển thị danh sách game."
   ]
 }

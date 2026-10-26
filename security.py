@@ -62,6 +62,14 @@ class PathTraversalError(SecurityError):
     pass
 
 
+def _norm_rel(rel_path):
+    """Chuẩn hóa mọi đường dẫn tương đối về dấu / và loại bỏ khoảng trắng / gạch chéo thừa."""
+    p = str(rel_path or "").replace("\\", "/").strip("/ ")
+    while "//" in p:
+        p = p.replace("//", "/")
+    return p
+
+
 def validate_safe_path(base_dir, relative_or_target_path, allow_base_itself=False):
     """
     Chuẩn hóa và thẩm định an toàn đường dẫn bắt buộc (Chống Path Traversal & Zip Slip).
@@ -112,8 +120,10 @@ def validate_safe_path(base_dir, relative_or_target_path, allow_base_itself=Fals
     return target_real
 
 
-def _get_master_key_bytes():
-    """Dynamically reconstruct master secret key in memory"""
+def _get_master_key_bytes(auth_ticket=None):
+    """Dynamically reconstruct master secret key in memory with caller verification"""
+    if not auth_ticket or not verify_session_ticket(auth_ticket):
+        raise PermissionError("Truy cập bị từ chối: Yêu cầu auth_ticket hợp lệ để giải phóng khóa bảo mật!")
     return bytes([b ^ _K_MASK for b in _O_KEY_BYTES])
 
 
@@ -166,12 +176,7 @@ def verify_session_ticket(ticket, allowed_pid=None):
     - Ticket signed for explicit worker / elevated role
     - Ticket signed for explicit allowed_pid
     """
-    is_frozen = getattr(sys, "frozen", False)
-    is_dev = os.environ.get("CO_NGU_DEV_MODE") == "1"
-
-    if not ticket:
-        if is_frozen or is_dev:
-            return True
+    if not ticket or not isinstance(ticket, str):
         return False
 
     try:
@@ -554,47 +559,17 @@ def is_congu_package(file_path):
         return False
 
 
-def encrypt_mod_package(zip_path, congu_path, version=2, chunk_size=4 * 1024 * 1024):
+def encrypt_mod_package(zip_path=None, congu_path=None, version=2, chunk_size=4 * 1024 * 1024, *args, **kwargs):
     """
-    Encrypt a standard mod zip file into a secure .congu container.
-    - version=1: Legacy single-payload AES-256-GCM
-    - version=2: Streaming chunked AES-256-GCM (recommended for large files > 100MB)
+    BẢO VỆ CHỐNG ENCRYPTION ORACLE:
+    Chức năng đóng gói và mã hóa .congu đã bị vô hiệu hóa hoàn toàn trên phiên bản phân phối cho người dùng cuối (Client Binary).
+    Chỉ nhà phát triển Cổ Ngữ mới sở hữu công cụ đóng gói chuyên biệt (pack_security.py / pack_mod.py).
+    Mọi yêu cầu gọi trái phép từ bên ngoài đều bị từ chối triệt để.
     """
-    salt = os.urandom(16)
-    master_secret = _get_master_key_bytes()
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000
+    raise PermissionError(
+        "Truy cập bị từ chối: Chức năng đóng gói .congu không khả dụng trên phiên bản máy trạm (Client Binary). "
+        "Vui lòng sử dụng công cụ đóng gói chuyên biệt của nhà phát triển (pack_mod.py / pack_security)."
     )
-    key = kdf.derive(master_secret)
-    aesgcm = AESGCM(key)
-
-    if version == 1:
-        with open(zip_path, "rb") as f:
-            data = f.read()
-        nonce = os.urandom(12)
-        ciphertext = aesgcm.encrypt(nonce, data, ASSOC_METADATA)
-        with open(congu_path, "wb") as f:
-            f.write(CONGU_MAGIC_V1 + salt + nonce + ciphertext)
-    else:
-        with open(zip_path, "rb") as f_in, open(congu_path, "wb") as f_out:
-            f_out.write(CONGU_MAGIC_V2 + salt)
-            chunk_idx = 0
-            while True:
-                chunk = f_in.read(chunk_size)
-                if not chunk:
-                    break
-                nonce = os.urandom(12)
-                assoc = ASSOC_METADATA + chunk_idx.to_bytes(4, "big")
-                ciphertext = aesgcm.encrypt(nonce, chunk, assoc)
-                f_out.write(len(ciphertext).to_bytes(4, "big"))
-                f_out.write(nonce)
-                f_out.write(ciphertext)
-                chunk_idx += 1
-
-    return os.path.getsize(congu_path)
 
 
 def _verify_game_path_legitimacy(game_path, game_def=None):
@@ -606,34 +581,35 @@ def _verify_game_path_legitimacy(game_path, game_def=None):
         return False, "Thư mục đích không tồn tại hoặc không phải thư mục hợp lệ."
 
     if not game_def or not isinstance(game_def, dict):
-        if not getattr(sys, "frozen", False) and os.environ.get("CO_NGU_DEV_MODE") != "1":
-            return False, "Thiếu thông tin định danh trò chơi (game_def)."
-        return True, ""
+        return False, "Thiếu thông tin định danh trò chơi hợp lệ (game_def)."
 
     raw_exe = game_def.get("executable_name")
-    if raw_exe:
-        exe_name = os.path.basename(str(raw_exe).replace("\\", "/").strip())
-        if not exe_name:
-            return False, "Tên tệp thực thi không hợp lệ."
-        root_exe = os.path.join(game_path, exe_name)
-        if os.path.exists(root_exe):
-            return True, ""
+    if not raw_exe or not isinstance(raw_exe, str):
+        return False, "Thiếu thông tin tệp thực thi chính (executable_name) của game."
 
-        # Check immediate subfolders (e.g. Binaries/Win64)
-        found = False
-        try:
-            for root, dirs, files in os.walk(game_path):
-                if exe_name.lower() in [f.lower() for f in files]:
-                    found = True
-                    break
-                rel = os.path.relpath(root, game_path)
-                if rel != "." and len(rel.split(os.sep)) >= 2:
-                    dirs.clear()
-        except Exception:
-            pass
+    exe_name = os.path.basename(str(raw_exe).replace("\\", "/").strip())
+    if not exe_name:
+        return False, "Tên tệp thực thi không hợp lệ."
 
-        if not found:
-            return False, f"Thư mục không chứa tệp thực thi chính '{exe_name}' của game."
+    root_exe = os.path.join(game_path, exe_name)
+    if os.path.exists(root_exe):
+        return True, ""
+
+    # Check immediate subfolders (e.g. Binaries/Win64)
+    found = False
+    try:
+        for root, dirs, files in os.walk(game_path):
+            if exe_name.lower() in [f.lower() for f in files]:
+                found = True
+                break
+            rel = os.path.relpath(root, game_path)
+            if rel != "." and len(rel.split(os.sep)) >= 2:
+                dirs.clear()
+    except Exception:
+        pass
+
+    if not found:
+        return False, f"Thư mục không chứa tệp thực thi chính '{exe_name}' của game."
 
     return True, ""
 
@@ -783,7 +759,7 @@ def _patch_ini_file_internal(file_path, section, key, value, encoding="utf-8"):
     return True
 
 
-class ConguStreamReader(io.RawIOBase):
+class _ConguStreamReader(io.RawIOBase):
     """
     Zero-Disk-Leakage Streaming Decryption Reader for .congu Containers.
     Inherits from io.RawIOBase to provide a standard seekable, readable binary stream interface
@@ -795,9 +771,12 @@ class ConguStreamReader(io.RawIOBase):
     - Decrypts ONLY requested chunks on-demand into RAM
     - Caches single current chunk (e.g. 4MB) in memory for sequential read throughput
     - Supports full random seeking (seek, tell) required by ZipFile central directory lookups
+    - STRICT CALLER VERIFICATION: Requires valid ephemeral HMAC auth_ticket bound to host process PID
     """
-    def __init__(self, congu_path, progress_callback=None):
+    def __init__(self, congu_path, auth_ticket=None, progress_callback=None):
         super().__init__()
+        if not auth_ticket or not verify_session_ticket(auth_ticket):
+            raise PermissionError("Truy cập bị từ chối: Cần vé xác thực phiên hợp lệ (auth_ticket) để mở luồng giải mã!")
         self.name = congu_path
         self._congu_path = congu_path
         self._progress_callback = progress_callback
@@ -808,7 +787,7 @@ class ConguStreamReader(io.RawIOBase):
             raise ValueError("Không phải định dạng gói CỔ NGỮ hợp lệ (.congu)!")
 
         self._salt = self._f.read(16)
-        master_secret = _get_master_key_bytes()
+        master_secret = _get_master_key_bytes(auth_ticket=auth_ticket)
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -847,9 +826,12 @@ class ConguStreamReader(io.RawIOBase):
                 len_bytes = self._f.read(4)
                 if not len_bytes:
                     break
-                chunk_len = int.from_bytes(len_bytes, "big")
                 file_pos = self._f.tell()
-                pt_len = max(0, chunk_len - 16)
+                chunk_len = int.from_bytes(len_bytes, "big") if len(len_bytes) == 4 else 0
+                if len(len_bytes) < 4 or chunk_len < 16 or file_pos + 12 + chunk_len > file_size:
+                    self.close()
+                    raise ValueError("Gói .congu bị hỏng hoặc cắt cụt!")
+                pt_len = chunk_len - 16
                 self._chunks.append({
                     "idx": chunk_idx,
                     "file_pos": file_pos,
@@ -975,13 +957,7 @@ class ConguStreamReader(io.RawIOBase):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-
-def _decrypt_container_to_spooled_stream(congu_path, progress_callback=None):
-    """
-    Deprecated compatibility wrapper returning ConguStreamReader.
-    Guarantees Zero-Disk-Leakage by eliminating SpooledTemporaryFile disk spill-over.
-    """
-    return ConguStreamReader(congu_path, progress_callback=progress_callback)
+ConguStreamReader = _ConguStreamReader
 
 
 def record_preexisting_environment(game_id, game_path):
@@ -1050,7 +1026,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
     # === LỚP 1: REVERSE JOURNAL ROLLBACK ===
     for entry in reversed(executed_journal):
         action = entry.get("action")
-        target_rel = entry.get("target")
+        target_rel = _norm_rel(entry.get("target"))
         if not target_rel:
             continue
         try:
@@ -1096,14 +1072,21 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             os.replace(bak_abs, target_abs)
                         except Exception:
                             try:
-                                shutil.copy2(bak_abs, target_abs)
-                                os.remove(bak_abs)
+                                if os.path.isdir(bak_abs):
+                                    shutil.copytree(bak_abs, target_abs, dirs_exist_ok=True)
+                                    shutil.rmtree(bak_abs, ignore_errors=True)
+                                else:
+                                    shutil.copy2(bak_abs, target_abs)
+                                    os.remove(bak_abs)
                             except Exception:
                                 pass
                     else:
                         # Reinstall/overwrite case: keep .congu_bak intact!
                         try:
-                            shutil.copy2(bak_abs, target_abs)
+                            if os.path.isdir(bak_abs):
+                                shutil.copytree(bak_abs, target_abs, dirs_exist_ok=True)
+                            else:
+                                shutil.copy2(bak_abs, target_abs)
                         except Exception:
                             pass
 
@@ -1189,6 +1172,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                         f_rel, existed = item
                         created_new = False
                         f_has_tx = False
+                    f_rel = _norm_rel(f_rel)
                     f_abs = os.path.join(game_path, f_rel)
                     b_abs = f"{f_abs}.congu_bak"
                     f_tx = f"{f_abs}.congu_tx_tmp"
@@ -1240,6 +1224,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                         f_rel, existed = item
                         created_new = False
                         f_has_tx = False
+                    f_rel = _norm_rel(f_rel)
                     f_abs = os.path.join(game_path, f_rel)
                     b_abs = f"{f_abs}.congu_bak"
                     f_tx = f"{f_abs}.congu_tx_tmp"
@@ -1298,11 +1283,15 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
     return True
 
 
-def get_running_process_names():
-    """Enumerate running process names using Win32 Toolhelp API."""
+def get_running_processes():
+    """
+    Enumerate running processes returning a list of tuples: (process_name_lower, full_path_or_None).
+    Uses native Win32 Toolhelp API and QueryFullProcessImageNameW (0ms, 0 external dependencies).
+    """
     import ctypes
     from ctypes import wintypes
     TH32CS_SNAPPROCESS = 0x00000002
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
     class PROCESSENTRY32(ctypes.Structure):
         _fields_ = [
@@ -1321,27 +1310,49 @@ def get_running_process_names():
     try:
         hSnapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
         if hSnapshot == -1:
-            return set()
-        procs = set()
+            return []
+        procs = []
         pe = PROCESSENTRY32()
         pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
         if ctypes.windll.kernel32.Process32First(hSnapshot, ctypes.byref(pe)):
             while True:
-                procs.add(pe.szExeFile.decode('latin-1', errors='ignore').lower())
+                proc_name = pe.szExeFile.decode('latin-1', errors='ignore').lower()
+                pid = pe.th32ProcessID
+                full_path = None
+                hProc = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if hProc:
+                    try:
+                        buf = ctypes.create_unicode_buffer(1024)
+                        size = wintypes.DWORD(1024)
+                        if ctypes.windll.kernel32.QueryFullProcessImageNameW(hProc, 0, buf, ctypes.byref(size)):
+                            full_path = buf.value
+                    finally:
+                        ctypes.windll.kernel32.CloseHandle(hProc)
+                procs.append((proc_name, full_path))
                 if not ctypes.windll.kernel32.Process32Next(hSnapshot, ctypes.byref(pe)):
                     break
         ctypes.windll.kernel32.CloseHandle(hSnapshot)
         return procs
     except Exception:
-        return set()
+        return []
+
+
+def get_running_process_names():
+    """Enumerate running process names using native Win32 Toolhelp API."""
+    return {p[0] for p in get_running_processes()}
 
 
 def check_game_running(game_def, game_path=None):
-    """Check if the game executable or its crash handler is currently running."""
-    if not game_def or not isinstance(game_def, dict):
-        return False, None
+    """
+    Check if the game executable or its crash handler / engine helper is currently running.
+    Scans target executable, shipping variants, executables inside game_path, and verifies full process paths.
+    Avoids false positives from generic crash handlers (UnityCrashHandler, CrashReportClient) running from other games/apps.
+    Returns (is_running: bool, process_name: str | None)
+    """
     target_exes = set()
-    exe_name = game_def.get("executable_name")
+
+    # 1. Executable defined in games.json + common shipping variants
+    exe_name = game_def.get("executable_name") if isinstance(game_def, dict) else None
     if exe_name:
         base_exe = os.path.basename(exe_name).lower()
         target_exes.add(base_exe)
@@ -1352,6 +1363,15 @@ def check_game_running(game_def, game_path=None):
         target_exes.add(f"{root_name.replace(' ', '')}{ext}")
         target_exes.add(f"{root_name.replace(' ', '_')}{ext}")
 
+    # Generic crash handlers & engine helper processes that should ONLY match if running from inside game_path
+    generic_helpers = {
+        "unitycrashhandler64.exe",
+        "unitycrashhandler32.exe",
+        "crashreportclient.exe",
+        "unrealcefsubprocess.exe"
+    }
+
+    # 2. Automatically scan executables in game_path if available (excluding generic helpers)
     if game_path and os.path.exists(game_path):
         try:
             for root, dirs, files in os.walk(game_path):
@@ -1359,19 +1379,66 @@ def check_game_running(game_def, game_path=None):
                 if len(rel_parts) > 3:
                     continue
                 for f in files:
-                    if f.lower().endswith('.exe'):
-                        target_exes.add(f.lower())
+                    fl = f.lower()
+                    if fl.endswith('.exe') and fl not in generic_helpers:
+                        target_exes.add(fl)
         except Exception:
             pass
 
-    crash_handlers = {"unitycrashhandler64.exe", "unitycrashhandler32.exe", "crashreportclient.exe", "unrealcefsubprocess.exe"}
-    running = get_running_process_names()
-    for exe in target_exes:
-        if exe in running:
-            return True, exe
-    for ch in crash_handlers:
-        if ch in running:
-            return True, ch
+    # 3. Known default executable names or variants
+    gid = game_def.get("id", "") if isinstance(game_def, dict) else ""
+    if gid == "witcher3":
+        target_exes.update(["witcher3.exe"])
+    elif gid == "preludes":
+        target_exes.update(["backbonestories.exe", "backbonestories-win64-shipping.exe"])
+    elif gid == "backbone":
+        target_exes.update(["detective.exe", "detective-win64-shipping.exe"])
+    elif gid == "hotline_miami":
+        target_exes.update(["hotlinegl.exe", "hotline_miami.exe"])
+    elif gid == "toem":
+        target_exes.update(["toem.exe"])
+    elif gid == "ror2":
+        target_exes.update(["risk of rain 2.exe", "riskofrain2.exe"])
+    elif gid == "loop_hero":
+        target_exes.update(["loop hero.exe", "loophero.exe"])
+    elif gid == "fallout_tactics":
+        target_exes.update(["bos.exe", "fallout tactics.exe", "bos_hr.exe"])
+    elif gid == "ravenous_devils":
+        target_exes.update(["ravenous_devils.exe", "ravenous_devils-win64-shipping.exe"])
+    elif gid == "erra_exordium":
+        target_exes.update(["erra.exe", "erra exordium.exe"])
+
+    # 4. Check running processes against target_exes & game_path
+    running_procs = get_running_processes()
+
+    game_path_norm = None
+    if game_path:
+        try:
+            game_path_norm = os.path.normcase(os.path.realpath(game_path) if os.path.exists(game_path) else os.path.abspath(game_path))
+        except Exception:
+            pass
+
+    for proc_name, proc_path in running_procs:
+        proc_path_norm = os.path.normcase(os.path.realpath(proc_path)) if proc_path else None
+
+        # Trường hợp 1: Có cả đường dẫn thực thi của tiến trình và thư mục game
+        if game_path_norm and proc_path_norm:
+            is_inside_game = (
+                proc_path_norm == game_path_norm
+                or proc_path_norm.startswith(game_path_norm + os.sep)
+            )
+            if is_inside_game:
+                # Nếu tiến trình đang chạy thuộc chính thư mục của game này
+                if proc_name in target_exes or proc_name in generic_helpers:
+                    return True, proc_name
+            # Nếu proc_path không nằm trong thư mục game này, bỏ qua (không nhận nhầm)
+            continue
+
+        # Trường hợp 2: Fallback (không lấy được proc_path hoặc không có game_path)
+        # Chỉ đối chiếu theo target_exes riêng của game (TUYỆT ĐỐI không đối chiếu generic_helpers)
+        if proc_name in target_exes:
+            return True, proc_name
+
     return False, None
 
 
@@ -1388,12 +1455,15 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
     - Transient buffers are immediately erased upon completion.
     """
     # 1. Anti-Hijacking Caller Check
-    if not verify_session_ticket(auth_ticket):
+    if not auth_ticket or not verify_session_ticket(auth_ticket):
         raise PermissionError(
             "Truy cập bị từ chối: Chỉ ứng dụng Cổ Ngữ (VietModHub) mới được phép kích hoạt tiến trình cài đặt an toàn!"
         )
 
     # 2. Anti-Dumping & Game Directory Legitimacy Verification
+    if not game_def or not isinstance(game_def, dict):
+        raise PermissionError("Cấu hình game_def không hợp lệ hoặc bị thiếu.")
+
     is_legit, legit_err = _verify_game_path_legitimacy(game_path, game_def)
     if not is_legit:
         raise PermissionError(f"Xác thực thư mục game thất bại: {legit_err}")
@@ -1423,8 +1493,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
     if progress_callback:
         progress_callback(12, "Đang nạp gói bảo mật CỔ NGỮ (AES-256-GCM)...")
 
-    # 4. Decrypt via ConguStreamReader: In-Memory Sliding Window, Zero Disk Spooling
-    stream_reader = ConguStreamReader(congu_path, progress_callback)
+    # 4. Decrypt via _ConguStreamReader: In-Memory Sliding Window, Zero Disk Spooling
+    stream_reader = _ConguStreamReader(congu_path, auth_ticket=auth_ticket, progress_callback=progress_callback)
 
     backed_up_files = []
     installed_files_count = 0
@@ -1467,7 +1537,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                     pct = int(60 + ((s_idx + 1) / total_steps) * 35)
 
                     if action == "backup":
-                        target_rel = step.get("target")
+                        target_rel = _norm_rel(step.get("target"))
                         if not target_rel:
                             raise ValueError("Bước 'backup' thiếu trường bắt buộc 'target'")
                         target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
@@ -1487,7 +1557,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                 with open(manifest_path, "r", encoding="utf-8") as mf:
                                     m_data = json.load(mf)
                                     for it in m_data.get("files", []):
-                                        if it.get("relative_in_game") == target_rel:
+                                        if _norm_rel(it.get("relative_in_game")) == target_rel:
                                             manifest_item = it
                                             break
                             except Exception:
@@ -1512,46 +1582,52 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         # Bẫy A: Cài đè lần 2 không bao giờ ghi đè lên .congu_bak đã có
                         has_tx_tmp = False
                         tx_tmp_abs = f"{target_abs}.congu_tx_tmp"
-                        if not os.path.exists(bak_abs):
-                            # Chưa có .congu_bak (lần 1): tạo backup gốc
-                            orig_hash = compute_file_sha256(target_abs)
-                            orig_size = os.path.getsize(target_abs)
-                            orig_mtime = os.path.getmtime(target_abs)
-                            if is_ini:
-                                shutil.copy2(target_abs, bak_abs)
-                                created_new_bak = True
-                            else:
-                                try:
-                                    os.rename(target_abs, bak_abs)
+                        if os.path.exists(target_abs):
+                            if not os.path.exists(bak_abs):
+                                # Chưa có .congu_bak (lần 1): tạo backup gốc
+                                orig_hash = compute_file_sha256(target_abs)
+                                orig_size = os.path.getsize(target_abs)
+                                orig_mtime = os.path.getmtime(target_abs)
+                                if is_ini:
+                                    shutil.copy2(target_abs, bak_abs)
                                     created_new_bak = True
-                                except Exception:
+                                else:
                                     try:
-                                        shutil.copy2(target_abs, bak_abs)
-                                        if os.path.isdir(target_abs):
-                                            shutil.rmtree(target_abs, ignore_errors=True)
-                                        else:
-                                            os.remove(target_abs)
+                                        os.rename(target_abs, bak_abs)
                                         created_new_bak = True
                                     except Exception:
+                                        try:
+                                            if os.path.isdir(target_abs):
+                                                shutil.copytree(target_abs, bak_abs, dirs_exist_ok=True)
+                                                shutil.rmtree(target_abs, ignore_errors=True)
+                                            else:
+                                                shutil.copy2(target_abs, bak_abs)
+                                                os.remove(target_abs)
+                                            created_new_bak = True
+                                        except Exception:
+                                            pass
+                            else:
+                                # .congu_bak đã tồn tại (cài đè lần 2 / cập nhật v1.1): TUYỆT ĐỐI GIỮ NGUYÊN FILE GỐC .congu_bak!
+                                orig_hash = manifest_item.get("original_sha256") if manifest_item else compute_file_sha256(bak_abs)
+                                orig_size = os.path.getsize(bak_abs) if os.path.exists(bak_abs) else 0
+                                orig_mtime = os.path.getmtime(bak_abs) if os.path.exists(bak_abs) else 0
+                                # Lưu tệp hiện tại (v1.0) sang .congu_tx_tmp để phục vụ rollback nếu v1.1 lỗi!
+                                if not is_ini:
+                                    try:
+                                        if os.path.isdir(target_abs):
+                                            shutil.copytree(target_abs, tx_tmp_abs, dirs_exist_ok=True)
+                                            shutil.rmtree(target_abs, ignore_errors=True)
+                                        else:
+                                            shutil.copy2(target_abs, tx_tmp_abs)
+                                            os.remove(target_abs)
+                                        has_tx_tmp = True
+                                        tx_temp_files.append(tx_tmp_abs)
+                                    except Exception:
                                         pass
-                        else:
-                            # .congu_bak đã tồn tại (cài đè lần 2 / cập nhật v1.1): TUYỆT ĐỐI GIỮ NGUYÊN FILE GỐC .congu_bak!
+                        elif os.path.exists(bak_abs):
                             orig_hash = manifest_item.get("original_sha256") if manifest_item else compute_file_sha256(bak_abs)
-                            orig_size = os.path.getsize(bak_abs) if os.path.exists(bak_abs) else 0
-                            orig_mtime = os.path.getmtime(bak_abs) if os.path.exists(bak_abs) else 0
-                            # Lưu tệp hiện tại (v1.0) sang .congu_tx_tmp để phục vụ rollback nếu v1.1 lỗi!
-                            if not is_ini and os.path.exists(target_abs):
-                                try:
-                                    if os.path.isdir(target_abs):
-                                        shutil.copytree(target_abs, tx_tmp_abs, dirs_exist_ok=True)
-                                        shutil.rmtree(target_abs, ignore_errors=True)
-                                    else:
-                                        shutil.copy2(target_abs, tx_tmp_abs)
-                                        os.remove(target_abs)
-                                    has_tx_tmp = True
-                                    tx_temp_files.append(tx_tmp_abs)
-                                except Exception:
-                                    pass
+                            orig_size = os.path.getsize(bak_abs)
+                            orig_mtime = os.path.getmtime(bak_abs)
 
                         backed_up_files.append({
                             "relative_in_game": target_rel,
@@ -1574,8 +1650,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             progress_callback(pct, f"Đang sao lưu tệp gốc an toàn: {os.path.basename(target_rel)}")
 
                     elif action == "copy_file":
-                        src_rel = step.get("source")
-                        dst_rel = step.get("destination", src_rel)
+                        src_rel = _norm_rel(step.get("source"))
+                        dst_rel = _norm_rel(step.get("destination", src_rel))
                         if not src_rel:
                             raise ValueError("Bước 'copy_file' thiếu trường bắt buộc 'source'")
                         dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=False)
@@ -1637,8 +1713,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             progress_callback(pct, f"Đang cài đặt an toàn: {os.path.basename(dst_rel)}")
 
                     elif action == "patch_binary":
-                        target_rel = step.get("target")
-                        patch_rel = step.get("patch") or step.get("source")
+                        target_rel = _norm_rel(step.get("target"))
+                        patch_rel = _norm_rel(step.get("patch") or step.get("source"))
                         if not target_rel or not patch_rel:
                             raise ValueError("Bước 'patch_binary' yêu cầu cả hai trường 'target' và 'patch' (hoặc 'source')")
 
@@ -1720,14 +1796,15 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             except Exception as e:
                                 print(f"[Security Tx-Tmp Warning] patch_binary {target_abs}: {e}")
 
-                        # 3. Đọc dữ liệu patch từ zip container
-                        with zf.open(member_name, "r") as p_stream:
-                            patch_bytes = p_stream.read()
-
-                        # 4. Áp dụng bản vá từ source_file_for_patch ra file tạm thời an toàn
+                        # 3. Trích xuất luồng patch trực tiếp ra tệp tạm bằng streaming chunk 64KB (không nạp toàn bộ vào RAM)
+                        tmp_patch_file = f"{target_abs}.congu_patch_stream_{os.getpid()}_{int(time.time() * 1000)}.tmp"
                         tmp_patched_file = f"{target_abs}.congu_patching_{os.getpid()}.tmp"
                         try:
-                            apply_binary_patch(source_file_for_patch, tmp_patched_file, patch_bytes)
+                            with zf.open(member_name, "r") as p_stream, open(tmp_patch_file, "wb") as tmp_pf:
+                                shutil.copyfileobj(p_stream, tmp_pf, length=65536)
+
+                            # 4. Áp dụng bản vá từ source_file_for_patch ra file tạm thời an toàn
+                            apply_binary_patch(source_file_for_patch, tmp_patched_file, tmp_patch_file)
 
                             # 5. Kiểm tra patched_sha256 nếu có khai báo
                             expected_patched_sha = step.get("patched_sha256")
@@ -1742,6 +1819,11 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             # 6. Thay thế nguyên tử ghi đè lên target_abs
                             os.replace(tmp_patched_file, target_abs)
                         finally:
+                            if os.path.exists(tmp_patch_file):
+                                try:
+                                    os.remove(tmp_patch_file)
+                                except Exception:
+                                    pass
                             if os.path.exists(tmp_patched_file):
                                 try:
                                     os.remove(tmp_patched_file)
@@ -1762,8 +1844,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             progress_callback(pct, f"Đang áp dụng bản vá nhị phân: {os.path.basename(target_rel)}")
 
                     elif action == "copy_folder":
-                        src_rel = step.get("source")
-                        dst_rel = step.get("destination", src_rel)
+                        src_rel = _norm_rel(step.get("source"))
+                        dst_rel = _norm_rel(step.get("destination", src_rel))
                         if not src_rel:
                             raise ValueError("Bước 'copy_folder' thiếu trường bắt buộc 'source'")
                         validate_safe_path(game_path, dst_rel, allow_base_itself=True)
@@ -1774,7 +1856,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         copied_files = []
                         for member, sub_rel in folder_members:
                             dst_file = validate_safe_path(game_path, os.path.join(dst_rel, sub_rel), allow_base_itself=False)
-                            d_rel = os.path.relpath(dst_file, game_path)
+                            d_rel = _norm_rel(os.path.relpath(dst_file, game_path))
                             existed_before = os.path.exists(dst_file)
                             created_new_bak = False
                             has_tx_tmp = False
@@ -1824,7 +1906,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             progress_callback(pct, f"Đang cài đặt thư mục: {os.path.basename(src_rel)}")
 
                     elif action in ("extract_all", "extract_zip"):
-                        dst_rel = step.get("destination", "")
+                        dst_rel = _norm_rel(step.get("destination", ""))
                         dst_dir = validate_safe_path(game_path, dst_rel, allow_base_itself=True)
                         extracted_files = []
                         for member in zf.infolist():
@@ -1832,7 +1914,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                 continue
                             # Anti-Zip-Slip: validate target destination for each member
                             dst_file = validate_safe_path(dst_dir, member.filename, allow_base_itself=False)
-                            t_rel = os.path.relpath(dst_file, game_path)
+                            t_rel = _norm_rel(os.path.relpath(dst_file, game_path))
                             existed_before = os.path.exists(dst_file)
                             created_new_bak = False
                             has_tx_tmp = False
@@ -1882,7 +1964,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             progress_callback(pct, "Đang trích xuất toàn bộ gói tài nguyên...")
 
                     elif action == "patch_ini":
-                        file_rel = step.get("file") or step.get("target")
+                        file_rel = _norm_rel(step.get("file") or step.get("target"))
                         if not file_rel:
                             raise ValueError("Bước 'patch_ini' thiếu trường bắt buộc 'file' hoặc 'target'")
                         file_abs = validate_safe_path(game_path, file_rel, allow_base_itself=False)
@@ -1915,11 +1997,17 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                 pass
 
                         if os.path.exists(bak_file):
+                            orig_hash = compute_file_sha256(bak_file)
+                            bak_size = os.path.getsize(bak_file)
+                            bak_mtime = os.path.getmtime(bak_file)
                             backed_up_files.append({
                                 "relative_in_game": file_rel,
                                 "target_file": file_abs,
                                 "backup_file": bak_file,
-                                "size_bytes": os.path.getsize(bak_file)
+                                "size_bytes": bak_size,
+                                "original_sha256": orig_hash,
+                                "original_size": bak_size,
+                                "original_mtime": bak_mtime
                             })
 
                         _patch_ini_file_internal(
@@ -1940,7 +2028,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             progress_callback(pct, f"Cấu hình tệp: {os.path.basename(file_rel)}")
 
                     elif action == "delete":
-                        target_rel = step.get("target")
+                        target_rel = _norm_rel(step.get("target"))
                         if not target_rel:
                             raise ValueError("Bước 'delete' thiếu trường bắt buộc 'target'")
                         target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
@@ -1954,8 +2042,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                     pass
 
                     elif action == "rename":
-                        src_rel = step.get("source")
-                        dst_rel = step.get("destination")
+                        src_rel = _norm_rel(step.get("source"))
+                        dst_rel = _norm_rel(step.get("destination"))
                         if not src_rel or not dst_rel:
                             raise ValueError("Bước 'rename' yêu cầu cả hai trường 'source' và 'destination'")
                         src_abs = validate_safe_path(game_path, src_rel, allow_base_itself=False)

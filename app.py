@@ -162,8 +162,10 @@ import re
 import hashlib
 import subprocess
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import secrets
+SESSION_AUTH_TOKEN = secrets.token_hex(16)
 from datetime import datetime
 from pathlib import Path
 from bottle import Bottle, static_file, request, response, abort
@@ -172,6 +174,7 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 import webview
 import glob
 import urllib.request
+import ssl
 import urllib.parse
 
 # Base paths with PyInstaller frozen support
@@ -186,8 +189,9 @@ if getattr(sys, 'frozen', False):
 else:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
     STATIC_DIR = os.path.join(APP_DIR, "static")
-DEFAULT_REPO_DIR = r"G:\My Drive\Viethoagame"
-FALLBACK_REPO_DIR = r"C:\Users\tuan3\Documents\antigravity google\Viethoagame"
+USER_DOCS_DIR = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Documents")
+DEFAULT_REPO_DIR = os.path.join(USER_DOCS_DIR, "Viethoagame")
+FALLBACK_REPO_DIR = os.path.join(APP_DIR, "Viethoagame")
 GAMES_JSON = os.path.join(APP_DIR, "games.json")
 
 # AppData safe directory (chống mất cấu hình và lỗi quyền ghi khi đóng gói PyInstaller)
@@ -339,8 +343,9 @@ def extract_exe_icon(exe_path: str, output_img_path: str) -> bool:
 
 def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallback_title: str = "", game_id: str = "") -> dict:
     """
-    Lớp 3 & Lớp 4: Tự động tìm steam_appid, link ảnh bìa dọc 600x900 và thể loại cho game lẻ.
-    Đồng thời lưu cache ảnh bìa tại chỗ (%APPDATA%/VietModHub/covers/{game_id}.jpg).
+    Lớp 3 & Lớp 4: Tự động tìm steam_appid, link ảnh bìa dọc 600x900 nét căng và thể loại cho game lẻ.
+    Tự động lấy poster có mã hash Steam mới hoặc dựng Poster Glassmorphism từ header.jpg ngang (không cắt chữ),
+    và lưu cache ảnh bìa tại chỗ (%APPDATA%/VietModHub/covers/{game_id}.jpg).
     """
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     appid = extract_local_steam_appid(game_dir) if game_dir else None
@@ -366,18 +371,13 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
         except Exception as e:
             print(f"[Metadata] Offline steam db search error: {e}")
 
-    # Nếu vẫn chưa có appid, gọi Steam StoreSearch API từ Backend (tránh CORS)
+    # Nếu vẫn chưa có appid, gọi Steam Online Search từ Backend (vượt chặn DPI)
     if not appid and clean_title:
         try:
-            query = urllib.parse.quote(clean_title)
-            search_url = f"https://store.steampowered.com/api/storesearch/?term={query}&l=english&cc=US"
-            req = urllib.request.Request(search_url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                items = data.get("items", [])
-                if items:
-                    appid = str(items[0]["id"])
-                    clean_title = items[0].get("name", clean_title)
+            online_items = search_steam_online(clean_title, limit=3)
+            if online_items:
+                appid = str(online_items[0].get("steam_appid", online_items[0].get("id", "")))
+                clean_title = online_items[0].get("name", clean_title)
         except Exception:
             pass
 
@@ -385,7 +385,7 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
         "steam_appid": appid,
         "title": clean_title,
         "avatar_url": None,
-        "header_url": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else None,
+        "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else None,
         "local_cover": None,
         "genre": "GAME LẺ"
     }
@@ -415,59 +415,122 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
                     result["avatar_url"] = result["local_cover"]
         return result
 
-    # 2. Kiểm tra xem ảnh dọc 600x900 chuẩn có tồn tại không (Fallback Chain: Cloudflare -> Fastly -> Akamai)
-    candidate_posters = [
-        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900_2x.jpg",
-        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
-        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
-        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
-        f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/library_600x900.jpg"
-    ]
-    for url in candidate_posters:
-        try:
-            req = urllib.request.Request(url, method="HEAD", headers=headers)
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                if resp.status == 200:
-                    result["avatar_url"] = url
-                    break
-        except Exception:
-            continue
-
-    # 3. Gọi thêm appdetails để lấy thể loại (Genre) và lấy ảnh dự phòng nếu game dùng URL chứa mã hash mới
+    # 2. Gọi thêm appdetails để lấy thể loại (Genre) và link ảnh chính thức (kể cả có mã hash)
     try:
-        details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese"
-        req = urllib.request.Request(details_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            details_data = json.loads(resp.read().decode("utf-8"))
+        details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese&cc=VN"
+        raw_det = steam_direct_request(details_url, timeout=3.5)
+        if not raw_det:
+            req = urllib.request.Request(details_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                raw_det = resp.read()
+        if raw_det:
+            details_data = json.loads(raw_det.decode("utf-8", "ignore"))
             app_data = details_data.get(str(appid), {}).get("data", {})
             if app_data:
                 result["title"] = app_data.get("name", result["title"])
-                result["header_url"] = app_data.get("header_image") or result["header_url"]
-                if not result["avatar_url"]:
-                    result["avatar_url"] = result["header_url"]
+                if app_data.get("header_image"):
+                    result["header_url"] = app_data.get("header_image")
                 genres = app_data.get("genres", [])
                 if genres:
                     result["genre"] = genres[0].get("description", "PHIÊU LƯU").upper()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[Metadata] appdetails error: {e}")
 
-    # 4. Lớp 4: Tự động tải và cache ảnh bìa xuống %APPDATA%/VietModHub/covers/{safe_gid}.jpg
-    if (result.get("avatar_url") or result.get("header_url")) and not os.path.exists(local_cover_file):
-        download_target_url = result.get("avatar_url") or result.get("header_url")
-        if download_target_url and download_target_url.startswith("http"):
-            try:
-                req = urllib.request.Request(download_target_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=6) as resp:
-                    img_bytes = resp.read()
-                    if len(img_bytes) > 1000:
-                        with open(local_cover_file, "wb") as f_out:
-                            f_out.write(img_bytes)
-                        result["local_cover"] = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_file))}"
-                        result["avatar_url"] = result["local_cover"]
-            except Exception as e:
-                print(f"[Metadata] Cache download error: {e}")
+    # 3. Thu thập danh sách candidate Posters dọc 600x900 nét căng
+    candidate_posters = []
+    # A. Ưu tiên số 1: Gọi API GetItems IStoreBrowseService lấy link có {HASH} chuẩn cho mọi game mới & cũ
+    candidate_posters.extend(get_steam_official_Vertical_posters(appid))
 
-    # 5. Nếu vẫn chưa có ảnh, thử trích xuất icon từ .exe
+    # B. Nếu appdetails header_url có mã hash 40 ký tự hex, thử ghép mã hash vào library_600x900
+    if result.get("header_url"):
+        h_match = re.search(r"/([0-9a-f]{40})/", result["header_url"])
+        if h_match:
+            h_code = h_match.group(1)
+            candidate_posters.extend([
+                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900_2x.jpg",
+                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900.jpg",
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900_2x.jpg",
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900.jpg",
+            ])
+
+    # C. Các CDN truyền thống không hash
+    candidate_posters.extend([
+        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
+        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+        f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
+        f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
+        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900_2x.jpg",
+        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
+        f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/library_600x900.jpg"
+    ])
+
+    # D. Kho SteamGridDB (poster dọc 600x900 nét căng do cộng đồng thiết kế)
+    candidate_posters.extend(fetch_steamgriddb_posters(appid, limit=3))
+
+    downloaded_raw = None
+    ssl_bypass_ctx = ssl.create_default_context()
+    ssl_bypass_ctx.check_hostname = False
+    ssl_bypass_ctx.verify_mode = ssl.CERT_NONE
+
+    # 4. Tải và kiểm tra từng candidate poster dọc
+    for url in candidate_posters:
+        if not url:
+            continue
+        try:
+            raw = steam_direct_request(url, timeout=3.0)
+            if not raw or len(raw) < 1000:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=3.5, context=ssl_bypass_ctx) as resp:
+                    if resp.status == 200:
+                        raw = resp.read()
+            if (
+                raw
+                and len(raw) > 1000
+                and not raw.startswith(b"<html>")
+                and not raw.startswith(b"HTTP/1.1 40")
+                and not raw.startswith(b"HTTP/1.1 50")
+            ):
+                downloaded_raw = raw
+                result["avatar_url"] = url
+                break
+        except Exception:
+            continue
+
+    # 5. Nếu không có ảnh dọc, fallback tải header_url (ảnh ngang 460x215)
+    if not downloaded_raw and result.get("header_url"):
+        h_url = result["header_url"]
+        try:
+            raw = steam_direct_request(h_url, timeout=3.5)
+            if not raw or len(raw) < 1000:
+                req = urllib.request.Request(h_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    if resp.status == 200:
+                        raw = resp.read()
+            if (
+                raw
+                and len(raw) > 1000
+                and not raw.startswith(b"<html>")
+                and not raw.startswith(b"HTTP/1.1 40")
+                and not raw.startswith(b"HTTP/1.1 50")
+            ):
+                downloaded_raw = raw
+                if not result.get("avatar_url"):
+                    result["avatar_url"] = h_url
+        except Exception as e:
+            print(f"[Metadata] header_url download error: {e}")
+
+    # 6. Chuẩn hóa qua make_vertical_poster (Fit 600x900 nét căng hoặc dựng Glassmorphism cho ảnh ngang) và lưu cache
+    if downloaded_raw and not os.path.exists(local_cover_file):
+        try:
+            formatted_poster = make_vertical_poster(downloaded_raw)
+            with open(local_cover_file, "wb") as f_out:
+                f_out.write(formatted_poster)
+            result["local_cover"] = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_file))}"
+            result["avatar_url"] = result["local_cover"]
+        except Exception as e:
+            print(f"[Metadata] Error saving formatted poster: {e}")
+
+    # 7. Nếu vẫn chưa có ảnh bìa lưu được, thử trích xuất icon từ .exe
     if not result.get("local_cover") and game_dir and exe_name:
         full_exe = os.path.join(game_dir, exe_name)
         if not os.path.exists(full_exe):
@@ -494,6 +557,13 @@ def compute_file_sha256(file_path):
         return h.hexdigest().lower()
     except Exception:
         return None
+
+def _norm_rel(rel_path: str) -> str:
+    """Chuẩn hóa mọi đường dẫn tương đối về dấu / và loại bỏ khoảng trắng / gạch chéo thừa."""
+    p = str(rel_path or "").replace("\\", "/").strip("/ ")
+    while "//" in p:
+        p = p.replace("//", "/")
+    return p
 
 CURRENT_VERSION = "2.0.2"
 GITHUB_REPO = "tuan3991/CoNgu-VietModManager"
@@ -878,19 +948,17 @@ def get_repo_dir():
     if repo and os.path.exists(repo):
         return repo
 
-    # Smart auto-detection across drives and local folders
+    # Smart auto-detection across mounted drives and local folders
     candidates = [
-        os.path.join(APP_DIR, "Viethoagame"),
+        DEFAULT_REPO_DIR,
+        FALLBACK_REPO_DIR,
         os.path.join(APP_DIR, "..", "Viethoagame"),
         os.path.join(APP_DIR, "mods"),
-        r"G:\My Drive\Viethoagame",
-        DEFAULT_REPO_DIR,
-        FALLBACK_REPO_DIR
     ]
-    for d in "CDEFGHIJKLMNOPQRSTUVWXYZ":
+    for d in get_available_drives():
         candidates.append(f"{d}:\\My Drive\\Viethoagame")
-        candidates.append(f"{d}:\\Viethoagame")
         candidates.append(f"{d}:\\Google Drive\\Viethoagame")
+        candidates.append(f"{d}:\\Viethoagame")
 
     for c in candidates:
         if os.path.exists(c):
@@ -911,8 +979,39 @@ def find_mod_source_dir(mod_subfolder):
         return fallback
     return primary
 
-def detect_steam_libraries():
-    """Detect all Steam library folders across all drives on Windows with robust parsing"""
+_LIBRARY_CACHE_LOCK = threading.Lock()
+_MOD_OP_LOCK = threading.Lock()  # Khóa đồng bộ chống xung đột đa luồng khi cài đặt, gỡ bỏ hoặc khôi phục mod
+_STEAM_LIBRARIES_CACHE = {"timestamp": 0.0, "data": []}
+_EPIC_GAMES_CACHE = {"timestamp": 0.0, "data": []}
+_GOG_GAMES_CACHE = {"timestamp": 0.0, "data": []}
+_STANDALONE_DIRS_CACHE = {"timestamp": 0.0, "data": []}
+_LIBRARY_CACHE_TTL = 60.0  # 60 giây TTL trong RAM để phản hồi tức thì
+
+def invalidate_library_caches():
+    """Xóa trắng cache phát hiện thư viện game trong RAM để quét lại khi cần."""
+    with _LIBRARY_CACHE_LOCK:
+        _STEAM_LIBRARIES_CACHE["timestamp"] = 0.0
+        _EPIC_GAMES_CACHE["timestamp"] = 0.0
+        _GOG_GAMES_CACHE["timestamp"] = 0.0
+        _STANDALONE_DIRS_CACHE["timestamp"] = 0.0
+
+def get_available_drives():
+    """Lấy danh sách các phân vùng ổ đĩa đang gắn thực tế trên Windows (tránh quét ổ đĩa ảo hoặc đầu đọc thẻ trống)."""
+    try:
+        import ctypes
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        drives = [chr(65 + i) for i in range(26) if (mask >> i) & 1]
+        return [d for d in drives if d not in ("A", "B")]
+    except Exception:
+        return [d for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
+
+def detect_steam_libraries(force_refresh=False):
+    """Detect all Steam library folders across drives on Windows with robust RAM caching (TTL 60s)"""
+    now = time.time()
+    with _LIBRARY_CACHE_LOCK:
+        if not force_refresh and (now - _STEAM_LIBRARIES_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _STEAM_LIBRARIES_CACHE["data"]:
+            return list(_STEAM_LIBRARIES_CACHE["data"])
+
     libraries = []
     potential_roots = [
         r"C:\Program Files (x86)\Steam",
@@ -950,10 +1049,10 @@ def detect_steam_libraries():
     except Exception:
         pass
 
-    # 2. Check all drives from C: to Z:
-    for drive_letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
+    # 2. Check mounted drives only (không quét mù 24 ổ đĩa)
+    for drive_letter in get_available_drives():
         candidate_steam = f"{drive_letter}:\\SteamLibrary"
-        if os.path.exists(candidate_steam) and candidate_steam not in potential_roots:
+        if candidate_steam not in potential_roots and os.path.exists(candidate_steam):
             potential_roots.append(candidate_steam)
 
     found_roots = [p for p in potential_roots if os.path.exists(p)]
@@ -975,6 +1074,10 @@ def detect_steam_libraries():
                         libraries.append(clean_p)
             except Exception as e:
                 print(f"Error reading libraryfolders.vdf: {e}")
+
+    with _LIBRARY_CACHE_LOCK:
+        _STEAM_LIBRARIES_CACHE["timestamp"] = now
+        _STEAM_LIBRARIES_CACHE["data"] = list(libraries)
 
     return libraries
 
@@ -1023,8 +1126,13 @@ def request_uac_elevation():
         print(f"Failed to elevate UAC: {e}")
     return False
 
-def detect_epic_games():
-    """Detect all installed Epic Games by parsing manifest .item files"""
+def detect_epic_games(force_refresh=False):
+    """Detect all installed Epic Games by parsing manifest .item files with RAM caching (TTL 60s)"""
+    now = time.time()
+    with _LIBRARY_CACHE_LOCK:
+        if not force_refresh and (now - _EPIC_GAMES_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _EPIC_GAMES_CACHE["data"]:
+            return list(_EPIC_GAMES_CACHE["data"])
+
     epic_games = []
     prog_data = os.environ.get("ProgramData", r"C:\ProgramData")
     manifests_dir = os.path.join(prog_data, "Epic", "EpicGamesLauncher", "Data", "Manifests")
@@ -1050,10 +1158,20 @@ def detect_epic_games():
                         pass
         except Exception as e:
             print(f"Error reading Epic Games manifests: {e}")
+
+    with _LIBRARY_CACHE_LOCK:
+        _EPIC_GAMES_CACHE["timestamp"] = now
+        _EPIC_GAMES_CACHE["data"] = list(epic_games)
+
     return epic_games
 
-def detect_gog_games():
-    """Detect all installed GOG Galaxy games from Windows Registry"""
+def detect_gog_games(force_refresh=False):
+    """Detect all installed GOG Galaxy games from Windows Registry with RAM caching (TTL 60s)"""
+    now = time.time()
+    with _LIBRARY_CACHE_LOCK:
+        if not force_refresh and (now - _GOG_GAMES_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _GOG_GAMES_CACHE["data"]:
+            return list(_GOG_GAMES_CACHE["data"])
+
     gog_games = []
     try:
         import winreg
@@ -1087,18 +1205,51 @@ def detect_gog_games():
                 pass
     except Exception as e:
         print(f"Error reading GOG Galaxy registry: {e}")
+
+    with _LIBRARY_CACHE_LOCK:
+        _GOG_GAMES_CACHE["timestamp"] = now
+        _GOG_GAMES_CACHE["data"] = list(gog_games)
+
     return gog_games
 
-def find_game_install_path(game_def, libraries):
+def detect_standalone_game_dirs(force_refresh=False):
+    """Detect existing standalone game directories across mounted drives with RAM caching (TTL 60s)"""
+    now = time.time()
+    with _LIBRARY_CACHE_LOCK:
+        if not force_refresh and (now - _STANDALONE_DIRS_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _STANDALONE_DIRS_CACHE["data"]:
+            return list(_STANDALONE_DIRS_CACHE["data"])
+
+    existing_bases = []
+    for drive_letter in get_available_drives():
+        candidate_bases = [
+            f"{drive_letter}:\\Games",
+            f"{drive_letter}:\\GOG Games",
+            f"{drive_letter}:\\Epic Games",
+            f"{drive_letter}:\\XboxGames",
+        ]
+        for base_dir in candidate_bases:
+            try:
+                if os.path.exists(base_dir):
+                    existing_bases.append(base_dir)
+            except Exception:
+                pass
+
+    with _LIBRARY_CACHE_LOCK:
+        _STANDALONE_DIRS_CACHE["timestamp"] = now
+        _STANDALONE_DIRS_CACHE["data"] = list(existing_bases)
+
+    return existing_bases
+
+def find_game_install_path(game_def, libraries, epic_games=None, gog_games=None, standalone_dirs=None):
     """
     Find the installation folder of a game across Steam, Epic Games, GOG Galaxy,
-    and standalone installation folders across all drives.
+    and standalone installation folders across drives (using cached discovery).
     """
     appid = game_def.get("steam_appid")
     folder_names = game_def.get("default_folder_names", [game_def.get("title")])
     gid = game_def.get("id", "").lower()
     game_title = game_def.get("title", "").lower()
-    targets = [fn.lower() for fn in folder_names] + [gid, game_title]
+    targets = [fn.lower() for fn in folder_names if fn] + [gid, game_title]
 
     # 1. Check Steam libraries
     for lib in libraries:
@@ -1123,12 +1274,15 @@ def find_game_install_path(game_def, libraries):
         common_dir = os.path.join(steamapps, "common")
         if os.path.exists(common_dir):
             for fname in folder_names:
+                if not fname:
+                    continue
                 candidate = os.path.join(common_dir, fname)
                 if os.path.exists(candidate):
                     return os.path.normpath(candidate)
 
-    # 2. Check Epic Games Launcher manifests
-    for ep in detect_epic_games():
+    # 2. Check Epic Games Launcher manifests (dùng danh sách đã cache trong RAM)
+    epic_list = epic_games if epic_games is not None else detect_epic_games()
+    for ep in epic_list:
         ep_name = ep.get("name", "").lower()
         ep_app = ep.get("app_name", "").lower()
         ep_path = ep.get("path", "")
@@ -1138,8 +1292,9 @@ def find_game_install_path(game_def, libraries):
             if is_valid:
                 return resolved
 
-    # 3. Check GOG Galaxy registry entries
-    for gog in detect_gog_games():
+    # 3. Check GOG Galaxy registry entries (dùng danh sách đã cache trong RAM)
+    gog_list = gog_games if gog_games is not None else detect_gog_games()
+    for gog in gog_list:
         gog_name = gog.get("name", "").lower()
         gog_path = gog.get("path", "")
         gog_base = os.path.basename(gog_path).lower()
@@ -1148,22 +1303,17 @@ def find_game_install_path(game_def, libraries):
             if is_valid:
                 return resolved
 
-    # 4. Check common standalone game directories across all drives (C: to Z:)
-    for drive_letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
-        candidate_bases = [
-            f"{drive_letter}:\\Games",
-            f"{drive_letter}:\\GOG Games",
-            f"{drive_letter}:\\Epic Games",
-            f"{drive_letter}:\\XboxGames",
-        ]
-        for base_dir in candidate_bases:
-            if os.path.exists(base_dir):
-                for fname in folder_names:
-                    cand = os.path.join(base_dir, fname)
-                    if os.path.exists(cand):
-                        is_valid, resolved, _ = verify_and_resolve_game_path(game_def, cand)
-                        if is_valid:
-                            return resolved
+    # 4. Check common standalone game directories across mounted drives (dùng danh sách đã cache trong RAM)
+    bases_list = standalone_dirs if standalone_dirs is not None else detect_standalone_game_dirs()
+    for base_dir in bases_list:
+        for fname in folder_names:
+            if not fname:
+                continue
+            cand = os.path.join(base_dir, fname)
+            if os.path.exists(cand):
+                is_valid, resolved, _ = verify_and_resolve_game_path(game_def, cand)
+                if is_valid:
+                    return resolved
 
     return None
 
@@ -1316,7 +1466,8 @@ def patch_vote_to_cloud(game_id, new_votes, machine_id=None):
         print(f"Firebase vote patch error: {e}")
     return False
 
-LOCAL_REQUESTS_FILE = os.path.join(STATIC_DIR, "data", "community_requests.json")
+LOCAL_REQUESTS_FILE = os.path.join(APPDATA_DIR, "community_requests.json")
+STATIC_REQUESTS_SEED = os.path.join(STATIC_DIR, "data", "community_requests.json")
 
 def load_local_community_requests():
     if os.path.exists(LOCAL_REQUESTS_FILE):
@@ -1325,10 +1476,20 @@ def load_local_community_requests():
                 return json.load(f)
         except Exception as e:
             print(f"Error loading local community requests: {e}")
+    # Dùng file trong STATIC_DIR làm dữ liệu khởi tạo ban đầu (seed data)
+    if os.path.exists(STATIC_REQUESTS_SEED):
+        try:
+            with open(STATIC_REQUESTS_SEED, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            save_local_community_requests(data)
+            return data
+        except Exception as e:
+            print(f"Error loading seed community requests: {e}")
     return {}
 
 def save_local_community_requests(data):
     try:
+        os.makedirs(os.path.dirname(LOCAL_REQUESTS_FILE), exist_ok=True)
         with open(LOCAL_REQUESTS_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -1482,6 +1643,8 @@ def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
 
     try:
         ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         incoming = ssl.MemoryBIO()
         outgoing = ssl.MemoryBIO()
         sslobj = ctx.wrap_bio(incoming, outgoing, server_hostname=hostname)
@@ -1558,21 +1721,198 @@ def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
             return b""
 
 
-def search_steam_online(query: str, limit: int = 15) -> list[dict]:
-    """Tìm kiếm trực tiếp trên toàn bộ kho game Steam thông qua Store Search API và Community Search."""
-    import re
-    import json
-    import urllib.parse
+def batch_fetch_steam_assets(appids: list[str]) -> dict[str, dict]:
+    """
+    Gọi 1 request duy nhất tới IStoreBrowseService/GetItems/v1 cho toàn bộ danh sách appid
+    để lấy chính xác link library_600x900_2x.jpg và header.jpg kèm mã {HASH} chuẩn.
+    """
+    valid_ids = [int(a) for a in appids if str(a).isdigit()]
+    if not valid_ids:
+        return {}
+    result_map = {}
+    try:
+        input_json = json.dumps({
+            "ids": [{"appid": aid} for aid in valid_ids],
+            "context": {"language": "english", "country_code": "US"},
+            "data_request": {"include_assets": True}
+        }, separators=(",", ":"))
+        api_url = f"https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json={urllib.parse.quote(input_json)}"
+        raw = steam_direct_request(api_url, timeout=4.0)
+        if raw:
+            data = json.loads(raw.decode("utf-8", "ignore"))
+            for item in data.get("response", {}).get("store_items", []):
+                aid = str(item.get("appid", ""))
+                assets = item.get("assets", {})
+                fmt = assets.get("asset_url_format", f"steam/apps/{aid}/${{FILENAME}}")
+                
+                poster_url = ""
+                for key in ("library_capsule_2x", "library_capsule"):
+                    if assets.get(key):
+                        rel = fmt.replace("${FILENAME}", assets[key]).lstrip("/")
+                        poster_url = f"https://shared.fastly.steamstatic.com/store_item_assets/{rel}"
+                        break
+                        
+                header_url = ""
+                if assets.get("header"):
+                    rel_h = fmt.replace("${FILENAME}", assets["header"]).lstrip("/")
+                    header_url = f"https://shared.fastly.steamstatic.com/store_item_assets/{rel_h}"
 
+                result_map[aid] = {
+                    "poster": poster_url,
+                    "header": header_url
+                }
+    except Exception as e:
+        print(f"[BatchSteamAssets] Error: {e}")
+    return result_map
+
+
+def get_steam_official_Vertical_posters(appid: str) -> list[str]:
+    """
+    Gọi API IStoreBrowseService/GetItems/v1 của Steam để lấy chính xác đường dẫn
+    library_600x900_2x.jpg và library_600x900.jpg kèm mã {HASH} chuẩn cho mọi game mới & cũ.
+    """
+    if not appid or not str(appid).isdigit():
+        return []
+    urls = []
+    try:
+        input_json = json.dumps({
+            "ids": [{"appid": int(appid)}],
+            "context": {"language": "english", "country_code": "US"},
+            "data_request": {"include_assets": True}
+        }, separators=(",", ":"))
+        api_url = f"https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json={urllib.parse.quote(input_json)}"
+        raw = steam_direct_request(api_url, timeout=4.0)
+        if raw:
+            data = json.loads(raw.decode("utf-8", "ignore"))
+            items = data.get("response", {}).get("store_items", [])
+            if items:
+                assets = items[0].get("assets", {})
+                fmt = assets.get("asset_url_format", f"steam/apps/{appid}/${{FILENAME}}")
+                for key in ("library_capsule_2x", "library_capsule"):
+                    fname = assets.get(key)
+                    if fname:
+                        rel_path = fmt.replace("${FILENAME}", fname).lstrip("/")
+                        urls.append(f"https://shared.fastly.steamstatic.com/store_item_assets/{rel_path}")
+                        urls.append(f"https://shared.akamai.steamstatic.com/store_item_assets/{rel_path}")
+    except Exception as e:
+        print(f"[SteamBrowseAPI] Error fetching hashed capsule for {appid}: {e}")
+
+    # Fallback dự phòng: Thử tìm mã hash 40 hex từ appdetails nếu API trên không trả về assets
+    if not urls:
+        try:
+            details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=us&l=en"
+            raw_det = steam_direct_request(details_url, timeout=3.5)
+            if raw_det:
+                det = json.loads(raw_det.decode("utf-8", "ignore"))
+                h_img = det.get(str(appid), {}).get("data", {}).get("header_image", "")
+                m = re.search(r"/([0-9a-f]{40})/", h_img)
+                if m:
+                    h_code = m.group(1)
+                    urls.append(f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900_2x.jpg")
+                    urls.append(f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900.jpg")
+                    urls.append(f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900_2x.jpg")
+                    urls.append(f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900.jpg")
+        except Exception:
+            pass
+
+    return urls
+
+get_steam_official_vertical_posters = get_steam_official_Vertical_posters
+
+STEAMGRIDDB_API_KEY = "426d6282a3c5c387dbee3e4ee3a37628"  # Điền API Key của SteamGridDB
+
+
+def fetch_steamgriddb_posters(steam_appid: str, limit: int = 4) -> list[str]:
+    """Lấy danh sách poster dọc chuẩn 600x900 từ kho SteamGridDB theo Steam AppID."""
+    if not STEAMGRIDDB_API_KEY or not str(steam_appid).isdigit():
+        return []
+    url = f"https://www.steamgriddb.com/api/v2/grids/steam/{steam_appid}?dimensions=600x900&types=static"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {STEAMGRIDDB_API_KEY}",
+        "User-Agent": "CoNgu-VietModManager/2.0"
+    })
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, timeout=3.5, context=ctx) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8", "ignore"))
+                return [item["url"] for item in data.get("data", [])[:limit] if item.get("url")]
+    except Exception as e:
+        print(f"[SteamGridDB] Error: {e}")
+    return []
+
+
+def search_steamgriddb_by_name(query: str, max_items: int = 6) -> list[dict]:
+    """Tìm kiếm trực tiếp poster 600x900 trên SteamGridDB theo tên game."""
+    results = []
+    if not STEAMGRIDDB_API_KEY or not query or len(query.strip()) < 2:
+        return results
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        encoded_q = urllib.parse.quote(query.strip())
+        url = f"https://www.steamgriddb.com/api/v2/search/autocomplete/{encoded_q}"
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"Bearer {STEAMGRIDDB_API_KEY}",
+            "User-Agent": "CoNgu-VietModManager/2.0"
+        })
+        with urllib.request.urlopen(req, timeout=3.0, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8", "ignore"))
+            games = data.get("data", [])
+
+        for g in games[:3]:
+            gid = g.get("id")
+            gname = g.get("name")
+            if not gid or not gname:
+                continue
+            g_url = f"https://www.steamgriddb.com/api/v2/grids/game/{gid}?dimensions=600x900&types=static"
+            g_req = urllib.request.Request(g_url, headers={
+                "Authorization": f"Bearer {STEAMGRIDDB_API_KEY}",
+                "User-Agent": "CoNgu-VietModManager/2.0"
+            })
+            try:
+                with urllib.request.urlopen(g_req, timeout=3.0, context=ctx) as g_resp:
+                    grids_data = json.loads(g_resp.read().decode("utf-8", "ignore"))
+                    grids = grids_data.get("data", [])
+                    for idx, it in enumerate(grids[:2]):
+                        p_url = it.get("url")
+                        grid_id = it.get("id")
+                        if p_url:
+                            results.append({
+                                "id": f"sgdb_{gid}_{grid_id}",
+                                "steam_appid": "",
+                                "name": gname,
+                                "title": gname,
+                                "subtitle": f"SteamGridDB #{grid_id}",
+                                "source": "steamgriddb",
+                                "genre": "SteamGridDB",
+                                "avatar_url": p_url,
+                                "header_url": p_url,
+                                "capsule": p_url
+                            })
+                            if len(results) >= max_items:
+                                return results
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[SteamGridDB Search] Error: {e}")
+    return results
+
+
+def search_steam_online(query: str, limit: int = 15) -> list[dict]:
     clean_q = re.sub(r"\s+", " ", (query or "")).strip()
     if not clean_q or len(clean_q) < 2:
         return []
 
     encoded_q = urllib.parse.quote(clean_q)
-    results = []
+    raw_items = []
     seen = set()
 
-    # 1. Store Search API (store.steampowered.com)
+    # 1. Store Search API
     try:
         url = f"https://store.steampowered.com/api/storesearch/?term={encoded_q}&l=english&cc=US"
         raw = steam_direct_request(url, timeout=3.5)
@@ -1584,29 +1924,16 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                 if not appid or not name or appid in seen:
                     continue
                 seen.add(appid)
-                tiny = it.get("tiny_image", "")
-                header = (
-                    tiny.replace("capsule_sm_120", "header")
-                    if tiny
-                    else f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
-                )
-                results.append({
-                    "id": int(appid) if appid.isdigit() else appid,
-                    "steam_appid": appid,
+                raw_items.append({
+                    "appid": appid,
                     "name": name,
-                    "title": name,
-                    "subtitle": f"Steam AppID: {appid}",
-                    "source": "steam",
-                    "genre": "Steam Store",
-                    "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
-                    "header_url": header,
-                    "capsule": tiny or f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
+                    "tiny_image": it.get("tiny_image", "")
                 })
     except Exception as e:
         print(f"[SteamOnline] Store search failed: {e}")
 
-    # 2. Community SearchApps API (steamcommunity.com)
-    if len(results) < limit:
+    # 2. Community SearchApps API (steamcommunity.com) nếu kết quả còn ít
+    if len(raw_items) < limit:
         try:
             url = f"https://steamcommunity.com/actions/SearchApps/{encoded_q}"
             raw = steam_direct_request(url, timeout=3.0)
@@ -1619,48 +1946,81 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                         if not appid or not name or appid in seen:
                             continue
                         seen.add(appid)
-                        logo = it.get("logo", "")
-                        icon = it.get("icon", "")
-                        header = logo or (
-                            icon.replace("capsule_sm_120", "header")
-                            if icon
-                            else f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
-                        )
-                        results.append({
-                            "id": int(appid) if appid.isdigit() else appid,
-                            "steam_appid": appid,
+                        raw_items.append({
+                            "appid": appid,
                             "name": name,
-                            "title": name,
-                            "subtitle": f"Steam AppID: {appid}",
-                            "source": "steam",
-                            "genre": "Steam Store",
-                            "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
-                            "header_url": header,
-                            "capsule": icon or f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_sm_120.jpg"
+                            "tiny_image": it.get("logo") or it.get("icon", "")
                         })
         except Exception as e:
             print(f"[SteamOnline] Community search failed: {e}")
+
+    # 3. Lấy Batch Assets có mã {HASH} chuẩn cho toàn bộ kết quả tìm được trong 1 lần gọi
+    assets_map = batch_fetch_steam_assets([it["appid"] for it in raw_items])
+
+    results = []
+    for it in raw_items:
+        appid = it["appid"]
+        name = it["name"]
+        tiny = it["tiny_image"]
+        asset_info = assets_map.get(appid, {})
+
+        # Header chuẩn (không dùng regex thay tên trên tiny_image nữa vì khác mã hash)
+        header = asset_info.get("header") or tiny or f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg"
+        
+        # Nếu game/Demo có poster dọc 600x900 chính thức -> dùng trực tiếp
+        # Nếu Demo/Playtest chỉ có ảnh ngang -> đi qua /api/game/poster_preview để dựng Glassmorphism 600x900 đẹp như Kho Cổ Ngữ
+        poster = asset_info.get("poster")
+        if not poster:
+            poster = f"/api/game/poster_preview?url={urllib.parse.quote(header)}&token={SESSION_AUTH_TOKEN}"
+
+        results.append({
+            "id": int(appid) if appid.isdigit() else appid,
+            "steam_appid": appid,
+            "name": name,
+            "title": name,
+            "subtitle": f"Steam AppID: {appid}",
+            "source": "steam",
+            "genre": "Steam Store",
+            "avatar_url": poster,
+            "header_url": header,
+            "capsule": header
+        })
 
     return results
 
 
 def make_vertical_poster(image_bytes: bytes, target_w: int = 600, target_h: int = 900) -> bytes:
     """
-    Chuẩn hóa mọi ảnh (kể cả ảnh ngang 16:9, banner capsule 231x87, header 460x215)
-    thành Poster dọc tỉ lệ 2:3 (600x900) tràn viền (Full-Bleed) chuẩn Steam Library:
-    - Tự động căn chỉnh trọng tâm (centering=(0.5, 0.35)) và phóng to lấp đầy 100% khung hình
-    - Tuyệt đối không co nhỏ thành dải ngang ở giữa (chống co cụm letterbox).
+    Chuẩn hóa ảnh thành Poster dọc 2:3 (600x900):
+    - Nếu ảnh gốc ĐÃ LÀ ẢNH DỌC (h >= w * 1.15): Fit chuẩn 600x900 sắc nét.
+    - Nếu ảnh gốc LÀ ẢNH NGANG (header.jpg 460x215): Tuyệt đối KHÔNG cắt cụt 2 bên làm mất chữ!
+      Tự động tạo nền Blur Glassmorphism đồng màu + đặt nguyên vẹn 100% banner ngang ở trung tâm trên.
     """
     try:
-        from PIL import Image, ImageOps
+        from PIL import Image, ImageOps, ImageFilter, ImageEnhance
         import io
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         w, h = img.size
         if w <= 0 or h <= 0:
             return image_bytes
 
-        # Lấp đầy 100% khung hình 600x900 (Full Bleed) bằng thuật toán Lanczos cao cấp
-        result = ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.35))
+        # Trường hợp 1: Ảnh gốc đã là Poster dọc chuẩn (VD: 600x900)
+        if h >= w * 1.15:
+            result = ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        else:
+            # Trường hợp 2: Ảnh gốc là Banner ngang (460x215) hoặc Icon vuông -> Tạo Poster Blur Glassmorphism
+            bg = ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+            bg = bg.filter(ImageFilter.GaussianBlur(radius=24))
+            bg = ImageEnhance.Brightness(bg).enhance(0.45)
+
+            # Giữ nguyên 100% tỉ lệ ngang của ảnh chính (không cắt mất chữ hai bên)
+            fg_w = target_w
+            fg_h = max(1, int(h * (fg_w / w)))
+            fg = img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
+
+            y_offset = max(0, int((target_h - fg_h) * 0.38))
+            bg.paste(fg, (0, y_offset))
+            result = bg
 
         out = io.BytesIO()
         result.save(out, format="JPEG", quality=95)
@@ -1684,6 +2044,9 @@ class ModManagerAPI:
 
         user_cfg = load_user_config()
         libraries = detect_steam_libraries()
+        epic_games = detect_epic_games()
+        gog_games = detect_gog_games()
+        standalone_dirs = detect_standalone_game_dirs()
         user_data = load_user_data()
         covers_cache = load_covers_cache()
         cfg_changed = False
@@ -1704,7 +2067,7 @@ class ModManagerAPI:
                     game_path = ""
             
             if not game_path:
-                detected = find_game_install_path(g, libraries)
+                detected = find_game_install_path(g, libraries, epic_games=epic_games, gog_games=gog_games, standalone_dirs=standalone_dirs)
                 if detected:
                     is_valid, resolved, _ = verify_and_resolve_game_path(g, detected)
                     if is_valid:
@@ -1870,10 +2233,10 @@ class ModManagerAPI:
                     if mod_files:
                         for it in mod_files:
                             target_f = it.get("target_file")
-                            rel_f = it.get("relative_in_game")
+                            rel_f = _norm_rel(it.get("relative_in_game"))
                             if not target_f or not os.path.exists(target_f):
                                 if rel_f and game_path:
-                                    target_f = os.path.join(game_path, rel_f)
+                                    target_f = os.path.join(game_path, rel_f.replace("/", os.sep))
 
                             if target_f and os.path.exists(target_f):
                                 mod_hash = it.get("modded_sha256")
@@ -1972,14 +2335,13 @@ class ModManagerAPI:
             
             g["local_cover"] = local_cover
 
-            cached_meta = covers_cache.get(gid) or {}
-            g["avatar_url"] = local_cover or cached_meta.get("avatar_url")
-            g["header_url"] = cached_meta.get("header_url")
-            if not g.get("steam_appid") and cached_meta.get("steam_appid"):
-                g["steam_appid"] = cached_meta.get("steam_appid")
-            if not g.get("genre") or g.get("genre") == "Game":
-                if cached_meta.get("genre"):
-                    g["genre"] = cached_meta["genre"]
+            cached_meta = covers_cache.get(gid) or covers_cache.get(gid.lower()) or {}
+            g["avatar_url"] = local_cover or cached_meta.get("avatar_url") or (g.get("assets", {}).get("poster"))
+            g["header_url"] = cached_meta.get("header_url") or (g.get("assets", {}).get("header"))
+            if cached_meta.get("steam_appid"):
+                g["steam_appid"] = cached_meta["steam_appid"]
+            if cached_meta.get("genre"):
+                g["genre"] = cached_meta["genre"]
 
         if cfg_changed:
             save_user_config(user_cfg)
@@ -2016,14 +2378,23 @@ class ModManagerAPI:
 
     def set_cloud_url(self, game_id, url):
         """Set Google Drive download URL for a game"""
-        with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
+        active_json = get_active_games_json_path()
+        with open(active_json, "r", encoding="utf-8") as f:
             games = json.load(f)
         for g in games:
             if g["id"] == game_id:
                 g["download_url"] = url
                 break
-        with open(GAMES_JSON, "w", encoding="utf-8") as f:
+        with open(active_json, "w", encoding="utf-8") as f:
             json.dump(games, f, ensure_ascii=False, indent=2)
+        
+        # Đồng bộ cả sang GAMES_JSON nếu active_json khác GAMES_JSON
+        if os.path.normpath(active_json) != os.path.normpath(GAMES_JSON):
+            try:
+                with open(GAMES_JSON, "w", encoding="utf-8") as f:
+                    json.dump(games, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
         
         cfg = load_user_config()
         cfg[f"{game_id}_download_url"] = url
@@ -2213,6 +2584,8 @@ class ModManagerAPI:
         seen_appids = set()
         q_lower = clean_q.lower()
 
+        congu_appids_map = {}  # appid -> game data
+
         # 1. Tìm ưu tiên trong kho games.json nội bộ trước
         try:
             games_json_path = get_active_games_json_path()
@@ -2223,7 +2596,8 @@ class ModManagerAPI:
                     title = g.get("title", "")
                     vi_title = g.get("vietnamese_title", "")
                     gid = g.get("id", "")
-                    appid = str(g.get("steam_appid", "")).strip()
+                    appid = str(g.get("steam_appid") or "").strip()
+                    effective_id = appid if appid else gid
                     if (
                         q_lower in title.lower()
                         or q_lower in vi_title.lower()
@@ -2232,6 +2606,8 @@ class ModManagerAPI:
                     ):
                         if appid:
                             seen_appids.add(appid)
+                            if appid.isdigit():
+                                congu_appids_map[appid] = g
                         poster = (
                             g.get("assets", {}).get("poster")
                             or (f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg" if appid else "")
@@ -2241,8 +2617,8 @@ class ModManagerAPI:
                             or (f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else "")
                         )
                         results.append({
-                            "id": int(appid) if appid.isdigit() else appid,
-                            "steam_appid": appid,
+                            "id": int(effective_id) if str(effective_id).isdigit() else effective_id,
+                            "steam_appid": appid or gid,
                             "title": title,
                             "name": title,
                             "subtitle": vi_title or "Kho CỔ NGỮ",
@@ -2257,13 +2633,91 @@ class ModManagerAPI:
 
         # 2. Tìm kiếm TRỰC TIẾP trên kho Steam Store & Community qua mạng (DPI bypass)
         try:
-            online_items = search_steam_online(clean_q, limit=12)
+            online_items = search_steam_online(clean_q, limit=10)
+
+            # Thu thập toàn bộ danh sách Steam AppID (cả từ Kho Cổ Ngữ lẫn Steam Store) để lấy poster từ SteamGridDB
+            steam_appids = [str(it.get("steam_appid", "")) for it in online_items if str(it.get("steam_appid", "")).isdigit()]
+            all_target_appids = list(dict.fromkeys(list(congu_appids_map.keys()) + steam_appids))[:8]
+
+            sgdb_map = {}
+            if all_target_appids and STEAMGRIDDB_API_KEY:
+                try:
+                    with ThreadPoolExecutor(max_workers=min(len(all_target_appids), 6)) as ex:
+                        futs = {ex.submit(fetch_steamgriddb_posters, aid, 3): aid for aid in all_target_appids}
+                        for fut in futs:
+                            aid = futs[fut]
+                            try:
+                                sgdb_map[aid] = fut.result()
+                            except Exception:
+                                sgdb_map[aid] = []
+                except Exception as e:
+                    print(f"[AvatarSearch] SteamGridDB batch fetch error: {e}")
+
+            seen_avatar_urls = set()
+            for r in results:
+                if r.get("avatar_url"):
+                    seen_avatar_urls.add(r["avatar_url"])
+
+            # A. Thêm các mẫu SteamGridDB cho các game đã có trong Kho Cổ Ngữ
+            for c_appid, c_game in congu_appids_map.items():
+                c_title = c_game.get("title", "")
+                for p_idx, p_url in enumerate(sgdb_map.get(c_appid, [])):
+                    if p_url not in seen_avatar_urls:
+                        seen_avatar_urls.add(p_url)
+                        results.append({
+                            "id": f"sgdb_{c_appid}_{p_idx}",
+                            "steam_appid": c_appid,
+                            "name": c_title,
+                            "title": c_title,
+                            "subtitle": f"SteamGridDB • {c_appid}",
+                            "source": "steamgriddb",
+                            "genre": "SteamGridDB",
+                            "avatar_url": p_url,
+                            "header_url": "",
+                            "capsule": ""
+                        })
+
+            # B. Thêm các item Steam Store và các mẫu SteamGridDB tương ứng
             for item in online_items:
                 appid = str(item.get("steam_appid", ""))
-                if appid and appid in seen_appids:
-                    continue
-                seen_appids.add(appid)
-                results.append(item)
+                is_store_seen = bool(appid and appid in seen_appids)
+                if not is_store_seen:
+                    seen_appids.add(appid)
+                    p_url = item.get("avatar_url")
+                    if p_url:
+                        seen_avatar_urls.add(p_url)
+                    results.append(item)
+
+                # Hiển thị song song các mẫu poster dọc từ SteamGridDB cho cùng Steam AppID này (kể cả đã có trong Cổ Ngữ)
+                sg_posters = sgdb_map.get(appid, [])
+                for p_idx, p_url in enumerate(sg_posters):
+                    if p_url not in seen_avatar_urls:
+                        seen_avatar_urls.add(p_url)
+                        results.append({
+                            "id": f"sgdb_{appid}_{p_idx}",
+                            "steam_appid": appid,
+                            "name": item.get("name", ""),
+                            "title": item.get("title", ""),
+                            "subtitle": f"SteamGridDB • {appid}",
+                            "source": "steamgriddb",
+                            "genre": "SteamGridDB",
+                            "avatar_url": p_url,
+                            "header_url": item.get("header_url", ""),
+                            "capsule": item.get("capsule", "")
+                        })
+
+            # C. Bổ sung các kết quả tìm kiếm theo tên trực tiếp từ SteamGridDB
+            if STEAMGRIDDB_API_KEY:
+                try:
+                    sgdb_extra = search_steamgriddb_by_name(clean_q, max_items=4)
+                    for sg_it in sgdb_extra:
+                        p_url = sg_it.get("avatar_url")
+                        if p_url and p_url not in seen_avatar_urls:
+                            seen_avatar_urls.add(p_url)
+                            results.append(sg_it)
+                except Exception as e:
+                    print(f"[AvatarSearch] SteamGridDB search by name error: {e}")
+
         except Exception as e:
             print(f"[AvatarSearch] online steam search error: {e}")
 
@@ -2311,7 +2765,7 @@ class ModManagerAPI:
         return results
 
     def apply_selected_avatar(self, target_game_id: str, selected_data: dict) -> dict:
-        """Gán cố định avatar + steam_appid người dùng đã chọn và tải ảnh lưu cache."""
+        """Gán cố định avatar + steam_appid người dùng đã chọn và tải/sao chép ảnh lưu cache."""
         if not target_game_id:
             return {"status": "error", "success": False, "message": "Thiếu mã game (target_game_id)"}
 
@@ -2325,50 +2779,130 @@ class ModManagerAPI:
         safe_gid = re.sub(r"[^\w\-]", "_", target_game_id)
         os.makedirs(COVERS_DIR, exist_ok=True)
         local_cover_path = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
+        local_cover_png = os.path.join(COVERS_DIR, f"{safe_gid}.png")
 
+        # 1. Danh sách candidate theo thứ tự ưu tiên:
+        # 1. Nếu người dùng chọn mẫu từ Kho Cổ Ngữ hoặc ảnh nội bộ, ưu tiên số 1 là avatar_url đó!
         candidates = []
-        if appid:
+        if avatar_url and (
+            selected_data.get("source") in ("congu_db", "steamgriddb")
+            or str(avatar_url).startswith(("/assets/", "assets/", "/static/", "static/", "/api/", "https://cdn2.steamgriddb.com/"))
+        ):
+            candidates.append(avatar_url)
+
+        if appid and str(appid).isdigit():
+            # Ưu tiên số 1: Lấy đúng link library_600x900_2x.jpg kèm mã {HASH} từ Steam IStoreBrowseService
+            candidates.extend(get_steam_official_Vertical_posters(appid))
+            if header_url:
+                h_match = re.search(r"/([0-9a-f]{40})/", header_url)
+                if h_match:
+                    h_code = h_match.group(1)
+                    candidates.extend([
+                        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900_2x.jpg",
+                        f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900.jpg",
+                        f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900_2x.jpg",
+                        f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/{h_code}/library_600x900.jpg",
+                    ])
+        if avatar_url and avatar_url not in candidates:
+            candidates.append(avatar_url)
+        if appid and str(appid).isdigit():
             candidates.extend([
+                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
+                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
                 f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
                 f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
                 f"https://steamcdn-a.akamaihd.net/steam/apps/{appid}/library_600x900.jpg",
                 f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
-                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg",
-                f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg",
                 f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg",
             ])
-        if avatar_url:
-            candidates.append(avatar_url)
+            # Bổ sung poster từ kho SteamGridDB
+            candidates.extend(fetch_steamgriddb_posters(appid, limit=4))
         if header_url:
             candidates.append(header_url)
         if capsule_url:
             candidates.append(capsule_url)
 
         downloaded_ok = False
-        final_local_url = f"/api/covers/{safe_gid}.jpg?t={int(time.time())}"
+        final_timestamp = int(time.time())
+        final_local_url = f"/api/covers/{safe_gid}.jpg?t={final_timestamp}"
 
         for cand_url in candidates:
-            if not cand_url or not cand_url.startswith("http"):
-                continue
-            try:
-                content = steam_direct_request(cand_url, timeout=4.0)
-                if (
-                    content
-                    and len(content) > 1000
-                    and not content.startswith(b"<html>")
-                    and not content.startswith(b"HTTP/1.1 404")
-                    and not content.startswith(b"HTTP/1.1 50")
-                ):
-                    formatted_poster = make_vertical_poster(content)
-                    with open(local_cover_path, "wb") as f:
-                        f.write(formatted_poster)
-                    downloaded_ok = True
-                    break
-            except Exception:
+            if not cand_url:
                 continue
 
+            raw_content = None
+            clean_cand = str(cand_url).split("?")[0].strip()
+
+            # A. Kiểm tra nguồn ảnh cục bộ (nội bộ ứng dụng /static/..., /assets/..., /api/covers/..., hoặc tệp đĩa)
+            local_src = None
+            if clean_cand.startswith("/static/"):
+                local_src = os.path.join(STATIC_DIR, clean_cand[8:].replace("/", os.sep))
+            elif clean_cand.startswith("static/"):
+                local_src = os.path.join(STATIC_DIR, clean_cand[7:].replace("/", os.sep))
+            elif clean_cand.startswith("/assets/"):
+                local_src = os.path.join(STATIC_DIR, clean_cand.lstrip("/").replace("/", os.sep))
+            elif clean_cand.startswith("assets/"):
+                local_src = os.path.join(STATIC_DIR, clean_cand.replace("/", os.sep))
+            elif clean_cand.startswith("/api/covers/"):
+                local_src = os.path.join(COVERS_DIR, clean_cand[12:].replace("/", os.sep))
+            elif str(cand_url).startswith("/api/game/poster_preview"):
+                # Nếu là ảnh ngang đã qua bộ lọc Glassmorphism preview, tải từ url gốc
+                parsed_q = urllib.parse.parse_qs(urllib.parse.urlparse(str(cand_url)).query)
+                orig_u = (parsed_q.get("url") or [""])[0]
+                if orig_u:
+                    raw_content = steam_direct_request(orig_u, timeout=4.0)
+            elif os.path.isabs(clean_cand) and os.path.exists(clean_cand):
+                local_src = clean_cand
+            elif os.path.exists(os.path.join(APP_DIR, clean_cand.lstrip("/\\"))):
+                local_src = os.path.join(APP_DIR, clean_cand.lstrip("/\\"))
+
+            if local_src and os.path.exists(local_src):
+                try:
+                    with open(local_src, "rb") as sf:
+                        raw_content = sf.read()
+                except Exception as e:
+                    print(f"[apply_selected_avatar] Local read error for {local_src}: {e}")
+
+            # B. Nếu là URL mạng (http / https)
+            elif not raw_content and (clean_cand.startswith("http://") or clean_cand.startswith("https://")):
+                try:
+                    content = steam_direct_request(clean_cand, timeout=4.0)
+                    if (
+                        content
+                        and len(content) > 1000
+                        and not content.startswith(b"<html>")
+                        and not content.startswith(b"HTTP/1.1 404")
+                        and not content.startswith(b"HTTP/1.1 50")
+                    ):
+                        raw_content = content
+                    else:
+                        req = urllib.request.Request(clean_cand, headers={"User-Agent": "CoNgu-VietModManager/2.0"})
+                        ctx = ssl.create_default_context()
+                        ctx.check_hostname = False
+                        ctx.verify_mode = ssl.CERT_NONE
+                        with urllib.request.urlopen(req, timeout=4.0, context=ctx) as r:
+                            raw_content = r.read()
+                except Exception:
+                    pass
+
+            # C. Chuẩn hóa poster dọc 600x900 và lưu vào COVERS_DIR
+            if raw_content and len(raw_content) > 500:
+                try:
+                    formatted_poster = make_vertical_poster(raw_content)
+                    with open(local_cover_path, "wb") as f:
+                        f.write(formatted_poster)
+                    if os.path.exists(local_cover_png):
+                        try:
+                            os.remove(local_cover_png)
+                        except Exception:
+                            pass
+                    downloaded_ok = True
+                    break
+                except Exception as e:
+                    print(f"[apply_selected_avatar] Error formatting poster: {e}")
+
         # Lấy thêm thông tin Genre và tên từ Steam details nếu có appid
-        if appid:
+        if appid and str(appid).isdigit():
             try:
                 details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese&cc=VN"
                 raw = steam_direct_request(details_url, timeout=3.5)
@@ -2391,25 +2925,51 @@ class ModManagerAPI:
                                 and len(h_content) > 1000
                                 and not h_content.startswith(b"<html>")
                                 and not h_content.startswith(b"HTTP/1.1 404")
+                                and not h_content.startswith(b"HTTP/1.1 50")
                             ):
                                 formatted_poster = make_vertical_poster(h_content)
                                 with open(local_cover_path, "wb") as f:
                                     f.write(formatted_poster)
+                                if os.path.exists(local_cover_png):
+                                    try:
+                                        os.remove(local_cover_png)
+                                    except Exception:
+                                        pass
                                 downloaded_ok = True
             except Exception:
                 pass
 
-        # Cập nhật cache covers_cache.json
+        # Nếu không lưu được ảnh mới, nhưng người dùng đã chọn avatar_url khác,
+        # xóa tệp bìa cũ không còn phù hợp để không bị dính ảnh sai cũ
+        if not downloaded_ok and avatar_url:
+            if os.path.exists(local_cover_path):
+                try:
+                    os.remove(local_cover_path)
+                except Exception:
+                    pass
+            if os.path.exists(local_cover_png):
+                try:
+                    os.remove(local_cover_png)
+                except Exception:
+                    pass
+
+        chosen_avatar = final_local_url if downloaded_ok else (avatar_url or "")
+        chosen_cover = final_local_url if downloaded_ok else (avatar_url or "")
+
+        # Cập nhật cache covers_cache.json (cả khóa gốc lẫn chữ thường để tra cứu không phân biệt hoa thường)
         c_cache = load_covers_cache()
-        c_cache[target_game_id] = {
+        cache_entry = {
             "steam_appid": appid,
             "title": new_title,
             "genre": genre or "Game",
             "poster_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg" if appid else "",
-            "local_cover": final_local_url if downloaded_ok else (avatar_url or ""),
-            "avatar_url": final_local_url if downloaded_ok else (avatar_url or ""),
+            "local_cover": chosen_cover,
+            "avatar_url": chosen_avatar,
             "header_url": header_url or ""
         }
+        c_cache[target_game_id] = cache_entry
+        if target_game_id.lower() != target_game_id:
+            c_cache[target_game_id.lower()] = cache_entry
         save_covers_cache(c_cache)
 
         return {
@@ -2419,8 +2979,8 @@ class ModManagerAPI:
             "steam_appid": appid,
             "title": new_title,
             "genre": genre or "Game",
-            "avatar_url": final_local_url if downloaded_ok else (avatar_url or ""),
-            "local_cover": final_local_url if downloaded_ok else (avatar_url or ""),
+            "avatar_url": chosen_avatar,
+            "local_cover": chosen_cover,
             "header_url": header_url,
             "message": f"Đã áp dụng ảnh bìa cho game thành công!",
             "games": self.get_games()
@@ -2434,6 +2994,7 @@ class ModManagerAPI:
         If Steam/Epic updated the game since previous modding, deletes the obsolete .congu_bak
         and creates a fresh backup of the updated game file.
         """
+        relative_in_game = _norm_rel(relative_in_game)
         if not os.path.exists(original_abs_path) and not os.path.exists(f"{original_abs_path}.congu_bak"):
             return (None, False) if return_details else None
 
@@ -2453,7 +3014,7 @@ class ModManagerAPI:
             except Exception:
                 pass
 
-        tracked_item = next((it for it in manifest.get("files", []) if it.get("relative_in_game") == relative_in_game), None)
+        tracked_item = next((it for it in manifest.get("files", []) if _norm_rel(it.get("relative_in_game")) == relative_in_game), None)
 
         # Check if existing .congu_bak is stale because Steam/Epic updated the game
         if os.path.exists(bak_file) and os.path.exists(original_abs_path):
@@ -2529,7 +3090,7 @@ class ModManagerAPI:
             "original_size": orig_size,
             "original_mtime": orig_mtime
         }
-        existing_idx = next((i for i, f in enumerate(manifest.get("files", [])) if f.get("relative_in_game") == relative_in_game), -1)
+        existing_idx = next((i for i, f in enumerate(manifest.get("files", [])) if _norm_rel(f.get("relative_in_game")) == relative_in_game), -1)
         if existing_idx >= 0:
             manifest["files"][existing_idx].update(file_record)
         else:
@@ -2618,8 +3179,9 @@ class ModManagerAPI:
             except Exception:
                 pass
         for item in backed_up_files:
-            rel = item.get("relative_in_game")
-            existing_idx = next((i for i, f in enumerate(manifest.get("files", [])) if f.get("relative_in_game") == rel), -1)
+            rel = _norm_rel(item.get("relative_in_game"))
+            item["relative_in_game"] = rel
+            existing_idx = next((i for i, f in enumerate(manifest.get("files", [])) if _norm_rel(f.get("relative_in_game")) == rel), -1)
             if existing_idx >= 0:
                 manifest["files"][existing_idx].update(item)
             else:
@@ -2642,8 +3204,9 @@ class ModManagerAPI:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
             updated = False
+            rel_norm = _norm_rel(relative_in_game)
             for it in manifest.get("files", []):
-                if it.get("relative_in_game") == relative_in_game or it.get("target_file") == target_file:
+                if _norm_rel(it.get("relative_in_game")) == rel_norm or it.get("target_file") == target_file:
                     it["modded_sha256"] = compute_file_sha256(target_file)
                     it["modded_size"] = os.path.getsize(target_file)
                     it["modded_mtime"] = os.path.getmtime(target_file)
@@ -2680,7 +3243,7 @@ class ModManagerAPI:
         # 1. Process files tracked in manifest
         files = manifest.get("files", [])
         for item in files:
-            rel = item.get("relative_in_game")
+            rel = _norm_rel(item.get("relative_in_game"))
             if not rel or not game_path:
                 continue
             try:
@@ -2897,7 +3460,7 @@ class ModManagerAPI:
         action = step.get("action", "").lower().strip()
 
         if action == "backup":
-            target_rel = step.get("target")
+            target_rel = _norm_rel(step.get("target"))
             if not target_rel:
                 raise ValueError("Step 'backup' missing required 'target' field")
             target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
@@ -2934,7 +3497,7 @@ class ModManagerAPI:
             }
 
         elif action == "restore_backup":
-            target_rel = step.get("target")
+            target_rel = _norm_rel(step.get("target"))
             if not target_rel:
                 raise ValueError("Step 'restore_backup' missing required 'target' field")
             target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
@@ -2948,7 +3511,7 @@ class ModManagerAPI:
                         with open(manifest_path, "r", encoding="utf-8") as mf:
                             m_data = json.load(mf)
                             for it in m_data.get("files", []):
-                                if it.get("relative_in_game") == target_rel:
+                                if _norm_rel(it.get("relative_in_game")) == target_rel:
                                     modded_hash = it.get("modded_sha256")
                                     break
                     except Exception:
@@ -2977,7 +3540,7 @@ class ModManagerAPI:
 
         elif action == "copy_file":
             src_rel = step.get("source")
-            dst_rel = step.get("destination", src_rel)
+            dst_rel = _norm_rel(step.get("destination", src_rel))
             if not src_rel:
                 raise ValueError("Step 'copy_file' missing required 'source' field")
             if source_mod_dir:
@@ -3041,7 +3604,7 @@ class ModManagerAPI:
             }
 
         elif action == "patch_binary":
-            target_rel = step.get("target")
+            target_rel = _norm_rel(step.get("target"))
             patch_rel = step.get("patch") or step.get("source")
             if not target_rel or not patch_rel:
                 raise ValueError("Step 'patch_binary' missing required 'target' or 'patch' field")
@@ -3173,7 +3736,7 @@ class ModManagerAPI:
 
         elif action == "copy_folder":
             src_rel = step.get("source")
-            dst_rel = step.get("destination", src_rel)
+            dst_rel = _norm_rel(step.get("destination", src_rel))
             if not src_rel:
                 raise ValueError("Step 'copy_folder' missing required 'source' field")
             if source_mod_dir:
@@ -3193,7 +3756,7 @@ class ModManagerAPI:
                     s_file = os.path.join(root, f)
                     rel_sub = os.path.relpath(s_file, src_abs)
                     d_file = validate_safe_path(game_path, os.path.join(dst_rel, rel_sub), allow_base_itself=False)
-                    d_rel = os.path.relpath(d_file, game_path)
+                    d_rel = _norm_rel(os.path.relpath(d_file, game_path))
                     existed = os.path.exists(d_file)
                     created_new_bak = False
                     has_tx_tmp = False
@@ -3246,7 +3809,7 @@ class ModManagerAPI:
 
         elif action in ("extract_all", "extract_zip"):
             src_rel = step.get("source", "")
-            dst_rel = step.get("destination", "")
+            dst_rel = _norm_rel(step.get("destination", ""))
             if source_mod_dir and src_rel:
                 src_abs = validate_safe_path(source_mod_dir, src_rel, allow_base_itself=False)
             else:
@@ -3262,7 +3825,7 @@ class ModManagerAPI:
                         if not member.endswith("/"):
                             # Anti Zip-Slip: validate member target against game_path
                             target_dest = validate_safe_path(dst_abs, member, allow_base_itself=False)
-                            t_rel = os.path.relpath(target_dest, game_path)
+                            t_rel = _norm_rel(os.path.relpath(target_dest, game_path))
                             existed = os.path.exists(target_dest)
                             created_new_bak = False
                             has_tx_tmp = False
@@ -3306,7 +3869,7 @@ class ModManagerAPI:
                         s_file = os.path.join(root, f)
                         rel_sub = os.path.relpath(s_file, src_abs)
                         d_file = validate_safe_path(game_path, os.path.join(dst_rel, rel_sub), allow_base_itself=False)
-                        d_rel = os.path.relpath(d_file, game_path)
+                        d_rel = _norm_rel(os.path.relpath(d_file, game_path))
                         existed = os.path.exists(d_file)
                         created_new_bak = False
                         has_tx_tmp = False
@@ -3359,7 +3922,7 @@ class ModManagerAPI:
             return {"action": "extract_all", "target": dst_rel, "extracted_files": extracted_files}
 
         elif action == "patch_ini":
-            file_rel = step.get("file") or step.get("target")
+            file_rel = _norm_rel(step.get("file") or step.get("target"))
             if not file_rel:
                 raise ValueError("Step 'patch_ini' missing required 'file' or 'target' field")
             file_abs = validate_safe_path(game_path, file_rel, allow_base_itself=False)
@@ -3796,6 +4359,17 @@ class ModManagerAPI:
 
     def install_mod(self, game_id, force=False):
         """Install Vietnamese mod package into game directory with in-place safe backup and progress"""
+        if not _MOD_OP_LOCK.acquire(blocking=False):
+            return {
+                "success": False,
+                "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
+            }
+        try:
+            return self._install_mod_impl(game_id, force=force)
+        finally:
+            _MOD_OP_LOCK.release()
+
+    def _install_mod_impl(self, game_id, force=False):
         import security
         set_progress(10, "Đang kiểm tra thư mục cài đặt...", status="running", game_id=game_id, operation="install")
 
@@ -3916,11 +4490,13 @@ class ModManagerAPI:
         if not (os.path.exists(existing_congu) and security.is_congu_package(existing_congu)):
             mod_file_name = g.get("mod_file", "")
             if mod_file_name:
+                active_repo = get_repo_dir()
                 for cand in [
+                    os.path.join(active_repo, mod_file_name),
+                    os.path.join(DEFAULT_REPO_DIR, mod_file_name),
+                    os.path.join(FALLBACK_REPO_DIR, mod_file_name),
                     os.path.join(APP_DIR, "mods", mod_file_name),
                     os.path.join(APP_DIR, mod_file_name),
-                    os.path.join(r"C:\Users\tuan3\Documents\Viethoagame", mod_file_name),
-                    os.path.join(load_user_config().get("repo_dir", ""), mod_file_name),
                     os.path.join(source_mod_dir, mod_file_name) if source_mod_dir else ""
                 ]:
                     if cand and os.path.isfile(cand) and security.is_congu_package(cand):
@@ -3947,6 +4523,8 @@ class ModManagerAPI:
                     )
                     if sec_res.get("backed_up_files"):
                         self._record_backup_manifest(game_id, sec_res["backed_up_files"])
+                        for bf in sec_res["backed_up_files"]:
+                            self._record_modded_state(game_id, bf.get("target_file"), bf.get("relative_in_game"))
 
                     set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
                     return {
@@ -4030,6 +4608,8 @@ class ModManagerAPI:
 
                                 if sec_res.get("backed_up_files"):
                                     self._record_backup_manifest(game_id, sec_res["backed_up_files"])
+                                    for bf in sec_res["backed_up_files"]:
+                                        self._record_modded_state(game_id, bf.get("target_file"), bf.get("relative_in_game"))
 
                                 set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
                                 return {
@@ -4271,6 +4851,17 @@ class ModManagerAPI:
 
     def uninstall_mod(self, game_id):
         """Safely remove the mod, restoring the game to pristine English from in-place .congu_bak safe backup"""
+        if not _MOD_OP_LOCK.acquire(blocking=False):
+            return {
+                "success": False,
+                "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
+            }
+        try:
+            return self._uninstall_mod_impl(game_id)
+        finally:
+            _MOD_OP_LOCK.release()
+
+    def _uninstall_mod_impl(self, game_id):
         set_progress(20, "Đang gỡ bỏ bản Việt hóa...", status="running", game_id=game_id, operation="uninstall")
 
         with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
@@ -4435,6 +5026,17 @@ class ModManagerAPI:
         Chỉ chạy khi người dùng chủ động bấm yêu cầu trên UI.
         Quét đệ quy toàn bộ thư mục game để tìm mọi file .congu_bak và khôi phục về file gốc ban đầu.
         """
+        if not _MOD_OP_LOCK.acquire(blocking=False):
+            return {
+                "success": False,
+                "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
+            }
+        try:
+            return self._emergency_restore_game_impl(game_id)
+        finally:
+            _MOD_OP_LOCK.release()
+
+    def _emergency_restore_game_impl(self, game_id):
         set_progress(10, "Đang bắt đầu quét khôi phục gốc khẩn cấp...", status="running", game_id=game_id, operation="restore")
         try:
             with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
@@ -5000,7 +5602,7 @@ def verify_session_token():
     Blocks unauthorized external websites, browser tabs, or malicious local processes
     from calling /api/ endpoints. Only requests bearing the valid per-session Auth-Token are permitted.
     """
-    if request.path.startswith("/api/covers/"):
+    if request.path.startswith("/api/covers/") or request.path.startswith("/api/game/poster_preview"):
         return
     if request.path.startswith("/api/"):
         token = request.headers.get("X-App-Auth-Token") or request.query.get("token")
@@ -5094,19 +5696,35 @@ def api_game_remap():
     game_id = data.get("game_id", "")
     target_appid = str(data.get("steam_appid", "")).strip()
     target_title = data.get("title", "").strip()
-    
-    if not game_id or not target_appid:
+    avatar_url = data.get("avatar_url", "").strip()
+
+    if not game_id:
         response.status = 400
-        return json.dumps({"success": False, "message": "Thiếu game_id hoặc steam_appid"})
-    
+        return json.dumps({"success": False, "message": "Thiếu game_id"})
+
     res = api_instance.apply_selected_avatar(game_id, {
-        "steam_appid": target_appid,
+        "steam_appid": target_appid if target_appid.isdigit() else "",
         "title": target_title,
-        "avatar_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg",
-        "header_url": f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/header.jpg"
+        "source": data.get("source", ""),
+        "avatar_url": avatar_url or (f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/library_600x900.jpg" if target_appid.isdigit() else ""),
+        "header_url": data.get("header_url") or (f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{target_appid}/header.jpg" if target_appid.isdigit() else "")
     })
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/game/poster_preview", method="GET")
+def api_game_poster_preview():
+    """Proxy chuyển đổi mọi ảnh banner ngang thành Poster dọc 600x900 Glassmorphism không bị cắt chữ."""
+    img_url = (request.query.get("url") or "").strip()
+    if not img_url:
+        abort(404)
+    raw = steam_direct_request(img_url, timeout=4.0)
+    if not raw or len(raw) < 500:
+        abort(404)
+    formatted = make_vertical_poster(raw)
+    response.content_type = "image/jpeg"
+    response.set_header("Cache-Control", "public, max-age=86400")
+    return formatted
 
 @server_app.route("/api/games", method="GET")
 def api_get_games():

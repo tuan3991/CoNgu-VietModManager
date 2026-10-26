@@ -26,5 +26,11 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Release ZIPs
+# Release ZIPs & Large Packages
 *.zip
+*.congu
+scratch/
+batches_dir/
+dist_mods/
+raw_strings.json
+*.ttf

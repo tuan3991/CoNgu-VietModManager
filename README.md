@@ -5,8 +5,7 @@
 ---
 
 ## 📂 Kho Lưu Trữ Bản Dịch (Repository)
-Toàn bộ các gói mod Việt hóa của bạn được lưu trữ tập trung tại:
-👉 **`C:\Users\tuan3\Documents\antigravity google\Viethoagame`**
+👉 **`%USERPROFILE%\Documents\Viethoagame`** (hoặc tùy chỉnh qua nút "Chọn Thư Mục Kho" trên thanh công cụ)
 
 ---
 

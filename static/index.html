@@ -428,7 +428,7 @@
             <span class="brand-slashes">//</span>
             <span class="brand-name">CỔ NGỮ</span>
           </h1>
-          <span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85] shadow-[2px_2px_0px_#05050a] tracking-wider">PRO v2.0.2</span>
+          <span class="font-pixel text-[11px] font-bold px-2.5 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85] shadow-[2px_2px_0px_#05050a] tracking-wider">PRO v2.0.3</span>
         </div>
         <p class="text-xs text-slate-400 font-mono tracking-tight">Hệ Thống Quản Lý & Tự Động Cài Đặt Game Việt Hóa</p>
       </div>
@@ -1160,7 +1160,7 @@
 
   <!-- FOOTER (CYBER-PIXEL ARCADE) -->
   <footer class="mt-auto border-t border-[#00F0FF]/20 py-4 px-6 text-center text-xs text-slate-400 font-pixel tracking-wider bg-[#080914]/90 relative z-10">
-    <span class="text-[#00F0FF]">CỔ NGỮ</span> <span class="text-[#FF2A85]">v2.0.2</span> &bull; <span class="text-slate-400">CYBER-PIXEL NIGHT CITY ARCADE</span> &bull; <span class="text-[#00FF9D]">ONLINE</span>
+    <span class="text-[#00F0FF]">CỔ NGỮ</span> <span class="text-[#FF2A85]">v2.0.3</span> &bull; <span class="text-slate-400">CYBER-PIXEL NIGHT CITY ARCADE</span> &bull; <span class="text-[#00FF9D]">ONLINE</span>
   </footer>
 
   <script>
@@ -1255,8 +1255,11 @@
           fetch('/api/repo_dir')
         ]);
         gamesList = await resGames.json();
-        const repoData = await resRepo.json();
-        document.getElementById('repoPathDisplay').innerText = repoData.repo_dir || 'C:\\Users\\tuan3\\Documents\\antigravity google\\Viethoagame';
+        try {
+          const repoData = await resRepo.json();
+          const rEl = document.getElementById('repoPathDisplay');
+          if (rEl) rEl.innerText = (repoData && repoData.repo_dir) || 'Chưa thiết lập kho bản dịch';
+        } catch (_) {}
         updateUI();
       } catch (err) {
         console.error('Lỗi nạp dữ liệu:', err);
@@ -2632,10 +2635,28 @@
 
         grid.innerHTML = cachedCandidates.map((item, idx) => {
           const isCongu = item.source === 'congu_db';
-          const badgeClass = isCongu 
-            ? 'bg-[#FF2A85] text-white border border-[#FF2A85]/60' 
-            : 'bg-[#00F0FF] text-black border border-[#00F0FF]/60';
-          const badgeText = isCongu ? 'KHO CỔ NGỮ' : 'STEAM STORE';
+          const isSteamGrid = item.source === 'steamgriddb';
+
+          let badgeClass = 'bg-[#00F0FF] text-black border border-[#00F0FF]/60';
+          let badgeText = 'STEAM STORE';
+          let borderHoverClass = 'hover:border-[#00F0FF] hover:shadow-[0_4px_16px_rgba(0,240,255,0.25)]';
+          let btnClass = 'bg-[#00F0FF] text-black';
+          let subtitleClass = 'text-cyan-400';
+
+          if (isCongu) {
+            badgeClass = 'bg-[#FF2A85] text-white border border-[#FF2A85]/60';
+            badgeText = 'KHO CỔ NGỮ';
+            borderHoverClass = 'hover:border-[#FF2A85] hover:shadow-[0_4px_16px_rgba(255,42,133,0.3)]';
+            btnClass = 'bg-[#FF2A85] text-white';
+            subtitleClass = 'text-pink-400';
+          } else if (isSteamGrid) {
+            badgeClass = 'bg-[#B026FF] text-white border border-[#B026FF]/70 shadow-[0_0_8px_rgba(176,38,255,0.5)]';
+            badgeText = 'STEAMGRIDDB';
+            borderHoverClass = 'hover:border-[#B026FF] hover:shadow-[0_4px_16px_rgba(176,38,255,0.35)]';
+            btnClass = 'bg-[#B026FF] text-white';
+            subtitleClass = 'text-purple-400';
+          }
+
           const posterUrl = item.avatar_url || item.header_url || item.capsule || '';
           const headerFallback = item.header_url || (item.steam_appid ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.steam_appid}/header.jpg` : '');
           const capsuleFallback = item.capsule || '';
@@ -2647,7 +2668,7 @@
 
           return `
             <div onclick="selectGameCandidate(${idx})" 
-                 class="group cursor-pointer bg-[#070914] border border-[#1e2340] hover:border-[#00F0FF] rounded-[2px] overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_4px_16px_rgba(0,240,255,0.25)] relative">
+                 class="group cursor-pointer bg-[#070914] border border-[#1e2340] ${borderHoverClass} rounded-[2px] overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-1 relative">
               <div class="aspect-[2/3] w-full bg-[#05060f] relative overflow-hidden flex items-center justify-center">
                 <!-- Crisp foreground image: full bleed 2:3 vertical poster preview -->
                 <img id="cand-fg-${idx}" 
@@ -2664,8 +2685,8 @@
                 </span>
 
                 <!-- Hover Overlay Chọn Mẫu Này -->
-                <div class="absolute inset-0 z-30 bg-[#00F0FF]/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 backdrop-blur-[1px]">
-                  <span class="pixel-btn bg-[#00F0FF] text-black text-[11px] font-bold px-3 py-1.5 rounded-[2px] shadow-[2px_2px_0px_#000] flex items-center space-x-1">
+                <div class="absolute inset-0 z-30 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 backdrop-blur-[1px]">
+                  <span class="pixel-btn ${btnClass} text-[11px] font-bold px-3 py-1.5 rounded-[2px] shadow-[2px_2px_0px_#000] flex items-center space-x-1">
                     <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>
                     <span>Chọn Mẫu Này</span>
                   </span>
@@ -2673,7 +2694,7 @@
               </div>
               <div class="p-2.5 bg-[#0b0d1e] border-t border-[#1a1e38] flex-1 flex flex-col justify-between">
                 <div class="text-xs font-bold text-white group-hover:text-[#00F0FF] truncate leading-tight" title="${safeTitle}">${item.title}</div>
-                <div class="text-[10px] text-cyan-400 font-mono truncate mt-1">${safeSubtitle}</div>
+                <div class="text-[10px] ${subtitleClass} font-mono truncate mt-1">${safeSubtitle}</div>
               </div>
             </div>
           `;
@@ -2711,12 +2732,13 @@
           showToast(res.message || 'Đã áp dụng ảnh bìa thành công!', 'success');
           closeAvatarPicker();
 
+          const newImgUrl = res.local_cover || res.avatar_url;
           // 1. Cập nhật ngay lập tức ảnh trên thẻ game ngoài giao diện
           const cardEl = document.querySelector(`[data-game-id="${targetId}"]`);
           if (cardEl) {
             const cardImg = cardEl.querySelector('img');
-            if (cardImg && res.avatar_url) {
-              cardImg.src = res.avatar_url;
+            if (cardImg && newImgUrl) {
+              cardImg.src = newImgUrl;
               cardImg.dataset.fallback = '0';
               cardImg.style.display = '';
             }

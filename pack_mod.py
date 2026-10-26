@@ -35,6 +35,12 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
+# Nạp pack_security (module đóng gói chuyên dụng của Developer)
+try:
+    import pack_security
+except Exception:
+    pack_security = None
+
 # Ưu tiên nạp trực tiếp security.py (nếu đang ở môi trường Dev) để tránh nạp nhầm bản .pyd cũ chưa biên dịch lại
 import importlib.util
 
@@ -290,7 +296,8 @@ def pack_mod(
 
         # Bước 2: Mã hóa sang định dạng .congu
         print(f"{Colors.CYAN}[2/4] Đang mã hóa bảo mật container .congu (Zero-Leakage Streaming)...{Colors.ENDC}")
-        out_bytes = security.encrypt_mod_package(
+        encrypt_func = pack_security.encrypt_mod_package if pack_security else security.encrypt_mod_package
+        out_bytes = encrypt_func(
             zip_to_encrypt,
             output_congu_path,
             version=version,
