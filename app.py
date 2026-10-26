@@ -5648,6 +5648,7 @@ def serve_index():
             print(f"Error serving index.html with session token: {e}")
     return static_file("index.html", root=STATIC_DIR)
 
+@server_app.route("/favicon.ico")
 @server_app.route("/app_icon.ico")
 def serve_app_icon():
     return static_file("app_icon.ico", root=STATIC_DIR)
@@ -6114,7 +6115,7 @@ def apply_titlebar_icon(window, ico_path):
             except Exception as e:
                 pass
 
-        # 2. Native Win32 WM_SETICON for Title Bar (16x16) and Taskbar (32x32)
+        # 2. Native Win32 WM_SETICON for Title Bar and Taskbar / Startbar
         import ctypes
         IMAGE_ICON = 1
         LR_LOADFROMFILE = 0x00000010
@@ -6123,8 +6124,13 @@ def apply_titlebar_icon(window, ico_path):
         ICON_BIG = 1
         
         user32 = ctypes.windll.user32
-        hicon_small = user32.LoadImageW(None, os.path.abspath(ico_path), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
-        hicon_big = user32.LoadImageW(None, os.path.abspath(ico_path), IMAGE_ICON, 32, 32, LR_LOADFROMFILE)
+        cx_small = user32.GetSystemMetrics(49) or 16  # SM_CXSMICON
+        cy_small = user32.GetSystemMetrics(50) or 16  # SM_CYSMICON
+        cx_big = user32.GetSystemMetrics(11) or 32     # SM_CXICON
+        cy_big = user32.GetSystemMetrics(12) or 32     # SM_CYICON
+
+        hicon_small = user32.LoadImageW(None, os.path.abspath(ico_path), IMAGE_ICON, cx_small, cy_small, LR_LOADFROMFILE)
+        hicon_big = user32.LoadImageW(None, os.path.abspath(ico_path), IMAGE_ICON, cx_big, cy_big, LR_LOADFROMFILE)
         
         hwnd = None
         if hasattr(window, 'native') and window.native and hasattr(window.native, 'Handle'):
@@ -6265,6 +6271,14 @@ def create_http_server():
 
 def main():
     global SERVER_PORT, HTTP_SERVER
+
+    # Gán AppID độc lập cho Windows Taskbar / Startbar để hiển thị biểu tượng riêng của ứng dụng
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("congu.vietmodhub.launcher.v2")
+        except Exception:
+            pass
 
     # 1. Khởi tạo HTTP Server
     HTTP_SERVER = create_http_server()
