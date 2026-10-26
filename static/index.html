@@ -1557,17 +1557,17 @@
 
         let statusBadgeHtml = '';
         if (game.status_code === 'INSTALLED') {
-          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-emerald-400 border border-emerald-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><span class="w-1.5 h-1.5 rounded-[1px] bg-emerald-400/80 inline-block shrink-0"></span><span>Đã Cài Đặt</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-emerald-400 border border-emerald-500/40 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0 shadow-[0_0_6px_#10B981]"></span><span>Đã Cài Đặt</span></span>`;
         } else if (game.status_code === 'UPDATE_DETECTED') {
-          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-amber-500/25 backdrop-blur-sm text-amber-300 border border-amber-400/80 flex items-center space-x-1.5 tracking-wide shadow-sm"><span class="w-1.5 h-1.5 rounded-[1px] bg-amber-400 inline-block animate-pulse"></span><span>⚠️ Mất Việt Hóa</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-amber-300 border border-amber-400/60 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse shadow-[0_0_6px_#F59E0B]"></span><span>⚠️ Mất Việt Hóa</span></span>`;
         } else if (game.status_code === 'GAME_MISSING') {
-          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-pink-400/90 border border-pink-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="folder-x" class="w-3.5 h-3.5 text-pink-400/80"></i><span>Chưa Có Game</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-pink-400 border border-pink-500/40 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="folder-x" class="w-3.5 h-3.5 text-pink-400"></i><span>Chưa Có Game</span></span>`;
         } else {
-          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-amber-400/90 border border-amber-500/35 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="arrow-down-circle" class="w-3.5 h-3.5 text-amber-400/80"></i><span>Chưa Cài Mod</span></span>`;
+          statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-amber-400 border border-amber-500/40 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="arrow-down-circle" class="w-3.5 h-3.5 text-amber-400"></i><span>Chưa Cài Mod</span></span>`;
         }
 
         const noteBadgeHtml = game.important_note 
-          ? `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-rose-400 border border-rose-500/40 flex items-center space-x-1.5 tracking-wide shadow-sm"><i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i><span>Lưu Ý</span></span>` 
+          ? `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-rose-400 border border-rose-500/50 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i><span>Lưu Ý</span></span>` 
           : '';
 
         card.innerHTML = `
@@ -1590,13 +1590,14 @@
             <button 
               onclick="event.stopPropagation(); openAvatarPicker('${game.id}', '${(game.title || '').replace(/'/g, "\\'")}')"
               title="Sai hoặc thiếu ảnh bìa? Bấm để tìm & chọn lại game"
-              class="opacity-75 hover:opacity-100 group-hover:opacity-100 transition-all duration-200 absolute top-2 right-2 z-30 bg-[#070814]/90 hover:bg-[#00F0FF] hover:text-black text-[#00F0FF] p-1.5 rounded-[2px] border border-[#00F0FF]/50 backdrop-blur-sm shadow-[2px_2px_0px_#05050a] flex items-center justify-center">
+              class="opacity-75 hover:opacity-100 group-hover:opacity-100 transition-all duration-200 absolute top-2 right-2 z-30 bg-[#070814]/80 hover:bg-[#00F0FF] hover:text-black text-[#00F0FF] p-1.5 rounded-[4px] border border-white/20 hover:border-[#00F0FF] shadow-[0_2px_8px_rgba(0,0,0,0.5)] flex items-center justify-center"
+              style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
               <i data-lucide="image-plus" class="w-3.5 h-3.5"></i>
             </button>
 
             <!-- Top Badges on Poster (Tối màu, tinh tế, hòa hợp với game) -->
             <div class="absolute top-2.5 left-2.5 right-9 flex items-center justify-between z-10 pointer-events-none">
-              <span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[2px] bg-[#070814]/80 backdrop-blur-sm text-slate-300 border border-white/20 tracking-wide shadow-sm">${getPrimaryGenreTag(game)}</span>
+              <span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-slate-200 border border-white/20 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">${getPrimaryGenreTag(game)}</span>
               <div class="flex items-center space-x-1.5">
                 ${noteBadgeHtml}
                 ${statusBadgeHtml}
