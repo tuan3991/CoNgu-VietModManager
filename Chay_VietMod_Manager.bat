@@ -4,6 +4,9 @@ chcp 65001 >nul
 title CO NGU - Trinh Quan Ly Game Viet Hoa Pro
 cd /d "%~dp0"
 
+:: Tu dong go co Mark-of-the-Web (ZoneId) de chong Windows SmartScreen canh bao
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%~dp0' -Recurse | Unblock-File" >nul 2>nul
+
 echo ========================================================
 echo        // CO NGU v2.0 - KHO GAME VIET HOA
 echo ========================================================
