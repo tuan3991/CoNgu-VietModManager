@@ -646,10 +646,20 @@
       </button>
 
       <!-- Modal Header Banner -->
-      <div class="relative h-52 bg-[#090a17] overflow-hidden flex items-end p-6">
-        <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30"></div>
+      <div class="relative h-52 bg-[#090a17] overflow-hidden flex items-end p-6 group">
+        <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30 transition-transform duration-500 group-hover:scale-105"></div>
         <div class="absolute inset-0 bg-gradient-to-t from-[#0e0f22] via-[#0e0f22]/70 to-transparent"></div>
-        <div class="crt-overlay"></div>
+        <div class="crt-overlay pointer-events-none"></div>
+
+        <!-- Nút Đổi Ảnh Bìa: Hiển thị ở góc trên khi di chuột vào ảnh bìa banner -->
+        <button 
+          onclick="openAvatarPicker(activeModalGameId)"
+          title="Đổi ảnh bìa hoặc tìm lại game từ Steam Store / Tải ảnh từ máy"
+          class="opacity-0 group-hover:opacity-100 transition-all duration-200 absolute top-4 right-14 z-40 bg-[#070814]/85 hover:bg-[#00F0FF] hover:text-black text-[#00F0FF] px-3 py-1.5 rounded-[4px] border border-white/20 hover:border-[#00F0FF] shadow-[0_2px_8px_rgba(0,0,0,0.6)] flex items-center space-x-1.5 text-xs font-sans font-medium cursor-pointer"
+          style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+          <i data-lucide="image-plus" class="w-3.5 h-3.5"></i>
+          <span>Đổi Ảnh Bìa</span>
+        </button>
 
         <div class="relative z-10 space-y-1">
           <div class="flex items-center space-x-2 flex-wrap gap-y-1">
@@ -744,19 +754,14 @@
                 id="modalPathInput" 
                 type="text" 
                 readonly 
-                class="flex-1 px-3.5 py-2 bg-white/[0.03] border border-white/10 rounded-[6px] text-xs text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF]/60 transition-colors"
+                title="Đường dẫn game trên máy tính (Nhấp để chọn toàn bộ, nhấp đúp để mở thư mục)"
+                onclick="this.select()"
+                ondblclick="if(activeModalGameId) openGameFolder(activeModalGameId)"
+                class="flex-1 px-3.5 py-2 bg-white/[0.03] border border-white/10 rounded-[6px] text-xs text-slate-200 font-mono focus:outline-none focus:border-[#00F0FF]/60 transition-colors cursor-text"
               />
-              <button onclick="chooseFolderForActiveGame()" class="pixel-btn btn-neon-cyan px-3.5 py-2 text-xs flex items-center space-x-1.5 rounded-[6px]">
+              <button onclick="chooseFolderForActiveGame()" class="pixel-btn btn-neon-cyan px-4 py-2 text-xs flex items-center space-x-1.5 rounded-[6px] shrink-0 font-bold" title="Chọn thư mục cài đặt game trên máy tính">
                 <i data-lucide="folder-search" class="w-4 h-4 stroke-[2.5]"></i>
                 <span>Chọn Thư Mục</span>
-              </button>
-              <button onclick="changeGameCover(activeModalGameId)" class="pixel-btn bg-white/[0.04] text-slate-300 hover:text-[#00F0FF] hover:bg-white/[0.08] border border-white/10 hover:border-[#00F0FF]/50 px-3 py-2 text-xs flex items-center space-x-1.5 rounded-[6px] transition-all" title="Chọn ảnh bìa poster tùy chỉnh từ máy tính">
-                <i data-lucide="upload" class="w-4 h-4 text-[#00F0FF]"></i>
-                <span class="hidden sm:inline">Đổi Ảnh Bìa</span>
-              </button>
-              <button onclick="openAvatarPicker(activeModalGameId)" class="pixel-btn bg-white/[0.04] text-slate-300 hover:text-[#00FF9D] hover:bg-white/[0.08] border border-white/10 hover:border-[#00FF9D]/50 px-3 py-2 text-xs flex items-center space-x-1.5 rounded-[6px] transition-all" title="Tìm và chọn lại game từ Steam Store / Kho CỔ NGỮ để sửa đúng Poster">
-                <i data-lucide="image-plus" class="w-4 h-4 text-[#00FF9D]"></i>
-                <span class="hidden sm:inline">Tìm & Chọn lại game</span>
               </button>
             </div>
             <!-- Admin Permission Required Warning Banner (Early Smart UAC Warning) -->
