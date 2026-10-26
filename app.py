@@ -5518,10 +5518,18 @@ class ModManagerAPI:
                 "message": "Không thể thoát ứng dụng khi đang thực thi cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ tiến trình hoàn tất để tránh làm hỏng tệp game."
             }
 
-        def _delayed_exit():
-            time.sleep(0.12)
+        # 1. Hủy cửa sổ giao diện ngay lập tức
+        if self.window:
+            try:
+                self.window.destroy()
+            except Exception:
+                pass
+
+        # 2. Thoát tiến trình ngay lập tức
+        def _instant_exit():
+            time.sleep(0.05)
             os._exit(0)
-        threading.Thread(target=_delayed_exit, daemon=True).start()
+        threading.Thread(target=_instant_exit, daemon=True).start()
         return {"success": True}
 
     def minimize_window(self):

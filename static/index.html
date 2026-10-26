@@ -3607,33 +3607,35 @@
       }
     }
 
-    // Thoat hoan toan ung dung (Tat di la tat han - 1-Click Instant Exit)
-    async function quitApp() {
+    // Thoat hoan toan ung dung ngay lap tuc (Instant Zero-Latency Exit)
+    function quitApp() {
       if (typeof progressInterval !== 'undefined' && progressInterval) {
         showToast('Đang trong quá trình cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ hoàn tất để không làm hỏng tệp game.', 'error');
         return;
       }
+
+      // 1. An toan bo giao dien ngay lap tuc (0ms Visual Feedback)
+      document.body.style.display = 'none';
+
+      // 2. Gui lenh tat toi PyWebView native window
       if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.quit_app === 'function') {
         try {
-          const res = await window.pywebview.api.quit_app();
-          if (res && res.success === false) {
-            showToast(res.message || 'Không thể thoát ứng dụng lúc này.', 'error');
-            return;
-          }
+          window.pywebview.api.quit_app();
         } catch (e) {}
       }
+
+      // 3. Gui lenh tat backend qua sendBeacon / fetch khong block
+      const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
       try {
-        const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
-        const res = await fetch(quitUrl, { method: 'POST' });
-        if (res && res.status === 409) {
-          const errData = await res.json();
-          showToast(errData.message || 'Đang cài đặt mod, không thể thoát!', 'error');
-          return;
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(quitUrl);
+        } else {
+          fetch(quitUrl, { method: 'POST', keepalive: true }).catch(() => {});
         }
       } catch (e) {}
-      setTimeout(() => {
-        window.close();
-      }, 50);
+
+      // 4. Dong cua so ngay lap tuc
+      window.close();
     }
 
     // Khi nguoi dung dong cua so / tab, tu dong gui tin hieu tat sach tien trinh
