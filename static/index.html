@@ -143,6 +143,21 @@
       background: #FF2A85 !important;
     }
 
+    /* Sidebar Custom Cyber Scrollbar (Steam Style) */
+    .custom-sidebar-scroll::-webkit-scrollbar {
+      width: 4px !important;
+    }
+    .custom-sidebar-scroll::-webkit-scrollbar-track {
+      background: rgba(7, 8, 20, 0.4) !important;
+    }
+    .custom-sidebar-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.35) !important;
+      border-radius: 2px !important;
+    }
+    .custom-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+      background: #00F0FF !important;
+    }
+
     /* Modal Action Buttons - Single Line No Wrap (Fix 4) */
     .modal-action-btn {
       white-space: nowrap !important;
@@ -456,8 +471,14 @@
 
     <!-- Right Actions: App Quick Features & Windows Standard Titlebar Controls -->
     <div class="flex items-center space-x-3 no-drag">
-      <!-- App Functional Buttons (Làm Mới, Yêu cầu game) -->
+      <!-- App Functional Buttons (Thư Viện, Làm Mới, Yêu cầu game, Hồ Sơ) -->
       <div class="flex items-center space-x-2">
+        <!-- Steam-like Library Sidebar Toggle -->
+        <button id="btnToggleSidebar" onclick="toggleSidebar()" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-[#00F0FF]/40 bg-[#0e1022] text-[#00F0FF] hover:bg-[#151933] transition shadow-[2px_2px_0px_#05050a]" title="Bật/Tắt Cột Danh Sách Game bên trái (Steam Library)">
+          <i data-lucide="layout-sidebar" class="w-3.5 h-3.5"></i>
+          <span class="hidden md:inline font-bold">Thư Viện</span>
+        </button>
+
         <button onclick="refreshData()" class="pixel-btn btn-neon-cyan px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px]" title="Quét và làm mới danh sách game mới nhất">
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           <span class="hidden sm:inline font-bold">Làm Mới</span>
@@ -466,13 +487,6 @@
         <button onclick="openGameRequestModal()" class="pixel-btn btn-cyber-magenta px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px]" title="Gửi yêu cầu dịch game mới">
           <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
           <span class="hidden lg:inline">Yêu cầu game</span>
-        </button>
-
-        <!-- Google Drive Cloud Ecosystem Button -->
-        <button id="btnGdriveCloud" onclick="openCloudModal()" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/50 bg-[#061712]/90 text-emerald-400 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[2px_2px_0px_#05050a]" title="Quản lý Google Drive Cloud Save & Đồng bộ dữ liệu">
-          <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
-          <span id="gdriveStatusText" class="hidden md:inline font-bold">Cloud Save</span>
-          <span id="gdriveStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5 hidden"></span>
         </button>
 
         <!-- Single-File Portable Vault (.congu_save) Button -->
@@ -549,8 +563,84 @@
     </div>
   </div>
 
-  <!-- MAIN CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6 relative z-10">
+  <!-- APP WORKSPACE LAYOUT: STEAM-STYLE LEFT SIDEBAR + MAIN CONTENT AREA -->
+  <div class="flex-1 flex w-full relative z-10 overflow-hidden items-stretch" style="min-height: calc(100vh - 105px);">
+
+    <!-- STEAM-STYLE LEFT SIDEBAR (GAME LIBRARY LIST) -->
+    <aside id="librarySidebar" class="w-64 lg:w-72 shrink-0 bg-[#070817]/95 border-r border-[#00F0FF]/20 flex flex-col backdrop-blur-md transition-all duration-200 select-none z-20">
+      
+      <!-- Sidebar Top Header -->
+      <div class="p-3 border-b border-white/10 space-y-2.5 bg-[#090b1c]/80">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="gamepad-2" class="w-4 h-4 text-[#00F0FF]"></i>
+            <span class="font-display text-xs font-bold tracking-wider text-slate-200 uppercase">THƯ VIỆN GAME</span>
+          </div>
+          <button onclick="toggleSidebar()" class="pixel-btn p-1 text-slate-400 hover:text-white bg-[#14162e] border border-white/10 rounded-[2px]" title="Thu gọn danh sách bên trái">
+            <i data-lucide="chevrons-left" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Tab Switcher: Đã Cài vs Tất Cả -->
+        <div class="flex items-center p-0.5 rounded-[2px] bg-[#070814] border border-[#00F0FF]/30 text-xs">
+          <button id="sidebarTabInstalled" onclick="setSidebarFilter('installed')" class="flex-1 py-1 px-1.5 text-center text-xs font-bold font-display rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50 transition">
+            Đã Cài (<span id="sidebarInstalledTabCount">0</span>)
+          </button>
+          <button id="sidebarTabAll" onclick="setSidebarFilter('all')" class="flex-1 py-1 px-1.5 text-center text-xs font-bold font-display rounded-[2px] text-slate-400 hover:text-white transition">
+            Tất Cả (<span id="sidebarAllTabCount">0</span>)
+          </button>
+        </div>
+
+        <!-- Filter & Search Toolbar (Steam Style) -->
+        <div class="flex items-center space-x-1.5">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+            <input 
+              id="sidebarSearchInput" 
+              type="text" 
+              placeholder="Lọc nhanh tên game..." 
+              oninput="sidebarQuery = this.value; renderSidebar();"
+              class="w-full pl-7 pr-6 py-1 bg-[#0e1022] border border-white/15 rounded-[2px] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] transition" 
+            />
+          </div>
+
+          <!-- Steam-like Ready to Play Toggle Button -->
+          <button id="sidebarOnlyInstalledBtn" onclick="toggleSidebarInstalledOnly()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-400 hover:text-[#00FF9D] border border-[#2b2f52] rounded-[2px] shrink-0" title="Chỉ hiện game Đã Cài Việt Hóa (Sẵn sàng chơi)">
+            <i data-lucide="play" class="w-3 h-3"></i>
+          </button>
+
+          <!-- Sort Button -->
+          <button id="sidebarSortBtn" onclick="toggleSidebarSort()" class="pixel-btn p-1.5 bg-[#17192e] text-slate-400 hover:text-[#00F0FF] border border-[#2b2f52] rounded-[2px] shrink-0" title="Sắp xếp: Tên A-Z / Giờ chơi gần đây">
+            <i data-lucide="arrow-down-a-z" class="w-3 h-3"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sidebar Game Items List (Custom Cyber Scroll) -->
+      <div id="sidebarGamesList" class="flex-1 overflow-y-auto px-1.5 py-2 space-y-0.5 custom-sidebar-scroll">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Sidebar Footer Info -->
+      <div class="p-2 border-t border-white/10 bg-[#070814]/90 flex items-center justify-between text-[11px] font-pixel text-slate-400">
+        <span class="flex items-center space-x-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00FF9D]"></span>
+          <span>Chơi ngay: <strong id="sidebarReadyCount" class="text-[#00FF9D]">0</strong></span>
+        </span>
+        <button onclick="refreshData()" class="text-slate-400 hover:text-[#00F0FF] flex items-center space-x-1" title="Quét lại thư viện máy tính">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+          <span>Quét lại</span>
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- MAIN SCROLLABLE CONTENT (HERO + GRID + DETAIL VIEW) -->
+    <main id="mainScrollContainer" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-w-0">
+      <div class="w-full space-y-6">
+
+        <!-- VIEW 1: BROWSE CATALOG GRID VIEW -->
+        <div id="viewBrowseGrid" class="space-y-6">
 
     <!-- HERO SPOTLIGHT BANNER (CYBER-PIXEL ARCADE FRAME WITH CRT SCANLINES) -->
     <div id="heroBanner" onmouseenter="isHeroHovered = true" onmouseleave="isHeroHovered = false" class="relative rounded-[2px] overflow-hidden hero-arcade-frame bg-[#0d0e1f] min-h-[320px] flex items-end p-8 transition-all duration-500">
@@ -656,22 +746,46 @@
       <!-- Game Cards Generated Dynamically via JS -->
     </div>
 
-  </main>
+        </div> <!-- End viewBrowseGrid -->
 
-  <!-- MODAL: GAME DETAILS & SETTINGS (CYBER-PIXEL ARCADE MODAL) -->
-  <div id="gameModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-opacity">
-    <div class="relative w-full max-w-3xl pixel-modal overflow-hidden flex flex-col max-h-[92vh]">
-      
-      <!-- Modal Close Button (Fix 1: position: absolute; top: 16px; right: 16px; z-index: 50) -->
-      <button onclick="closeGameModal()" class="pixel-btn p-1.5 bg-[#0e0f22]/95 hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/60 shadow-[2px_2px_0px_#05050a] transition cursor-pointer" style="position: absolute !important; top: 16px !important; right: 16px !important; z-index: 50 !important;" title="Đóng cửa sổ">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
+        <!-- VIEW 2: GAME DETAIL VIEW (FULL-WIDTH EMBEDDED ON RIGHT PANEL) -->
+        <div id="viewGameDetail" class="hidden space-y-4 w-full">
+          <!-- Top Breadcrumb & Action Toolbar -->
+          <div class="flex items-center justify-between p-2.5 rounded-[2px] bg-[#0c0e22]/90 border border-[#00F0FF]/30 backdrop-blur-md">
+            <div class="flex items-center space-x-3 text-xs">
+              <button onclick="switchToGridView()" class="pixel-btn btn-neon-cyan px-3 py-1.5 flex items-center space-x-1.5 font-bold" title="Quay lại danh sách lưới toàn bộ game">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                <span>← Quay Lại Kho Game</span>
+              </button>
+              <span class="text-slate-500 font-pixel">/</span>
+              <span id="detailBreadcrumbTitle" class="text-slate-200 font-display font-bold text-sm tracking-wide truncate max-w-md"></span>
+            </div>
 
-      <!-- Modal Header Banner -->
-      <div class="relative h-52 bg-[#090a17] overflow-hidden flex items-end p-6 group">
-        <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30 transition-transform duration-500 group-hover:scale-105"></div>
-        <div class="absolute inset-0 bg-gradient-to-t from-[#0e0f22] via-[#0e0f22]/70 to-transparent"></div>
-        <div class="crt-overlay pointer-events-none"></div>
+            <div class="flex items-center space-x-2">
+              <button onclick="openAvatarPicker(activeModalGameId)" class="pixel-btn px-2.5 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#00F0FF] text-xs flex items-center space-x-1.5" title="Đổi ảnh bìa từ Steam Store hoặc ảnh trên máy">
+                <i data-lucide="image-plus" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+                <span class="hidden sm:inline font-bold">Đổi Ảnh Bìa</span>
+              </button>
+              <button onclick="openGameFolder(activeModalGameId)" class="pixel-btn px-2.5 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#00FF9D] text-xs flex items-center space-x-1.5" title="Mở thư mục cài đặt game">
+                <i data-lucide="folder" class="w-3.5 h-3.5 text-[#00FF9D]"></i>
+                <span class="hidden sm:inline font-bold">Thư Mục Game</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- EMBEDDED GAME DETAIL PANEL (FORMER GAME MODAL) -->
+          <div id="gameModal" class="relative w-full pixel-modal overflow-hidden flex flex-col bg-[#0e0f22] border border-[#00F0FF]/35 shadow-[4px_4px_0px_#05050a] rounded-[2px]">
+            
+            <!-- Modal Close Button -->
+            <button onclick="closeGameModal()" class="pixel-btn p-1.5 bg-[#0e0f22]/95 hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/60 shadow-[2px_2px_0px_#05050a] transition cursor-pointer" style="position: absolute !important; top: 16px !important; right: 16px !important; z-index: 50 !important;" title="Quay lại kho game">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Modal Header Banner -->
+            <div class="relative h-64 sm:h-72 bg-[#090a17] overflow-hidden flex items-end p-6 sm:p-8 group">
+              <div id="modalBannerBg" class="absolute inset-0 bg-cover bg-center opacity-30 transition-transform duration-500 group-hover:scale-105"></div>
+              <div class="absolute inset-0 bg-gradient-to-t from-[#0e0f22] via-[#0e0f22]/70 to-transparent"></div>
+              <div class="crt-overlay pointer-events-none"></div>
 
         <!-- Nút Đổi Ảnh Bìa: Hiển thị ở góc trên khi di chuột vào ảnh bìa banner -->
         <button 
@@ -779,14 +893,23 @@
               </div>
             </div>
 
-            <!-- Nút bấm Chơi Ngay / Đang Chơi -->
-            <button 
-              id="modalPlayBtn"
-              onclick="launchGameFromHub(activeModalGameId)"
-              class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-emerald-900/30 transition-all shrink-0">
-              <i data-lucide="play" class="w-4 h-4 fill-current"></i>
-              <span>CHƠI NGAY</span>
-            </button>
+            <!-- Nút bấm Chơi Ngay & Cài Đặt Việt Hóa (Steam Style Quick Actions) -->
+            <div class="flex items-center gap-2.5 shrink-0">
+              <button 
+                id="modalTopInstallBtn"
+                onclick="toggleMod(activeModalGameId)"
+                class="pixel-btn btn-arcade-amber text-xs font-bold transition flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl shadow-lg shadow-amber-900/30">
+                <i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i>
+                <span>Cài Đặt Việt Hóa</span>
+              </button>
+              <button 
+                id="modalPlayBtn"
+                onclick="launchGameFromHub(activeModalGameId)"
+                class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-emerald-900/30 transition-all">
+                <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                <span>CHƠI NGAY</span>
+              </button>
+            </div>
           </div>
 
           <!-- Khối Tiến Độ & Danh Sách Thành Tựu Trong Trang Chi Tiết Game (Chuẩn Hydra Launcher / Achievement Watcher) -->
@@ -1165,9 +1288,12 @@
           </button>
         </div>
       </div>
+          </div> <!-- End #gameModal -->
+        </div> <!-- End #viewGameDetail -->
 
-    </div>
-  </div>
+      </div> <!-- End max-w-7xl mx-auto space-y-6 -->
+    </main>
+  </div> <!-- End APP WORKSPACE LAYOUT -->
 
   <!-- PROGRESS MODAL (Real-time Install/Restore Tracking - CYBER-PIXEL GAUGE) -->
   <div id="progressModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
@@ -1882,6 +2008,13 @@
     let selectedRating = 5;
     let progressInterval = null;
 
+    // Steam-Style Library Sidebar State
+    let sidebarFilter = 'installed'; // 'installed' | 'all'
+    let sidebarOnlyReady = false;    // chỉ hiện game INSTALLED
+    let sidebarQuery = '';
+    let sidebarSort = 'az';          // 'az' | 'recent'
+    let activeSidebarGameId = null;
+
     // Toast notification utility
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
@@ -1984,12 +2117,326 @@
       renderCounts();
       renderHero();
       renderGrid();
+      renderSidebar();
       startHeroAutoRotate();
       if (activeModalGameId) {
         const cur = gamesList.find(g => g.id === activeModalGameId);
         if (cur) openGameModal(cur.id);
       }
     }
+
+    // -------------------------------------------------------------
+    // Steam-Style Game Library Sidebar System
+    // -------------------------------------------------------------
+    function renderSidebar() {
+      const container = document.getElementById('sidebarGamesList');
+      if (!container) return;
+
+      let list = Array.isArray(gamesList) ? [...gamesList] : [];
+
+      // 1. Sidebar tab filter
+      if (sidebarFilter === 'installed') {
+        // Chỉ lấy các game đã nhận diện trên máy
+        list = list.filter(g => g.status_code === 'INSTALLED' || g.status_code === 'NOT_INSTALLED' || g.status_code === 'UPDATE_DETECTED');
+      }
+
+      // 2. Only ready-to-play toggle (Chỉ game Đã Cài Việt Hóa)
+      if (sidebarOnlyReady) {
+        list = list.filter(g => g.status_code === 'INSTALLED');
+      }
+
+      // 3. Search query
+      const q = sidebarQuery.trim();
+      if (q) {
+        const normQ = removeVietnameseTones(q);
+        list = list.filter(g => {
+          const t1 = removeVietnameseTones(g.title || '');
+          const t2 = removeVietnameseTones(g.vietnamese_title || '');
+          return t1.includes(normQ) || t2.includes(normQ);
+        });
+      }
+
+      // 4. Sort
+      if (sidebarSort === 'az') {
+        list.sort((a, b) => (a.title || a.vietnamese_title || '').localeCompare(b.title || b.vietnamese_title || ''));
+      } else if (sidebarSort === 'recent') {
+        list.sort((a, b) => {
+          const ta = (a.playtime && a.playtime.last_played) || 0;
+          const tb = (b.playtime && b.playtime.last_played) || 0;
+          return tb - ta;
+        });
+      }
+
+      // Counts for badges
+      const installedCount = gamesList.filter(g => g.status_code === 'INSTALLED' || g.status_code === 'NOT_INSTALLED' || g.status_code === 'UPDATE_DETECTED').length;
+      const readyCount = gamesList.filter(g => g.status_code === 'INSTALLED').length;
+      const allCount = gamesList.length;
+
+      const badgeInstalled = document.getElementById('sidebarInstalledTabCount');
+      if (badgeInstalled) badgeInstalled.innerText = installedCount;
+      const badgeAll = document.getElementById('sidebarAllTabCount');
+      if (badgeAll) badgeAll.innerText = allCount;
+      const badgeReady = document.getElementById('sidebarReadyCount');
+      if (badgeReady) badgeReady.innerText = readyCount;
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="py-10 px-3 text-center text-slate-500 space-y-2">
+            <i data-lucide="package-search" class="w-7 h-7 mx-auto text-slate-600"></i>
+            <p class="text-xs">Không có tựa game nào phù hợp</p>
+            ${sidebarFilter === 'installed' ? '<button onclick="setSidebarFilter(\'all\')" class="text-[11px] text-[#00F0FF] hover:underline font-bold">Xem tất cả kho game</button>' : ''}
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const groupInstalled = list.filter(g => g.status_code === 'INSTALLED');
+      const groupDetected = list.filter(g => g.status_code === 'NOT_INSTALLED' || g.status_code === 'UPDATE_DETECTED');
+      const groupMissing = list.filter(g => g.status_code === 'GAME_MISSING');
+
+      const isHomeActive = !activeModalGameId && !activeSidebarGameId;
+      let html = `
+        <div 
+          id="sidebarHomeRow"
+          onclick="switchToGridView()" 
+          class="sidebar-game-row flex items-center justify-between px-2.5 py-2 rounded-[2px] cursor-pointer transition-all duration-150 text-xs mb-2 border-b border-white/10 ${isHomeActive ? 'bg-[#00F0FF]/15 text-[#00F0FF] font-bold border-l-2 border-[#00F0FF]' : 'text-slate-300 hover:text-white hover:bg-[#12152b] border-l-2 border-transparent'}"
+          title="Xem trang chủ và kho lưới poster tất cả game"
+        >
+          <div class="flex items-center space-x-2">
+            <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+            <span class="font-display font-bold uppercase tracking-wider text-[11px]">Trang Chủ Kho Game</span>
+          </div>
+          <span class="text-[10px] font-pixel text-slate-400 bg-white/5 px-1.5 py-0.2 rounded font-bold">${allCount}</span>
+        </div>
+      `;
+
+      function buildGroup(title, items, iconName, colorClass) {
+        if (!items || items.length === 0) return '';
+        let s = `
+          <div class="mb-3">
+            <div class="flex items-center justify-between px-2 py-1 text-[10px] font-pixel font-bold tracking-wider uppercase ${colorClass}">
+              <span class="flex items-center space-x-1.5">
+                <i data-lucide="${iconName}" class="w-3 h-3"></i>
+                <span>${title} (${items.length})</span>
+              </span>
+            </div>
+            <div class="space-y-0.5 mt-0.5">
+        `;
+
+        items.forEach(game => {
+          const isActive = (activeSidebarGameId === game.id) || (!activeSidebarGameId && heroGameId === game.id);
+          const iconSrc = game.local_cover 
+            || (game.assets && game.assets.poster) 
+            || game.avatar_url 
+            || (game.steam_appid ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.steam_appid}/capsule_sm_120.jpg` : '/static/app_icon.png');
+
+          const isRunning = game.playtime && game.playtime.is_running;
+          let statusDot = '';
+          if (isRunning) {
+            statusDot = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_#f59e0b]" title="Đang chơi"></span>`;
+          } else if (game.status_code === 'INSTALLED') {
+            statusDot = `<span class="w-2 h-2 rounded-full bg-[#00FF9D] shadow-[0_0_6px_#00FF9D]" title="Đã cài Việt Hóa"></span>`;
+          } else if (game.status_code === 'UPDATE_DETECTED') {
+            statusDot = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping" title="Game vừa cập nhật - Cần cài lại"></span>`;
+          } else if (game.status_code === 'NOT_INSTALLED') {
+            statusDot = `<span class="w-2 h-2 rounded-full bg-[#00F0FF]/60" title="Có game trên máy - Sẵn sàng cài mod"></span>`;
+          } else {
+            statusDot = `<span class="w-1.5 h-1.5 rounded-full bg-slate-600" title="Chưa có game"></span>`;
+          }
+
+          const activeClasses = isActive 
+            ? 'bg-[#00F0FF]/15 text-white font-bold border-l-2 border-[#00F0FF] shadow-[inset_0_0_8px_rgba(0,240,255,0.15)]' 
+            : 'text-slate-300 hover:text-white hover:bg-[#12152b] border-l-2 border-transparent';
+
+          s += `
+            <div 
+              class="sidebar-game-row group flex items-center justify-between px-2 py-1.5 rounded-[2px] cursor-pointer transition-all duration-150 text-xs ${activeClasses}"
+              data-sidebar-game-id="${game.id}"
+              onclick="selectSidebarGame('${game.id}')"
+              ondblclick="selectSidebarGame('${game.id}')"
+              title="${escapeHtml(game.title)} - ${escapeHtml(game.vietnamese_title)}&#10;(Click: Xem chi tiết & Chơi game)"
+            >
+              <div class="flex items-center space-x-2 min-w-0 flex-1">
+                <img 
+                  src="${iconSrc}" 
+                  class="w-4 h-4 rounded-[2px] object-cover shrink-0 bg-[#070814] border border-white/10 group-hover:border-[#00F0FF]/50 transition" 
+                  onerror="this.src='/static/app_icon.png'" 
+                />
+                <span class="truncate block font-sans text-xs ${isActive ? 'text-[#00F0FF]' : 'group-hover:text-white'}">
+                  ${escapeHtml(game.title || game.vietnamese_title)}
+                </span>
+              </div>
+              <div class="flex items-center space-x-1 shrink-0 ml-1.5">
+                ${isRunning ? '<span class="text-[9px] text-amber-300 font-pixel font-bold mr-1 animate-pulse">CHƠI</span>' : ''}
+                ${statusDot}
+                ${game.status_code === 'INSTALLED' && !isRunning ? `
+                  <button 
+                    onclick="event.stopPropagation(); launchGame('${game.id}')" 
+                    class="opacity-0 group-hover:opacity-100 p-0.5 text-[#00FF9D] hover:bg-[#00FF9D]/20 rounded transition" 
+                    title="Chơi Ngay (Launch)"
+                  >
+                    <i data-lucide="play" class="w-3 h-3 fill-[#00FF9D]"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        s += `
+            </div>
+          </div>
+        `;
+        return s;
+      }
+
+      if (sidebarFilter === 'installed') {
+        html += buildGroup('Đã Cài Việt Hóa', groupInstalled, 'check-circle-2', 'text-[#00FF9D]');
+        html += buildGroup('Có Sẵn Trên Máy', groupDetected, 'folder-check', 'text-[#00F0FF]');
+      } else {
+        html += buildGroup('Đã Cài Việt Hóa', groupInstalled, 'check-circle-2', 'text-[#00FF9D]');
+        html += buildGroup('Có Sẵn Trên Máy', groupDetected, 'folder-check', 'text-[#00F0FF]');
+        html += buildGroup('Kho Bản Dịch (Chưa Tải Game)', groupMissing, 'cloud-download', 'text-slate-400');
+      }
+
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function selectSidebarGame(gameId) {
+      if (!gameId) {
+        switchToGridView();
+        return;
+      }
+      // Mở ngay trang chi tiết game phủ kín panel bên phải (Steam Library Experience)
+      openGameModal(gameId);
+    }
+
+    function updateSidebarSelection(gameId) {
+      activeSidebarGameId = gameId;
+      activeModalGameId = gameId;
+
+      const homeRow = document.getElementById('sidebarHomeRow');
+      if (homeRow) {
+        if (!gameId) {
+          homeRow.className = 'sidebar-game-row flex items-center justify-between px-2.5 py-2 rounded-[2px] cursor-pointer transition-all duration-150 text-xs mb-2 border-b border-white/10 bg-[#00F0FF]/15 text-[#00F0FF] font-bold border-l-2 border-[#00F0FF] shadow-[inset_0_0_8px_rgba(0,240,255,0.15)]';
+        } else {
+          homeRow.className = 'sidebar-game-row flex items-center justify-between px-2.5 py-2 rounded-[2px] cursor-pointer transition-all duration-150 text-xs mb-2 border-b border-white/10 text-slate-300 hover:text-white hover:bg-[#12152b] border-l-2 border-transparent';
+        }
+      }
+
+      document.querySelectorAll('.sidebar-game-row[data-sidebar-game-id]').forEach(row => {
+        const rowId = row.getAttribute('data-sidebar-game-id');
+        const textSpan = row.querySelector('.font-sans');
+        if (rowId === gameId) {
+          row.className = 'sidebar-game-row group flex items-center justify-between px-2 py-1.5 rounded-[2px] cursor-pointer transition-all duration-150 text-xs bg-[#00F0FF]/15 text-white font-bold border-l-2 border-[#00F0FF] shadow-[inset_0_0_8px_rgba(0,240,255,0.15)]';
+          if (textSpan) {
+            textSpan.classList.add('text-[#00F0FF]');
+            textSpan.classList.remove('group-hover:text-white');
+          }
+        } else {
+          row.className = 'sidebar-game-row group flex items-center justify-between px-2 py-1.5 rounded-[2px] cursor-pointer transition-all duration-150 text-xs text-slate-300 hover:text-white hover:bg-[#12152b] border-l-2 border-transparent';
+          if (textSpan) {
+            textSpan.classList.remove('text-[#00F0FF]');
+            textSpan.classList.add('group-hover:text-white');
+          }
+        }
+      });
+    }
+
+    function switchToGridView() {
+      activeModalGameId = null;
+      activeSidebarGameId = null;
+
+      // 1. Chuyển đổi View: Hiện kho lưới, ẩn trang chi tiết
+      const viewGrid = document.getElementById('viewBrowseGrid');
+      const viewDetail = document.getElementById('viewGameDetail');
+      if (viewGrid) viewGrid.classList.remove('hidden');
+      if (viewDetail) viewDetail.classList.add('hidden');
+
+      // 2. Ngắt âm thanh video nếu đang phát trailer
+      const player = document.getElementById('modalVideoPlayer');
+      if (player) {
+        player.src = '';
+      }
+      currentActiveVideoId = null;
+
+      // 3. Highlight lại nút "Trang Chủ Kho Game" trên sidebar
+      updateSidebarSelection(null);
+
+      // 4. Cuộn mượt lên đầu trang
+      const mainScroll = document.getElementById('mainScrollContainer');
+      if (mainScroll) {
+        mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      lucide.createIcons();
+    }
+
+    function setSidebarFilter(filter) {
+      sidebarFilter = filter;
+      const tabInst = document.getElementById('sidebarTabInstalled');
+      const tabAll = document.getElementById('sidebarTabAll');
+      if (filter === 'installed') {
+        if (tabInst) tabInst.className = 'flex-1 py-1 px-1.5 text-center text-xs font-bold font-display rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50 transition';
+        if (tabAll) tabAll.className = 'flex-1 py-1 px-1.5 text-center text-xs font-bold font-display rounded-[2px] text-slate-400 hover:text-white transition';
+      } else {
+        if (tabInst) tabInst.className = 'flex-1 py-1 px-1.5 text-center text-xs font-bold font-display rounded-[2px] text-slate-400 hover:text-white transition';
+        if (tabAll) tabAll.className = 'flex-1 py-1 px-1.5 text-center text-xs font-bold font-display rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50 transition';
+      }
+      renderSidebar();
+    }
+
+    function toggleSidebarInstalledOnly() {
+      sidebarOnlyReady = !sidebarOnlyReady;
+      const btn = document.getElementById('sidebarOnlyInstalledBtn');
+      if (btn) {
+        if (sidebarOnlyReady) {
+          btn.className = 'pixel-btn p-1.5 bg-[#00FF9D] text-black border border-[#00FF9D] rounded-[2px] shadow-[0_0_8px_#00FF9D]';
+        } else {
+          btn.className = 'pixel-btn p-1.5 bg-[#17192e] text-slate-400 hover:text-[#00FF9D] border border-[#2b2f52] rounded-[2px]';
+        }
+      }
+      renderSidebar();
+    }
+
+    function toggleSidebarSort() {
+      sidebarSort = sidebarSort === 'az' ? 'recent' : 'az';
+      const btn = document.getElementById('sidebarSortBtn');
+      if (btn) {
+        if (sidebarSort === 'recent') {
+          btn.innerHTML = '<i data-lucide="clock" class="w-3 h-3 text-[#00F0FF]"></i>';
+          btn.title = 'Đang sắp xếp: Giờ chơi gần đây (Bấm để đổi sang A-Z)';
+        } else {
+          btn.innerHTML = '<i data-lucide="arrow-down-a-z" class="w-3 h-3 text-slate-400"></i>';
+          btn.title = 'Đang sắp xếp: Tên A-Z (Bấm để đổi sang gần đây)';
+        }
+        lucide.createIcons();
+      }
+      renderSidebar();
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('librarySidebar');
+      const btn = document.getElementById('btnToggleSidebar');
+      if (!sidebar) return;
+      const isHidden = sidebar.classList.contains('hidden');
+      if (isHidden) {
+        sidebar.classList.remove('hidden');
+        if (btn) {
+          btn.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+        }
+        localStorage.setItem('sidebar_visible', 'true');
+      } else {
+        sidebar.classList.add('hidden');
+        if (btn) {
+          btn.classList.remove('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+        }
+        localStorage.setItem('sidebar_visible', 'false');
+      }
+    }
+
 
     function renderCounts() {
       const allCount = gamesList.length;
@@ -2047,6 +2494,9 @@
     }
 
     function setFilter(filter) {
+      if (document.getElementById('viewBrowseGrid') && document.getElementById('viewBrowseGrid').classList.contains('hidden')) {
+        switchToGridView();
+      }
       activeFilter = filter;
       ['all', 'installed', 'uninstalled', 'missing'].forEach(f => {
         const btn = document.getElementById(`filter-${f}`);
@@ -2060,6 +2510,9 @@
     }
 
     function onGenreFilterChange() {
+      if (document.getElementById('viewBrowseGrid') && document.getElementById('viewBrowseGrid').classList.contains('hidden')) {
+        switchToGridView();
+      }
       activeGenreFilter = document.getElementById('genreFilter').value;
       renderGrid();
     }
@@ -2409,6 +2862,21 @@
       heroGameId = game.id;
       renderHero();
       activeModalGameId = game.id;
+      activeSidebarGameId = game.id;
+
+      // Chuyển đổi View: Hiện trang chi tiết phủ kín bên phải, ẩn kho lưới (Steam Library Experience)
+      const viewGrid = document.getElementById('viewBrowseGrid');
+      const viewDetail = document.getElementById('viewGameDetail');
+      if (viewGrid) viewGrid.classList.add('hidden');
+      if (viewDetail) viewDetail.classList.remove('hidden');
+
+      const breadcrumbTitle = document.getElementById('detailBreadcrumbTitle');
+      if (breadcrumbTitle) {
+        breadcrumbTitle.textContent = `${game.vietnamese_title || game.title}`;
+      }
+
+      updateSidebarSelection(game.id);
+
       const modalBannerImg = game.local_cover || (game.assets && game.assets.banner) || game.header_url || game.avatar_url || '';
       document.getElementById('modalBannerBg').style.backgroundImage = `url('${modalBannerImg}')`;
       document.getElementById('modalTitle').innerText = game.vietnamese_title;
@@ -2554,16 +3022,28 @@
       }
 
       const installBtn = document.getElementById('modalInstallBtn');
-      if (game.status_code === 'INSTALLED') {
-        installBtn.className = 'pixel-btn modal-action-btn btn-retro-crimson text-xs flex items-center justify-center space-x-2 font-bold';
-        installBtn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Gỡ Bỏ Việt Hóa</span>`;
-      } else if (game.status_code === 'UPDATE_DETECTED') {
-        installBtn.className = 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
-        installBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Lại 1-Click (Dùng Cache)</span>`;
-      } else {
-        installBtn.className = 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
-        installBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa</span>`;
+      const topInstallBtn = document.getElementById('modalTopInstallBtn');
+      function syncInstallBtn(btn, isTop = false) {
+        if (!btn) return;
+        if (game.status_code === 'INSTALLED') {
+          btn.className = isTop
+            ? 'pixel-btn btn-retro-crimson text-xs flex items-center justify-center space-x-2 font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-rose-900/30'
+            : 'pixel-btn modal-action-btn btn-retro-crimson text-xs flex items-center justify-center space-x-2 font-bold';
+          btn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Gỡ Bỏ Việt Hóa</span>`;
+        } else if (game.status_code === 'UPDATE_DETECTED') {
+          btn.className = isTop
+            ? 'pixel-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-amber-900/30'
+            : 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
+          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Lại 1-Click (Dùng Cache)</span>`;
+        } else {
+          btn.className = isTop
+            ? 'pixel-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-amber-900/30'
+            : 'pixel-btn modal-action-btn btn-arcade-amber text-xs flex items-center justify-center space-x-2 font-bold';
+          btn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa</span>`;
+        }
       }
+      syncInstallBtn(installBtn, false);
+      syncInstallBtn(topInstallBtn, true);
 
       const launchBtn = document.getElementById('modalLaunchBtn');
       if (launchBtn) {
@@ -2644,18 +3124,18 @@
       switchModalTab('overview');
       document.getElementById('gameModal').classList.remove('hidden');
       loadGameAchievements(game.id);
+
+      // Cuộn lên đầu view bên phải ngay lập tức
+      const mainScroll = document.getElementById('mainScrollContainer');
+      if (mainScroll) {
+        mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+      }
+
       lucide.createIcons();
     }
 
     function closeGameModal() {
-      document.getElementById('gameModal').classList.add('hidden');
-      activeModalGameId = null;
-      // Stop video sound immediately
-      const player = document.getElementById('modalVideoPlayer');
-      if (player) {
-        player.src = '';
-      }
-      currentActiveVideoId = null;
+      switchToGridView();
     }
 
     let currentActiveVideoId = null;
@@ -4947,12 +5427,18 @@
       } else {
         clearBtn.classList.add('hidden');
       }
+      if (document.getElementById('viewBrowseGrid') && document.getElementById('viewBrowseGrid').classList.contains('hidden')) {
+        switchToGridView();
+      }
       renderGrid();
     });
 
     function clearSearch() {
       document.getElementById('searchInput').value = '';
       document.getElementById('clearSearchBtn').classList.add('hidden');
+      if (document.getElementById('viewBrowseGrid') && document.getElementById('viewBrowseGrid').classList.contains('hidden')) {
+        switchToGridView();
+      }
       renderGrid();
     }
 
@@ -5992,6 +6478,15 @@
     })();
 
     // Start
+    if (localStorage.getItem('sidebar_visible') === 'false') {
+      const sb = document.getElementById('librarySidebar');
+      const sbtn = document.getElementById('btnToggleSidebar');
+      if (sb) sb.classList.add('hidden');
+      if (sbtn) sbtn.classList.remove('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+    } else {
+      const sbtn = document.getElementById('btnToggleSidebar');
+      if (sbtn) sbtn.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+    }
     fetchGames();
     startGlobalPlaytimeWatcher();
     checkGdriveStatus();
