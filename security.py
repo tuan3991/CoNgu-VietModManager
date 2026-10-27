@@ -1651,7 +1651,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
 
                     elif action == "copy_file":
                         src_rel = _norm_rel(step.get("source"))
-                        dst_rel = _norm_rel(step.get("destination", src_rel))
+                        dst_rel = _norm_rel(step.get("destination") or step.get("target") or src_rel)
                         if not src_rel:
                             raise ValueError("Bước 'copy_file' thiếu trường bắt buộc 'source'")
                         dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=False)

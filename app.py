@@ -2051,14 +2051,50 @@ def get_repo_dir():
     return DEFAULT_REPO_DIR
 
 def find_mod_source_dir(mod_subfolder):
-    """Find mod folder from active repo or fallback repo"""
+    """Find mod folder from active repo, default repo or fallback repos with resilient folder naming"""
+    if not mod_subfolder:
+        return ""
     cfg = load_user_config()
+    repo_dirs = [
+        cfg.get("repo_dir", DEFAULT_REPO_DIR),
+        DEFAULT_REPO_DIR,
+        FALLBACK_REPO_DIR,
+        os.path.join(USER_DOCS_DIR, "Viethoagame"),
+        os.path.join(USER_DOCS_DIR, "antigravity google", "Viethoagame"),
+        os.path.join(APP_DIR, "Viethoagame")
+    ]
+    seen_repos = set()
+    cleaned_repos = []
+    for r in repo_dirs:
+        norm = os.path.normcase(os.path.abspath(r)) if r else ""
+        if norm and norm not in seen_repos and os.path.exists(r):
+            seen_repos.add(norm)
+            cleaned_repos.append(r)
+
+    # Subfolder variants (handles spaces, underscores, [Viet Hoa] suffixes)
+    variants = [
+        mod_subfolder,
+        mod_subfolder.replace(" ", ""),
+        mod_subfolder.replace("_", " "),
+        mod_subfolder.replace(" ", "_"),
+        f"{mod_subfolder} [Viet Hoa]",
+        f"{mod_subfolder.replace(' ', '')} [Viet Hoa]",
+        f"[{mod_subfolder}]",
+    ]
+    seen_var = set()
+    cleaned_var = []
+    for v in variants:
+        if v and v.lower() not in seen_var:
+            seen_var.add(v.lower())
+            cleaned_var.append(v)
+
+    for r in cleaned_repos:
+        for v in cleaned_var:
+            cand = os.path.join(r, v)
+            if os.path.exists(cand):
+                return cand
+
     primary = os.path.join(cfg.get("repo_dir", DEFAULT_REPO_DIR), mod_subfolder)
-    if os.path.exists(primary):
-        return primary
-    fallback = os.path.join(FALLBACK_REPO_DIR, mod_subfolder)
-    if os.path.exists(fallback):
-        return fallback
     return primary
 
 _LIBRARY_CACHE_LOCK = threading.Lock()
@@ -4699,7 +4735,7 @@ class ModManagerAPI:
 
         elif action == "copy_file":
             src_rel = step.get("source")
-            dst_rel = _norm_rel(step.get("destination", src_rel))
+            dst_rel = _norm_rel(step.get("destination") or step.get("target") or src_rel)
             if not src_rel:
                 raise ValueError("Step 'copy_file' missing required 'source' field")
             if source_mod_dir:
@@ -5141,7 +5177,7 @@ class ModManagerAPI:
                 "tx_tmp": tx_tmp_abs
             }
 
-        elif action == "delete":
+        elif action in ("delete", "delete_file"):
             target_rel = step.get("target")
             if not target_rel:
                 raise ValueError("Step 'delete' missing required 'target' field")
@@ -5647,32 +5683,61 @@ class ModManagerAPI:
 
         existing_congu = os.path.join(cache_dir, "mod_package.congu")
         if not (os.path.exists(existing_congu) and security.is_congu_package(existing_congu)):
-            mod_file_name = g.get("mod_file", "")
-            if mod_file_name:
-                active_repo = get_repo_dir()
-                exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-                cand_list = [
-                    os.path.join(active_repo, mod_file_name),
-                    os.path.join(DEFAULT_REPO_DIR, mod_file_name),
-                    os.path.join(FALLBACK_REPO_DIR, mod_file_name),
-                    os.path.join(APP_DIR, "mods", mod_file_name),
-                    os.path.join(APP_DIR, mod_file_name),
-                    os.path.join(exe_dir, "mods", mod_file_name),
-                    os.path.join(exe_dir, mod_file_name),
-                    os.path.join(source_mod_dir, mod_file_name) if source_mod_dir else ""
-                ]
-                # Deep search in subdirectories of DEFAULT_REPO_DIR
-                if os.path.exists(DEFAULT_REPO_DIR):
-                    try:
-                        for entry in os.scandir(DEFAULT_REPO_DIR):
-                            if entry.is_dir():
-                                cand_list.append(os.path.join(entry.path, mod_file_name))
-                    except Exception:
-                        pass
-                for cand in cand_list:
-                    if cand and os.path.isfile(cand) and security.is_congu_package(cand):
-                        existing_congu = cand
-                        break
+            cand_files = []
+            if g.get("mod_file"):
+                cand_files.append(g["mod_file"])
+            dl_url = g.get("download_url", "")
+            if dl_url:
+                cand_files.append(os.path.basename(dl_url.split("?")[0]))
+            cand_files.append(f"{game_id}.congu")
+            cand_files.append(f"{g.get('title', '').replace(' ', '_')}_Viethoa.congu")
+            cand_files.append(f"{g.get('title', '').replace(' ', '')}_Viethoa.congu")
+
+            active_repo = get_repo_dir()
+            exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+            repo_dirs = [
+                active_repo,
+                DEFAULT_REPO_DIR,
+                FALLBACK_REPO_DIR,
+                os.path.join(USER_DOCS_DIR, "Viethoagame"),
+                os.path.join(USER_DOCS_DIR, "antigravity google", "Viethoagame"),
+                APP_DIR,
+                os.path.join(APP_DIR, "mods"),
+                os.path.join(exe_dir, "mods"),
+                exe_dir
+            ]
+            if source_mod_dir:
+                repo_dirs.insert(0, source_mod_dir)
+
+            cand_list = []
+            seen_cand = set()
+            for r in repo_dirs:
+                if not r or not os.path.exists(r):
+                    continue
+                for fname in cand_files:
+                    cp = os.path.join(r, fname)
+                    if cp not in seen_cand:
+                        seen_cand.add(cp)
+                        cand_list.append(cp)
+                try:
+                    for entry in os.scandir(r):
+                        if entry.is_dir():
+                            for fname in cand_files:
+                                cp = os.path.join(entry.path, fname)
+                                if cp not in seen_cand:
+                                    seen_cand.add(cp)
+                                    cand_list.append(cp)
+                        elif entry.name.lower().endswith(".congu"):
+                            if entry.path not in seen_cand:
+                                seen_cand.add(entry.path)
+                                cand_list.append(entry.path)
+                except Exception:
+                    pass
+
+            for cand in cand_list:
+                if cand and os.path.isfile(cand) and security.is_congu_package(cand):
+                    existing_congu = cand
+                    break
 
         if not local_found and os.path.exists(existing_congu) and security.is_congu_package(existing_congu):
             expected_sha = g.get("congu_sha256") or g.get("sha256")

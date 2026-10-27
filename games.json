@@ -1556,7 +1556,7 @@
       "last_updated": "27/10/2026",
       "mod_size": "~1.9 MB"
     },
-    "mod_subfolder": "Final Fantasy Resonance",
+    "mod_subfolder": "FinalFantasyResonance",
     "mod_type": "pak",
     "mod_file": "FFRS-Windows_Vietnamese_P.pak",
     "relative_install_path": "FFRS/Content/Paks",
@@ -1587,13 +1587,14 @@
       {
         "action": "copy_file",
         "source": "FFRS-Windows_Vietnamese_P.pak",
+        "destination": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak",
         "target": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak",
         "backup": false
       }
     ],
     "uninstall_steps": [
       {
-        "action": "delete_file",
+        "action": "delete",
         "target": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak"
       }
     ],
