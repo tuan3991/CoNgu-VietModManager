@@ -7334,7 +7334,7 @@ def api_cloud_save_sync():
     game_dir = cfg.get(f"{game_id}_path")
 
     res = CLOUD_SYNC_MGR.sync_game_save(game_config, game_dir, force_action=action)
-    if not res.get("success"):
+    if not res.get("success") and res.get("action") != "conflict":
         response.status = 400
     return json.dumps(res, ensure_ascii=False)
 

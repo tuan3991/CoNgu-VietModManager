@@ -2420,7 +2420,7 @@
     }
 
     function switchModalTab(tabName) {
-      ['overview', 'media', 'versions', 'feedback'].forEach(t => {
+      ['overview', 'media', 'versions', 'feedback', 'cloudsave'].forEach(t => {
         const btn = document.getElementById(`tabBtn-${t}`);
         const content = document.getElementById(`tabContent-${t}`);
         if (!btn || !content) return;
@@ -2433,6 +2433,10 @@
           content.classList.add('hidden');
         }
       });
+
+      if (tabName === 'cloudsave' && activeModalGameId) {
+        loadCloudSaveTab(activeModalGameId);
+      }
 
       // Handle video playback
       const player = document.getElementById('modalVideoPlayer');
@@ -4699,12 +4703,494 @@
       renderGrid();
     }
 
+    // ========================================================
+    // GOOGLE DRIVE CLOUD SAVE & ECOSYSTEM FUNCTIONS
+    // ========================================================
+    let isCloudConnected = false;
+    let activeConflictData = null;
+
+    async function checkGdriveStatus() {
+      try {
+        const resp = await fetch('/api/cloud/status');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        isCloudConnected = Boolean(data && data.connected);
+
+        // Header button update
+        const btnGdrive = document.getElementById('btnGdriveCloud');
+        if (btnGdrive) {
+          if (isCloudConnected) {
+            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-emerald-950/60 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)] rounded-[2px] transition';
+            btnGdrive.innerHTML = `
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span class="font-bold truncate max-w-[120px]">${escapeHtml(data.name || 'Cloud Drive')}</span>
+            `;
+          } else {
+            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] rounded-[2px] transition';
+            btnGdrive.innerHTML = `
+              <i data-lucide="cloud" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>Google Drive</span>
+            `;
+          }
+        }
+
+        // Modal sections update
+        const connectedSection = document.getElementById('cloudConnectedSection');
+        const disconnectedSection = document.getElementById('cloudDisconnectedSection');
+        const uName = document.getElementById('cloudUserName');
+        const uEmail = document.getElementById('cloudUserEmail');
+        const uAvatar = document.getElementById('cloudUserAvatar');
+
+        if (connectedSection && disconnectedSection) {
+          if (isCloudConnected) {
+            connectedSection.classList.remove('hidden');
+            disconnectedSection.classList.add('hidden');
+            if (uName) uName.textContent = data.name || 'Người dùng Google';
+            if (uEmail) uEmail.textContent = data.email || '';
+            if (uAvatar) {
+              uAvatar.src = data.picture || '/static/app_icon.png';
+            }
+          } else {
+            connectedSection.classList.add('hidden');
+            disconnectedSection.classList.remove('hidden');
+          }
+        }
+
+        // Populate OAuth config inputs if available
+        try {
+          const cfgResp = await fetch('/api/cloud/config');
+          if (cfgResp.ok) {
+            const cfgData = await cfgResp.json();
+            const idInput = document.getElementById('cfgGoogleClientId');
+            const secInput = document.getElementById('cfgGoogleClientSecret');
+            if (idInput && cfgData.client_id) idInput.value = cfgData.client_id;
+            if (secInput && cfgData.masked_secret) secInput.placeholder = cfgData.masked_secret;
+          }
+        } catch (e) {}
+
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        console.warn('[Check GDrive Status Error]', err);
+      }
+    }
+
+    function openCloudModal() {
+      const modal = document.getElementById('cloudConnectModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        checkGdriveStatus();
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function closeCloudModal() {
+      const modal = document.getElementById('cloudConnectModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function toggleOAuthSettings() {
+      const drawer = document.getElementById('oauthSettingsDrawer');
+      const arrow = document.getElementById('oauthSettingsArrow');
+      if (drawer) {
+        drawer.classList.toggle('hidden');
+        if (arrow) arrow.classList.toggle('rotate-180');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function saveOAuthSettings() {
+      const clientId = document.getElementById('cfgGoogleClientId')?.value.trim();
+      const clientSecret = document.getElementById('cfgGoogleClientSecret')?.value.trim();
+      try {
+        const resp = await fetch('/api/cloud/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast('Đã lưu cấu hình Google OAuth!', 'success');
+        } else {
+          showToast(data.error || 'Lỗi khi lưu cấu hình OAuth!', 'error');
+        }
+      } catch (e) {
+        showToast('Không thể kết nối đến máy chủ để lưu cấu hình!', 'error');
+      }
+    }
+
+    async function loginGoogleDrive() {
+      const btn = document.getElementById('btnStartGoogleLogin');
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i>
+          <span>ĐANG CHỜ XÁC THỰC TRONG TRÌNH DUYỆT...</span>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      showToast('Đã mở trình duyệt! Vui lòng đăng nhập Google và cho phép cấp quyền.', 'info');
+
+      try {
+        const clientId = document.getElementById('cfgGoogleClientId')?.value.trim();
+        const clientSecret = document.getElementById('cfgGoogleClientSecret')?.value.trim();
+        const resp = await fetch('/api/cloud/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast('Đã kết nối thành công Google Drive cá nhân!', 'success');
+          await checkGdriveStatus();
+          if (activeModalGameId) {
+            loadCloudSaveTab(activeModalGameId);
+          }
+        } else {
+          showToast(data.error || 'Đăng nhập Google Drive thất bại!', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi khi gửi yêu cầu đăng nhập: ' + (err.message || err), 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function logoutGoogleDrive() {
+      const confirmed = confirm('Bạn có chắc chắn muốn ngắt kết nối tài khoản Google Drive khỏi CỔ NGỮ?');
+      if (!confirmed) return;
+
+      try {
+        const resp = await fetch('/api/cloud/logout', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+          showToast('Đã ngắt kết nối Google Drive!', 'info');
+          await checkGdriveStatus();
+          if (activeModalGameId) {
+            loadCloudSaveTab(activeModalGameId);
+          }
+        }
+      } catch (e) {
+        showToast('Lỗi khi ngắt kết nối Google Drive!', 'error');
+      }
+    }
+
+    async function loadCloudSaveTab(gameId) {
+      if (!gameId) return;
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game) return;
+
+      const tabBadge = document.getElementById('modalCloudBadge');
+      const statusBadge = document.getElementById('cloudTabStatusBadge');
+      const subText = document.getElementById('cloudTabSubText');
+
+      const pathDisplay = document.getElementById('localSavePathDisplay');
+      const localSizeDisplay = document.getElementById('localSaveSizeDisplay');
+      const localMtimeDisplay = document.getElementById('localSaveMtimeDisplay');
+
+      const cloudFileDisplay = document.getElementById('cloudSaveFilenameDisplay');
+      const cloudSizeDisplay = document.getElementById('cloudSaveSizeDisplay');
+      const cloudMtimeDisplay = document.getElementById('cloudSaveMtimeDisplay');
+
+      const btnUpload = document.getElementById('btnUploadCloudSave');
+      const btnDownload = document.getElementById('btnDownloadCloudSave');
+
+      if (statusBadge) {
+        statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-slate-800 text-slate-400 border border-slate-700 animate-pulse';
+        statusBadge.textContent = 'Đang kiểm tra...';
+      }
+
+      try {
+        const resp = await fetch('/api/cloud/save/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await resp.json();
+
+        // Cập nhật thẻ Local Save
+        if (data.local && data.local.exists) {
+          if (pathDisplay) {
+            pathDisplay.textContent = data.save_folder || data.local.path || '...';
+            pathDisplay.title = data.save_folder || data.local.path || '';
+          }
+          if (localSizeDisplay) localSizeDisplay.textContent = `${data.local.formatted_size || '0 KB'} (${data.local.file_count || 0} tệp)`;
+          if (localMtimeDisplay) localMtimeDisplay.textContent = data.local.formatted_mtime || 'Mới cập nhật';
+          if (btnUpload) btnUpload.disabled = false;
+        } else {
+          if (pathDisplay) {
+            pathDisplay.textContent = data.save_folder || 'Chưa tìm thấy thư mục save';
+            pathDisplay.title = data.save_folder || '';
+          }
+          if (localSizeDisplay) localSizeDisplay.textContent = 'Chưa có file save';
+          if (localMtimeDisplay) localMtimeDisplay.textContent = 'Chưa có save';
+          if (btnUpload) btnUpload.disabled = true;
+        }
+
+        // Cập nhật thẻ Cloud Save
+        if (data.cloud && data.cloud.exists) {
+          if (cloudFileDisplay) cloudFileDisplay.textContent = data.cloud.name || `${gameId}_save.zip`;
+          if (cloudSizeDisplay) cloudSizeDisplay.textContent = data.cloud.formatted_size || '0 KB';
+          if (cloudMtimeDisplay) cloudMtimeDisplay.textContent = data.cloud.formatted_mtime || 'Đã đồng bộ';
+          if (btnDownload) btnDownload.disabled = false;
+        } else {
+          if (cloudFileDisplay) cloudFileDisplay.textContent = `${gameId}_save.zip (Chưa có trên Drive)`;
+          if (cloudSizeDisplay) cloudSizeDisplay.textContent = '0 KB';
+          if (cloudMtimeDisplay) cloudMtimeDisplay.textContent = 'Chưa tải lên Drive';
+          if (btnDownload) btnDownload.disabled = true;
+        }
+
+        // Cập nhật Huy hiệu trạng thái đồng bộ
+        const state = data.status || 'NO_SAVE';
+        if (statusBadge) {
+          if (!data.connected) {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-slate-800 text-slate-400 border border-slate-700';
+            statusBadge.textContent = 'CHƯA LIÊN KẾT DRIVE';
+            if (subText) subText.textContent = 'Bấm "Tài Khoản Drive" phía trên để kết nối và tự động sao lưu.';
+          } else if (state === 'IN_SYNC') {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/50';
+            statusBadge.textContent = 'ĐÃ ĐỒNG BỘ 100%';
+            if (subText) subText.textContent = 'Bản save trên máy và Google Drive hoàn toàn trùng khớp.';
+          } else if (state === 'UPLOAD_NEEDED') {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-500/50';
+            statusBadge.textContent = 'CÓ SAVE MỚI TRÊN MÁY';
+            if (subText) subText.textContent = 'Bản save cục bộ mới hơn bản trên Drive. Bấm Tải Lên để sao lưu.';
+          } else if (state === 'DOWNLOAD_NEEDED') {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/50';
+            statusBadge.textContent = 'CÓ SAVE TRÊN CLOUD';
+            if (subText) subText.textContent = 'Phát hiện save từ máy khác trên Drive. Bấm Tải Về để tiếp tục chơi.';
+          } else if (state === 'CONFLICT') {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-rose-500/20 text-rose-300 border border-rose-500/60 animate-pulse';
+            statusBadge.textContent = 'XUNG ĐỘT FILE SAVE';
+            if (subText) subText.textContent = 'Cả máy và Cloud đều có file save mới khác nhau.';
+          } else if (state === 'NOT_CONFIGURED') {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-slate-800 text-slate-400 border border-slate-700';
+            statusBadge.textContent = 'CHƯA CẤU HÌNH ĐƯỜNG DẪN';
+            if (subText) subText.textContent = 'Tựa game này chưa định nghĩa vị trí lưu file save.';
+          } else {
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-slate-800 text-slate-400 border border-slate-700';
+            statusBadge.textContent = 'CHƯA CÓ DỮ LIỆU SAVE';
+            if (subText) subText.textContent = 'Chưa phát hiện file save nào trên máy lẫn trên Google Drive.';
+          }
+        }
+
+        // Cập nhật tab badge
+        if (tabBadge) {
+          if (state === 'IN_SYNC') {
+            tabBadge.className = 'ml-1 text-[9px] font-pixel px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            tabBadge.textContent = 'SYNCED';
+            tabBadge.classList.remove('hidden');
+          } else if (state === 'UPLOAD_NEEDED' || state === 'DOWNLOAD_NEEDED') {
+            tabBadge.className = 'ml-1 text-[9px] font-pixel px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40';
+            tabBadge.textContent = 'SYNC';
+            tabBadge.classList.remove('hidden');
+          } else if (state === 'CONFLICT') {
+            tabBadge.className = 'ml-1 text-[9px] font-pixel px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse';
+            tabBadge.textContent = 'CONFLICT';
+            tabBadge.classList.remove('hidden');
+          } else {
+            tabBadge.classList.add('hidden');
+          }
+        }
+
+        // Lấy danh sách backup cục bộ
+        loadLocalBackups(gameId);
+
+        if (window.lucide) lucide.createIcons();
+      } catch (e) {
+        console.warn('[Load Cloud Save Tab Error]', e);
+      }
+    }
+
+    async function loadLocalBackups(gameId) {
+      const container = document.getElementById('localBackupsList');
+      if (!container) return;
+      try {
+        const resp = await fetch(`/api/cloud/save/backups/${encodeURIComponent(gameId)}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const backups = data.backups || [];
+
+        if (backups.length === 0) {
+          container.innerHTML = `
+            <div class="text-xs text-slate-400 py-3 text-center font-sans">
+              Chưa có bản sao lưu cục bộ nào. Khi tải save từ Cloud về ghi đè, hệ thống sẽ tự động lưu 1 bản dự phòng tại đây.
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = backups.map(b => `
+          <div class="p-2.5 rounded-[4px] border border-white/5 bg-[#0a0d1e] flex items-center justify-between gap-3 text-xs">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <i data-lucide="archive" class="w-4 h-4 text-amber-400 shrink-0"></i>
+              <div class="min-w-0">
+                <div class="font-mono text-slate-200 font-bold truncate">${escapeHtml(b.filename)}</div>
+                <div class="text-[11px] text-slate-400 font-sans mt-0.5">
+                  ${escapeHtml(b.formatted_time || '')} • <span class="font-mono text-slate-300">${escapeHtml(b.formatted_size || '')}</span>
+                </div>
+              </div>
+            </div>
+            <button onclick="restoreBackup('${escapeHtml(gameId)}', '${escapeHtml(b.filename)}')" class="pixel-btn px-2.5 py-1 text-[11px] bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded flex items-center space-x-1 shrink-0 font-bold transition">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+              <span>Khôi Phục</span>
+            </button>
+          </div>
+        `).join('');
+
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        console.warn('[Load Local Backups Error]', err);
+      }
+    }
+
+    async function restoreBackup(gameId, backupFilename) {
+      const confirmed = confirm(`Bạn có chắc chắn muốn khôi phục bản sao lưu:\n"${backupFilename}"\n\nDữ liệu save hiện tại trên máy sẽ được thay thế bằng bản này.`);
+      if (!confirmed) return;
+
+      try {
+        const resp = await fetch('/api/cloud/save/restore_backup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId, backup_filename: backupFilename })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || 'Đã khôi phục bản sao lưu thành công!', 'success');
+          loadCloudSaveTab(gameId);
+        } else {
+          showToast(data.error || 'Khôi phục bản sao lưu thất bại!', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi khi gửi yêu cầu khôi phục sao lưu!', 'error');
+      }
+    }
+
+    async function syncCurrentGameSave(action) {
+      if (!activeModalGameId) return;
+
+      const btnUp = document.getElementById('btnUploadCloudSave');
+      const btnDown = document.getElementById('btnDownloadCloudSave');
+
+      const originalUpHtml = btnUp ? btnUp.innerHTML : '';
+      const originalDownHtml = btnDown ? btnDown.innerHTML : '';
+
+      if (action === 'upload' && btnUp) {
+        btnUp.disabled = true;
+        btnUp.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>ĐANG TẢI LÊN...</span>`;
+      } else if (action === 'download' && btnDown) {
+        btnDown.disabled = true;
+        btnDown.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>ĐANG TẢI VỀ...</span>`;
+      }
+      if (window.lucide) lucide.createIcons();
+
+      try {
+        const resp = await fetch('/api/cloud/save/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: activeModalGameId, action: action })
+        });
+        const data = await resp.json();
+
+        if (data.action === 'conflict' || data.status === 'conflict') {
+          openCloudConflictModal(activeModalGameId, data.conflict_data);
+          return;
+        }
+
+        if (data.success) {
+          showToast(data.message || 'Đồng bộ save game thành công!', 'success');
+          loadCloudSaveTab(activeModalGameId);
+        } else {
+          showToast(data.error || data.message || 'Đồng bộ save thất bại!', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi khi gửi yêu cầu đồng bộ save!', 'error');
+      } finally {
+        if (btnUp) {
+          btnUp.disabled = false;
+          btnUp.innerHTML = originalUpHtml;
+        }
+        if (btnDown) {
+          btnDown.disabled = false;
+          btnDown.innerHTML = originalDownHtml;
+        }
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function openCloudConflictModal(gameId, conflictData) {
+      activeConflictData = { gameId, conflictData };
+      const modal = document.getElementById('cloudConflictModal');
+      if (!modal) return;
+
+      const loc = conflictData?.local || {};
+      const cld = conflictData?.cloud || {};
+
+      const locTime = document.getElementById('conflictLocalTime');
+      const locSize = document.getElementById('conflictLocalSize');
+      const locFiles = document.getElementById('conflictLocalFiles');
+
+      const cldTime = document.getElementById('conflictCloudTime');
+      const cldSize = document.getElementById('conflictCloudSize');
+      const cldName = document.getElementById('conflictCloudName');
+
+      if (locTime) locTime.textContent = loc.formatted_mtime || 'Không rõ';
+      if (locSize) locSize.textContent = loc.formatted_size || '0 KB';
+      if (locFiles) locFiles.textContent = `${loc.file_count || 0} tệp`;
+
+      if (cldTime) cldTime.textContent = cld.formatted_mtime || 'Không rõ';
+      if (cldSize) cldSize.textContent = cld.formatted_size || '0 KB';
+      if (cldName) cldName.textContent = cld.name || `${gameId}_save.zip`;
+
+      modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeCloudConflictModal() {
+      const modal = document.getElementById('cloudConflictModal');
+      if (modal) modal.classList.add('hidden');
+      activeConflictData = null;
+    }
+
+    async function resolveConflict(choice) {
+      if (!activeConflictData || !activeConflictData.gameId) return;
+      const gameId = activeConflictData.gameId;
+      closeCloudConflictModal();
+      await syncCurrentGameSave(choice);
+    }
+
+    async function openLocalSaveFolder(gameId) {
+      if (!gameId) return;
+      try {
+        const resp = await fetch('/api/open_save_folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await resp.json();
+        if (!data.success) {
+          showToast(data.message || 'Không thể mở thư mục save!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi mở thư mục save!', 'error');
+      }
+    }
+
     // Close modal on Escape
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeGameModal();
         closeProgressModal();
         closeGameRequestModal();
+        closeCloudModal();
+        closeCloudConflictModal();
       }
     });
 
@@ -4835,6 +5321,7 @@
     // Start
     fetchGames();
     startGlobalPlaytimeWatcher();
+    checkGdriveStatus();
   </script>
 
   <!-- MODAL: APP UPDATE DETAILS (CYBER-PIXEL STYLE) -->
