@@ -1982,8 +1982,14 @@ def get_games():
             pass
     return []
 
+from community_cloud import CommunityCloudManager
 
-
+COMMUNITY_CLOUD_MGR = CommunityCloudManager(
+    config_getter=load_user_config,
+    config_saver=save_user_config,
+    vault_getter=get_vault_instance,
+    games_getter=get_games
+)
 def get_all_configured_game_paths():
     """Lấy danh sách toàn bộ thư mục game đã được định danh trên máy."""
     try:
@@ -7733,6 +7739,81 @@ def api_vault_cloud_download():
         res["auto_unpack_results"] = unpack_res
     if not res.get("success"):
         response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+
+# ==============================================================================
+# ĐÁM MÂY CỔ NGỮ (COMMUNITY CLOUD HUB - GOOGLE APPS SCRIPT) API
+# ==============================================================================
+
+@server_app.route("/api/community_cloud/status", method="GET")
+def api_community_cloud_status():
+    """Lấy trạng thái tài khoản Đám Mây Cổ Ngữ (Cloud ID, Last Sync, Server Configured)."""
+    response.content_type = "application/json"
+    if "COMMUNITY_CLOUD_MGR" not in globals() or not COMMUNITY_CLOUD_MGR:
+        return json.dumps({"is_logged_in": False, "is_server_configured": False, "cloud_id": ""})
+    return json.dumps(COMMUNITY_CLOUD_MGR.get_status(), ensure_ascii=False)
+
+@server_app.route("/api/community_cloud/register", method="POST")
+def api_community_cloud_register():
+    """Đăng ký Mã Cloud ID và Mật khẩu tự chọn."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    cloud_id = data.get("cloud_id", "")
+    password = data.get("password", "")
+    server_url = data.get("server_url", "")
+    res = COMMUNITY_CLOUD_MGR.register(cloud_id, password, server_url=server_url)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_cloud/login", method="POST")
+def api_community_cloud_login():
+    """Đăng nhập bằng Mã Cloud ID và Mật khẩu trên máy khác."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    cloud_id = data.get("cloud_id", "")
+    password = data.get("password", "")
+    server_url = data.get("server_url", "")
+    res = COMMUNITY_CLOUD_MGR.login(cloud_id, password, server_url=server_url)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_cloud/logout", method="POST")
+def api_community_cloud_logout():
+    """Đăng xuất tài khoản Đám Mây Cổ Ngữ khỏi máy này."""
+    response.content_type = "application/json"
+    res = COMMUNITY_CLOUD_MGR.logout()
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_cloud/upload", method="POST")
+def api_community_cloud_upload():
+    """Đóng gói toàn bộ save và đẩy lên Mây tập trung."""
+    response.content_type = "application/json"
+    res = COMMUNITY_CLOUD_MGR.upload_save()
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_cloud/download", method="POST")
+def api_community_cloud_download():
+    """Kéo save từ Mây về máy và tự động bung vào các game đã cài."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    auto_unpack = data.get("auto_unpack", True)
+    res = COMMUNITY_CLOUD_MGR.download_save(auto_unpack=auto_unpack)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/community_cloud/config", method="POST")
+def api_community_cloud_config():
+    """Lưu URL Web App máy chủ của Admin."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    server_url = data.get("server_url", "")
+    res = COMMUNITY_CLOUD_MGR.set_server_url(server_url)
     return json.dumps(res, ensure_ascii=False)
 
 

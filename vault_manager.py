@@ -458,6 +458,17 @@ class ConguSaveVault:
                 "backups_created": len(created_backups)
             }
 
+    def pack_all_installed_games(self, all_games: list, user_config: dict) -> dict:
+        """Gom toàn bộ save của các game đã được tìm thấy trên máy tính này vào Vault."""
+        results = {}
+        for game in all_games:
+            gid = game["id"]
+            game_dir = user_config.get(f"{gid}_path")
+            if game_dir and os.path.exists(game_dir):
+                res = self.pack_game_to_vault(game, game_dir)
+                results[gid] = res
+        return results
+
     def unpack_all_installed_games(self, all_games: list, user_config: dict) -> dict:
         """Bung toàn bộ save của các game đã được tìm thấy trên máy tính này."""
         results = {}

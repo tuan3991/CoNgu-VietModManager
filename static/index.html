@@ -504,6 +504,13 @@
           <span class="hidden md:inline font-bold">Hồ Sơ (.congu_save)</span>
           <span id="vaultBadgeCount" class="text-[10px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-pixel hidden">0</span>
         </button>
+
+        <!-- Centralized Community Cloud Save Button -->
+        <button id="btnCommunityCloud" onclick="openCloudModal()" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/50 bg-[#081a14]/90 text-emerald-300 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[2px_2px_0px_#05050a]" title="Đám Mây Cổ Ngữ: Lưu trữ & đồng bộ Save Game trực tiếp qua Google Drive Cổ Ngữ (Không cần tài khoản Google riêng)">
+          <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span class="hidden md:inline font-bold" id="communityCloudTopText">Đám Mây</span>
+          <span id="communityCloudBadge" class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-pixel border border-emerald-500/40 hidden">OFF</span>
+        </button>
       </div>
 
       <!-- Safe Visual Divider -->
@@ -1576,7 +1583,7 @@
     </div>
   </div>
 
-  <!-- MODAL: GOOGLE DRIVE CLOUD CONNECT & SETTINGS -->
+  <!-- MODAL: GOOGLE DRIVE & COMMUNITY CLOUD CONNECT & SETTINGS -->
   <div id="cloudConnectModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-opacity">
     <div class="relative w-full max-w-xl pixel-modal overflow-hidden flex flex-col bg-[#090b1a] border border-emerald-500/50 shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_25px_rgba(16,185,129,0.25)]">
       <!-- Modal Header -->
@@ -1587,10 +1594,10 @@
           </div>
           <div>
             <h3 class="font-display text-base font-bold text-white tracking-wide flex items-center gap-2">
-              <span>Google Drive Cloud Ecosystem</span>
-              <span class="text-[9px] font-pixel text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40">CÁ NHÂN</span>
+              <span>ĐÁM MÂY CỔ NGỮ (CLOUD SAVE)</span>
+              <span class="text-[9px] font-pixel text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40">TIỆN LỢI & MIỄN PHÍ</span>
             </h3>
-            <p class="text-xs text-slate-400 font-sans">Đồng bộ save game & giờ chơi lên Google Drive của chính bạn</p>
+            <p class="text-xs text-slate-400 font-sans">Đồng bộ save game & giờ chơi đa máy tính • Tự tạo ID & Pass theo ý thích</p>
           </div>
         </div>
         <button onclick="closeCloudModal()" class="pixel-btn p-1.5 bg-[#0e1022] hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-emerald-500/40 rounded-[2px]" title="Đóng">
@@ -1598,108 +1605,322 @@
         </button>
       </div>
 
+      <!-- Modal Sub-Tabs (Community Cloud vs Google OAuth) -->
+      <div class="flex items-center border-b border-slate-800 bg-[#070915] px-4 text-xs font-pixel">
+        <button id="subtabBtn-commCloud" onclick="switchCloudSubTab('community')" class="py-2.5 px-3 border-b-2 border-emerald-400 text-emerald-300 font-bold flex items-center space-x-1.5 transition">
+          <i data-lucide="cloud-lightning" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>ĐÁM MÂY CỔ NGỮ (KHUYÊN DÙNG)</span>
+        </button>
+        <button id="subtabBtn-gdriveOAuth" onclick="switchCloudSubTab('oauth')" class="py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center space-x-1.5 transition">
+          <i data-lucide="key" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>GOOGLE DRIVE RIÊNG (OAUTH)</span>
+        </button>
+      </div>
+
       <!-- Modal Body -->
       <div class="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-        <!-- 1. Trạng thái ĐÃ KẾT NỐI -->
-        <div id="cloudConnectedSection" class="hidden space-y-4">
-          <div class="p-4 rounded-[6px] border border-emerald-500/40 bg-[#061a14] flex items-center justify-between">
-            <div class="flex items-center space-x-3.5">
-              <img id="cloudUserAvatar" src="" class="w-12 h-12 rounded-full border-2 border-emerald-400 object-cover bg-slate-800" onerror="this.src='/static/app_icon.png'" />
-              <div>
-                <h4 id="cloudUserName" class="text-sm font-bold text-white font-display">Tên Người Dùng</h4>
-                <p id="cloudUserEmail" class="text-xs text-emerald-300 font-mono">user@gmail.com</p>
-                <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 mt-1">
+
+        <!-- ========================================== -->
+        <!-- SUBTAB 1: ĐÁM MÂY CỔ NGỮ (COMMUNITY CLOUD) -->
+        <!-- ========================================== -->
+        <div id="subtabContent-commCloud" class="space-y-4">
+
+          <!-- 1.1 THẺ THÀNH VIÊN ĐÃ ĐĂNG NHẬP -->
+          <div id="commCloudLoggedInCard" class="hidden space-y-4">
+            <!-- Cyber Member Card -->
+            <div class="p-4 rounded-[6px] border border-emerald-500/50 bg-gradient-to-br from-[#061e16] to-[#040e0b] shadow-[0_4px_20px_rgba(16,185,129,0.2)] space-y-3.5 relative overflow-hidden">
+              <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+              <div class="flex items-center justify-between border-b border-emerald-500/30 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/80 flex items-center justify-center text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.4)]">
+                    <i data-lucide="user-check" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <span class="text-[10px] font-pixel text-emerald-400 uppercase tracking-widest">// THÀNH VIÊN ĐÁM MÂY</span>
+                    <div class="flex items-center space-x-2">
+                      <h4 id="commCloudIdDisplay" class="text-base font-bold text-white font-mono tracking-wide">...</h4>
+                      <button onclick="copyCommunityCloudId()" class="text-slate-400 hover:text-emerald-300 p-1" title="Sao chép Mã Cloud ID">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <span class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-pixel text-[10px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>Đã kết nối • Thư mục: <code class="text-emerald-300">VietModHub_Cloud/saves</code></span>
+                  <span>ĐANG KẾT NỐI</span>
+                </span>
+              </div>
+
+              <!-- Pass & Storage Info -->
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div class="p-2.5 rounded bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Mật khẩu bảo vệ:</span>
+                    <button onclick="toggleCommPasswordVisibility()" class="text-emerald-400 hover:text-emerald-300 text-[10px] font-mono">
+                      <span id="commPassToggleLabel">Hiện</span>
+                    </button>
+                  </div>
+                  <div id="commCloudPassDisplay" class="font-mono text-emerald-300 font-bold tracking-wider">••••••••</div>
+                </div>
+                <div class="p-2.5 rounded bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[11px] text-slate-400">Dung lượng trên Mây:</div>
+                  <div id="commCloudSizeDisplay" class="font-mono text-slate-200 font-bold">0 KB</div>
                 </div>
               </div>
-            </div>
-            <button onclick="logoutGoogleDrive()" class="pixel-btn px-3 py-1.5 text-xs bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 rounded-[4px] transition flex items-center space-x-1.5">
-              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-              <span>Đăng Xuất</span>
-            </button>
-          </div>
 
-          <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="p-3 rounded-[4px] border border-slate-800 bg-[#080a18]">
-              <div class="text-slate-400">Phương thức bảo mật:</div>
-              <div class="text-emerald-400 font-bold font-mono mt-0.5">Windows DPAPI (AES-256)</div>
-            </div>
-            <div class="p-3 rounded-[4px] border border-slate-800 bg-[#080a18]">
-              <div class="text-slate-400">Tự động sao lưu:</div>
-              <div class="text-emerald-400 font-bold mt-0.5">Bật (Sau khi thoát game)</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Trạng thái CHƯA KẾT NỐI -->
-        <div id="cloudDisconnectedSection" class="space-y-4">
-          <div class="p-4 rounded-[6px] border border-white/10 bg-white/[0.02] space-y-3">
-            <div class="flex items-start space-x-3">
-              <div class="p-2 rounded bg-emerald-500/10 text-emerald-400 shrink-0 mt-0.5">
-                <i data-lucide="shield-check" class="w-5 h-5"></i>
-              </div>
-              <div class="text-xs leading-relaxed text-slate-300">
-                <strong class="text-white">Tại sao nên kết nối Google Drive?</strong>
-                <ul class="list-disc list-inside space-y-1 text-slate-400 mt-1.5">
-                  <li>Lưu trữ save game không giới hạn trên Google Drive riêng của bạn (Zero backend cost).</li>
-                  <li>Không bao giờ sợ mất file save khi cài lại Win, đổi máy hoặc lỡ tay xóa game.</li>
-                  <li>Tự động khôi phục toàn bộ giờ chơi và thành tựu đã mở khi mở app trên PC mới.</li>
-                </ul>
+              <div class="text-[11px] text-slate-400 flex items-center justify-between pt-1">
+                <span>Lần đồng bộ gần nhất:</span>
+                <span id="commCloudMtimeDisplay" class="font-mono text-slate-300">Chưa tải lên</span>
               </div>
             </div>
 
-            <button id="btnStartGoogleLogin" onclick="loginGoogleDrive()" class="w-full pixel-btn py-3 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition">
-              <i data-lucide="log-in" class="w-4 h-4"></i>
-              <span>ĐĂNG NHẬP BẰNG GOOGLE DRIVE</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 3. Cấu hình Google OAuth Client ID -->
-        <div class="border-t border-slate-800 pt-3">
-          <button onclick="toggleOAuthSettings()" class="text-xs text-slate-300 hover:text-emerald-400 flex items-center justify-between w-full py-1 font-mono transition">
-            <span class="flex items-center gap-1.5">
-              <i data-lucide="key" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span id="oauthDrawerTitle" class="font-bold">Cấu Hình Google OAuth Client ID (Desktop App)</span>
-            </span>
-            <i id="oauthSettingsArrow" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
-          </button>
-
-          <div id="oauthSettingsDrawer" class="hidden mt-3 space-y-3 p-3.5 rounded-[4px] bg-[#070915] border border-slate-800 text-xs">
-            <div class="p-3 rounded bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-slate-300 space-y-2 leading-relaxed font-sans">
-              <div class="font-bold flex items-center gap-1.5 text-emerald-300">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i>
-                <span>Hướng dẫn 1 phút lấy Client ID Google Drive riêng:</span>
-              </div>
-              <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
-                <li>Bấm nút bên dưới để mở trang <strong>Google Cloud Console Credentials</strong>.</li>
-                <li>Chọn <strong>Create Credentials</strong> &gt; chọn <strong>OAuth client ID</strong>.</li>
-                <li>Tại mục <em>Application type</em>, chọn <strong>Desktop app</strong> (Đặt tên: <em>VietModHub</em>).</li>
-                <li>Copy mã <strong>Client ID</strong> (dạng <code>...apps.googleusercontent.com</code>) dán vào ô bên dưới.</li>
-              </ol>
-              <button onclick="openExternalUrl('https://console.cloud.google.com/apis/credentials')" class="pixel-btn px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] rounded font-bold flex items-center space-x-1.5 transition">
-                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                <span>Mở Google Cloud Console Credentials</span>
+            <!-- 2 Hero Action Buttons -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <button id="btnCommUploadHero" onclick="uploadCommunitySave()" class="pixel-btn py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                <span>ĐẨY SAVE LÊN MÂY</span>
+              </button>
+              <button id="btnCommDownloadHero" onclick="downloadCommunitySave()" class="pixel-btn py-3 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(6,182,212,0.35)] transition">
+                <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                <span>KÉO SAVE VỀ MÁY</span>
               </button>
             </div>
 
-            <div class="space-y-1">
-              <label class="block text-slate-200 font-semibold text-[11px] flex items-center gap-1">
-                <span>Google Client ID:</span>
-                <span class="text-rose-400 font-bold">*</span>
-              </label>
-              <input id="cfgGoogleClientId" type="text" placeholder="xxxx-xxxx.apps.googleusercontent.com" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+            <!-- Logout Link -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+              <span class="text-slate-400 text-[11px]">Đang chơi ở quán net hoặc máy khác?</span>
+              <button onclick="logoutCommunityCloud()" class="text-rose-400 hover:text-rose-300 font-mono flex items-center space-x-1 transition">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span>Đăng xuất khỏi máy này</span>
+              </button>
             </div>
-            <div class="space-y-1">
-              <label class="block text-slate-300 font-semibold text-[11px]">Google Client Secret (Tùy chọn cho Desktop PKCE):</label>
-              <input id="cfgGoogleClientSecret" type="password" placeholder="GOCSPX-xxxx (không bắt buộc với Desktop PKCE)" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+          </div>
+
+          <!-- 1.2 FORM TẠO ID MỚI & ĐĂNG NHẬP (KHI CHƯA ĐĂNG NHẬP) -->
+          <div id="commCloudLoggedOutCard" class="space-y-4">
+            <!-- Mode Switch Tabs -->
+            <div class="flex rounded bg-[#070915] border border-slate-800 p-1 text-xs">
+              <button id="commModeBtn-register" onclick="switchCommAuthMode('register')" class="flex-1 py-1.5 font-bold rounded text-center transition bg-emerald-600 text-white shadow">
+                ✨ Tạo Mã ID Mới
+              </button>
+              <button id="commModeBtn-login" onclick="switchCommAuthMode('login')" class="flex-1 py-1.5 font-bold rounded text-center transition text-slate-400 hover:text-white">
+                🔑 Đăng Nhập ID Đã Có
+              </button>
             </div>
-            <button onclick="saveOAuthSettings()" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-bold transition">
-              Lưu Cấu Hình OAuth
+
+            <!-- FORM ĐĂNG KÝ TẠO ID MỚI -->
+            <div id="commRegisterForm" class="p-4 rounded-[6px] border border-emerald-500/40 bg-[#061913]/90 space-y-3.5">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-xs font-bold text-emerald-300 font-display uppercase tracking-wide">Tạo Mã Cloud ID & Mật Khẩu Theo Ý Thích</h4>
+                  <span class="text-[9px] font-pixel text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">0% CẢNH BÁO GOOGLE</span>
+                </div>
+                <p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+                  Bạn có thể tự đặt bất kỳ ID và Mật khẩu nào theo ý muốn. File save sẽ tự động lưu lên Google Drive chung của Cổ Ngữ, tuyệt đối an toàn.
+                </p>
+              </div>
+
+              <!-- Input Cloud ID -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <label class="text-slate-200 font-semibold text-[11px]">Mã Cloud ID (tự chọn hoặc sinh ngẫu nhiên):</label>
+                  <button type="button" onclick="generateRandomCloudId()" class="text-emerald-400 hover:text-emerald-300 text-[11px] font-mono flex items-center space-x-1">
+                    <i data-lucide="dices" class="w-3.5 h-3.5"></i>
+                    <span>🎲 Sinh ID Ngẫu Nhiên</span>
+                  </button>
+                </div>
+                <div class="relative">
+                  <input id="inputCommRegId" type="text" placeholder="Ví dụ: tuan3991, anhhung_congu, shadow99..." class="w-full px-3 py-2 bg-[#0a1020] border border-emerald-500/40 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+                </div>
+              </div>
+
+              <!-- Input Password -->
+              <div class="space-y-1">
+                <label class="block text-slate-200 font-semibold text-[11px]">Mật khẩu bảo vệ (ít nhất 4 ký tự):</label>
+                <div class="relative">
+                  <input id="inputCommRegPass" type="password" placeholder="Mật khẩu chống người khác lấy hoặc sửa save..." class="w-full px-3 py-2 bg-[#0a1020] border border-emerald-500/40 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+                </div>
+              </div>
+
+              <!-- Register Button -->
+              <button id="btnCommRegisterAction" onclick="registerCommunityCloud()" class="w-full pixel-btn py-3 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span>TẠO MÃ CLOUD ID & BẮT ĐẦU</span>
+              </button>
+            </div>
+
+            <!-- FORM ĐĂNG NHẬP MÁY KHÁC -->
+            <div id="commLoginForm" class="hidden p-4 rounded-[6px] border border-cyan-500/40 bg-[#06141c]/90 space-y-3.5">
+              <div class="space-y-1">
+                <h4 class="text-xs font-bold text-cyan-300 font-display uppercase tracking-wide">Đăng Nhập Bằng Mã Cloud ID Đã Có</h4>
+                <p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+                  Nhập Mã Cloud ID và Mật khẩu bạn đã tạo trước đây để kéo toàn bộ tiến trình game từ Mây về máy tính này.
+                </p>
+              </div>
+
+              <!-- Input Login ID -->
+              <div class="space-y-1">
+                <label class="block text-slate-200 font-semibold text-[11px]">Mã Cloud ID của bạn:</label>
+                <input id="inputCommLogId" type="text" placeholder="Nhập Mã Cloud ID..." class="w-full px-3 py-2 bg-[#0a1020] border border-cyan-500/40 rounded text-slate-200 text-xs font-mono focus:border-cyan-400 focus:outline-none" />
+              </div>
+
+              <!-- Input Login Password -->
+              <div class="space-y-1">
+                <label class="block text-slate-200 font-semibold text-[11px]">Mật khẩu bảo vệ:</label>
+                <input id="inputCommLogPass" type="password" placeholder="Nhập mật khẩu..." class="w-full px-3 py-2 bg-[#0a1020] border border-cyan-500/40 rounded text-slate-200 text-xs font-mono focus:border-cyan-400 focus:outline-none" />
+              </div>
+
+              <!-- Login Button -->
+              <button id="btnCommLoginAction" onclick="loginCommunityCloud()" class="w-full pixel-btn py-3 px-4 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(6,182,212,0.35)] transition">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span>ĐĂNG NHẬP & KẾT NỐI MÂY</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 1.3 CẤU HÌNH MÁY CHỦ (ADMIN / QUẢN TRỊ VIÊN) -->
+          <div class="border-t border-slate-800 pt-3">
+            <button onclick="toggleCommServerSettings()" class="text-xs text-slate-400 hover:text-emerald-400 flex items-center justify-between w-full py-1 font-mono transition">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="server" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span id="commServerDrawerTitle" class="font-bold">Cấu Hình Máy Chủ Đám Mây (Dành Cho Admin)</span>
+              </span>
+              <i id="commServerArrow" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
             </button>
+
+            <div id="commServerDrawer" class="hidden mt-3 space-y-3 p-3.5 rounded-[4px] bg-[#070915] border border-slate-800 text-xs">
+              <div class="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-slate-300 leading-relaxed font-sans space-y-1">
+                <div class="font-bold text-emerald-300 flex items-center gap-1">
+                  <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                  <span>Triển khai Google Apps Script Web App của Admin:</span>
+                </div>
+                <p class="text-slate-400">
+                  Mã nguồn máy chủ nằm tại <code class="text-emerald-300 font-mono">tools/google_apps_script.js</code>. Dán mã vào <a href="#" onclick="openExternalUrl('https://script.google.com'); return false;" class="text-emerald-400 underline">script.google.com</a>, chọn Triển khai Ứng dụng Web (Web app) quyền Anyone, và dán URL vào bên dưới.
+                </p>
+              </div>
+
+              <div class="space-y-1">
+                <label class="block text-slate-200 font-semibold text-[11px]">URL Google Apps Script Web App:</label>
+                <input id="inputCommServerUrl" type="text" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+              </div>
+
+              <div class="flex items-center space-x-2 pt-1">
+                <button onclick="saveCommunityServerUrl()" class="pixel-btn px-3 py-1.5 text-xs bg-emerald-700 hover:bg-emerald-600 text-white rounded font-bold transition flex items-center space-x-1">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                  <span>Lưu Địa Chỉ Máy Chủ</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- ========================================== -->
+        <!-- SUBTAB 2: GOOGLE DRIVE CÁ NHÂN (OAUTH RIÊNG) -->
+        <!-- ========================================== -->
+        <div id="subtabContent-gdriveOAuth" class="hidden space-y-4">
+          <!-- 1. Trạng thái ĐÃ KẾT NỐI -->
+          <div id="cloudConnectedSection" class="hidden space-y-4">
+            <div class="p-4 rounded-[6px] border border-emerald-500/40 bg-[#061a14] flex items-center justify-between">
+              <div class="flex items-center space-x-3.5">
+                <img id="cloudUserAvatar" src="" class="w-12 h-12 rounded-full border-2 border-emerald-400 object-cover bg-slate-800" onerror="this.src='/static/app_icon.png'" />
+                <div>
+                  <h4 id="cloudUserName" class="text-sm font-bold text-white font-display">Tên Người Dùng</h4>
+                  <p id="cloudUserEmail" class="text-xs text-emerald-300 font-mono">user@gmail.com</p>
+                  <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Đã kết nối • Thư mục: <code class="text-emerald-300">VietModHub_Cloud/saves</code></span>
+                  </div>
+                </div>
+              </div>
+              <button onclick="logoutGoogleDrive()" class="pixel-btn px-3 py-1.5 text-xs bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 rounded-[4px] transition flex items-center space-x-1.5">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span>Đăng Xuất</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="p-3 rounded-[4px] border border-slate-800 bg-[#080a18]">
+                <div class="text-slate-400">Phương thức bảo mật:</div>
+                <div class="text-emerald-400 font-bold font-mono mt-0.5">Windows DPAPI (AES-256)</div>
+              </div>
+              <div class="p-3 rounded-[4px] border border-slate-800 bg-[#080a18]">
+                <div class="text-slate-400">Tự động sao lưu:</div>
+                <div class="text-emerald-400 font-bold mt-0.5">Bật (Sau khi thoát game)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Trạng thái CHƯA KẾT NỐI -->
+          <div id="cloudDisconnectedSection" class="space-y-4">
+            <div class="p-4 rounded-[6px] border border-white/10 bg-white/[0.02] space-y-3">
+              <div class="flex items-start space-x-3">
+                <div class="p-2 rounded bg-emerald-500/10 text-emerald-400 shrink-0 mt-0.5">
+                  <i data-lucide="shield-check" class="w-5 h-5"></i>
+                </div>
+                <div class="text-xs leading-relaxed text-slate-300">
+                  <strong class="text-white">Tại sao nên kết nối Google Drive?</strong>
+                  <ul class="list-disc list-inside space-y-1 text-slate-400 mt-1.5">
+                    <li>Lưu trữ save game không giới hạn trên Google Drive riêng của bạn (Zero backend cost).</li>
+                    <li>Không bao giờ sợ mất file save khi cài lại Win, đổi máy hoặc lỡ tay xóa game.</li>
+                    <li>Tự động khôi phục toàn bộ giờ chơi và thành tựu đã mở khi mở app trên PC mới.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <button id="btnStartGoogleLogin" onclick="loginGoogleDrive()" class="w-full pixel-btn py-3 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span>ĐĂNG NHẬP BẰNG GOOGLE DRIVE</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Cấu hình Google OAuth Client ID -->
+          <div class="border-t border-slate-800 pt-3">
+            <button onclick="toggleOAuthSettings()" class="text-xs text-slate-300 hover:text-emerald-400 flex items-center justify-between w-full py-1 font-mono transition">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="key" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span id="oauthDrawerTitle" class="font-bold">Cấu Hình Google OAuth Client ID (Desktop App)</span>
+              </span>
+              <i id="oauthSettingsArrow" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
+            </button>
+
+            <div id="oauthSettingsDrawer" class="hidden mt-3 space-y-3 p-3.5 rounded-[4px] bg-[#070915] border border-slate-800 text-xs">
+              <div class="p-3 rounded bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-slate-300 space-y-2 leading-relaxed font-sans">
+                <div class="font-bold flex items-center gap-1.5 text-emerald-300">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  <span>Hướng dẫn 1 phút lấy Client ID Google Drive riêng:</span>
+                </div>
+                <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
+                  <li>Bấm nút bên dưới để mở trang <strong>Google Cloud Console Credentials</strong>.</li>
+                  <li>Chọn <strong>Create Credentials</strong> &gt; chọn <strong>OAuth client ID</strong>.</li>
+                  <li>Tại mục <em>Application type</em>, chọn <strong>Desktop app</strong> (Đặt tên: <em>VietModHub</em>).</li>
+                  <li>Copy mã <strong>Client ID</strong> (dạng <code>...apps.googleusercontent.com</code>) dán vào ô bên dưới.</li>
+                </ol>
+                <button onclick="openExternalUrl('https://console.cloud.google.com/apis/credentials')" class="pixel-btn px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] rounded font-bold flex items-center space-x-1.5 transition">
+                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                  <span>Mở Google Cloud Console Credentials</span>
+                </button>
+              </div>
+
+              <div class="space-y-1">
+                <label class="block text-slate-200 font-semibold text-[11px] flex items-center gap-1">
+                  <span>Google Client ID:</span>
+                  <span class="text-rose-400 font-bold">*</span>
+                </label>
+                <input id="cfgGoogleClientId" type="text" placeholder="xxxx-xxxx.apps.googleusercontent.com" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-slate-300 font-semibold text-[11px]">Google Client Secret (Tùy chọn cho Desktop PKCE):</label>
+                <input id="cfgGoogleClientSecret" type="password" placeholder="GOCSPX-xxxx (không bắt buộc với Desktop PKCE)" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+              </div>
+              <button onclick="saveOAuthSettings()" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-bold transition">
+                Lưu Cấu Hình OAuth
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -5482,6 +5703,425 @@
     }
 
     // ========================================================
+    // ĐÁM MÂY CỔ NGỮ (COMMUNITY CLOUD HUB - GOOGLE APPS SCRIPT)
+    // ========================================================
+    let isCommCloudLoggedIn = false;
+    let commCloudInfo = null;
+    let isCommPassVisible = false;
+
+    function switchCloudSubTab(tab) {
+      const btnComm = document.getElementById('subtabBtn-commCloud');
+      const btnOAuth = document.getElementById('subtabBtn-gdriveOAuth');
+      const contentComm = document.getElementById('subtabContent-commCloud');
+      const contentOAuth = document.getElementById('subtabContent-gdriveOAuth');
+
+      if (tab === 'community') {
+        if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-emerald-400 text-emerald-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
+        if (btnOAuth) btnOAuth.className = 'py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center space-x-1.5 transition cursor-pointer';
+        if (contentComm) contentComm.classList.remove('hidden');
+        if (contentOAuth) contentOAuth.classList.add('hidden');
+      } else {
+        if (btnOAuth) btnOAuth.className = 'py-2.5 px-3 border-b-2 border-cyan-400 text-cyan-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
+        if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center space-x-1.5 transition cursor-pointer';
+        if (contentOAuth) contentOAuth.classList.remove('hidden');
+        if (contentComm) contentComm.classList.add('hidden');
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function switchCommAuthMode(mode) {
+      const btnReg = document.getElementById('commModeBtn-register');
+      const btnLog = document.getElementById('commModeBtn-login');
+      const formReg = document.getElementById('commRegisterForm');
+      const formLog = document.getElementById('commLoginForm');
+
+      if (mode === 'register') {
+        if (btnReg) btnReg.className = 'flex-1 py-1.5 font-bold rounded text-center transition bg-emerald-600 text-white shadow cursor-pointer';
+        if (btnLog) btnLog.className = 'flex-1 py-1.5 font-bold rounded text-center transition text-slate-400 hover:text-white bg-transparent cursor-pointer';
+        if (formReg) formReg.classList.remove('hidden');
+        if (formLog) formLog.classList.add('hidden');
+      } else {
+        if (btnLog) btnLog.className = 'flex-1 py-1.5 font-bold rounded text-center transition bg-cyan-600 text-white shadow cursor-pointer';
+        if (btnReg) btnReg.className = 'flex-1 py-1.5 font-bold rounded text-center transition text-slate-400 hover:text-white bg-transparent cursor-pointer';
+        if (formLog) formLog.classList.remove('hidden');
+        if (formReg) formReg.classList.add('hidden');
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function generateRandomCloudId() {
+      const prefixes = ['congu', 'gamer', 'shadow', 'dragon', 'pixel', 'arcane', 'blade', 'cyber', 'phoenix', 'ninja'];
+      const suffixes = ['vn', 'hero', 'master', 'slayer', 'warrior', 'knight', 'runner', 'legend', 'pro'];
+      const randP = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const randS = suffixes[Math.floor(Math.random() * suffixes.length)];
+      const randNum = Math.floor(100 + Math.random() * 900);
+      const generated = `${randP}_${randS}_${randNum}`;
+
+      const input = document.getElementById('inputCommRegId');
+      if (input) {
+        input.value = generated;
+        input.focus();
+        showToast(`Đã sinh Mã ID ngẫu nhiên: ${generated}`, 'info');
+      }
+    }
+
+    function toggleCommPasswordVisibility() {
+      isCommPassVisible = !isCommPassVisible;
+      const passDisplay = document.getElementById('commCloudPassDisplay');
+      const toggleLabel = document.getElementById('commPassToggleLabel');
+      if (passDisplay) {
+        if (isCommPassVisible && commCloudInfo && commCloudInfo.password_raw) {
+          passDisplay.textContent = commCloudInfo.password_raw;
+          if (toggleLabel) toggleLabel.textContent = 'Ẩn';
+        } else {
+          passDisplay.textContent = '••••••••';
+          if (toggleLabel) toggleLabel.textContent = 'Hiện';
+        }
+      }
+    }
+
+    function copyCommunityCloudId() {
+      const id = commCloudInfo ? commCloudInfo.cloud_id : '';
+      if (id) {
+        navigator.clipboard.writeText(id).then(() => {
+          showToast(`Đã sao chép Mã Cloud ID: ${id}`, 'success');
+        }).catch(() => {
+          showToast(`Mã Cloud ID: ${id}`, 'info');
+        });
+      }
+    }
+
+    function toggleCommServerSettings() {
+      const drawer = document.getElementById('commServerDrawer');
+      const arrow = document.getElementById('commServerArrow');
+      if (drawer) {
+        drawer.classList.toggle('hidden');
+        if (arrow) arrow.classList.toggle('rotate-180');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function checkCommunityCloudStatus() {
+      try {
+        const resp = await fetch('/api/community_cloud/status');
+        if (!resp.ok) return;
+        commCloudInfo = await resp.json();
+        isCommCloudLoggedIn = Boolean(commCloudInfo && commCloudInfo.is_logged_in);
+
+        // Cập nhật nút Đám Mây trên thanh tiêu đề chính
+        const topBtn = document.getElementById('btnCommunityCloud');
+        const topText = document.getElementById('communityCloudTopText');
+        const topBadge = document.getElementById('communityCloudBadge');
+
+        if (topBtn) {
+          if (isCommCloudLoggedIn) {
+            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/70 bg-[#061e16] text-emerald-300 hover:bg-emerald-900 transition shadow-[0_0_12px_rgba(16,185,129,0.3)]';
+            if (topText) topText.textContent = commCloudInfo.cloud_id || 'Đám Mây';
+            if (topBadge) {
+              topBadge.classList.remove('hidden');
+              topBadge.textContent = 'ON';
+              topBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 font-pixel border border-emerald-500/50';
+            }
+          } else {
+            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/40 bg-[#081a14]/90 text-emerald-300/80 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[2px_2px_0px_#05050a]';
+            if (topText) topText.textContent = 'Đám Mây';
+            if (topBadge) {
+              topBadge.classList.remove('hidden');
+              topBadge.textContent = 'OFF';
+              topBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-pixel border border-slate-700';
+            }
+          }
+        }
+
+        // Cập nhật các thẻ bên trong Modal Đám Mây Cổ Ngữ
+        const loggedInCard = document.getElementById('commCloudLoggedInCard');
+        const loggedOutCard = document.getElementById('commCloudLoggedOutCard');
+        const idDisplay = document.getElementById('commCloudIdDisplay');
+        const passDisplay = document.getElementById('commCloudPassDisplay');
+        const sizeDisplay = document.getElementById('commCloudSizeDisplay');
+        const mtimeDisplay = document.getElementById('commCloudMtimeDisplay');
+
+        if (loggedInCard && loggedOutCard) {
+          if (isCommCloudLoggedIn) {
+            loggedInCard.classList.remove('hidden');
+            loggedOutCard.classList.add('hidden');
+
+            if (idDisplay) idDisplay.textContent = commCloudInfo.cloud_id || '---';
+            if (passDisplay) {
+              passDisplay.textContent = isCommPassVisible && commCloudInfo.password_raw ? commCloudInfo.password_raw : '••••••••';
+            }
+
+            const sz = commCloudInfo.last_size || 0;
+            if (sizeDisplay) {
+              sizeDisplay.textContent = sz > 1048576 ? `${(sz / 1048576).toFixed(2)} MB` : sz > 1024 ? `${(sz / 1024).toFixed(1)} KB` : `${sz} B`;
+            }
+
+            if (mtimeDisplay) {
+              if (commCloudInfo.last_sync) {
+                try {
+                  const d = new Date(commCloudInfo.last_sync);
+                  mtimeDisplay.textContent = d.toLocaleString('vi-VN');
+                } catch (e) {
+                  mtimeDisplay.textContent = commCloudInfo.last_sync;
+                }
+              } else {
+                mtimeDisplay.textContent = 'Chưa tải lên';
+              }
+            }
+          } else {
+            loggedInCard.classList.add('hidden');
+            loggedOutCard.classList.remove('hidden');
+          }
+        }
+
+        // Cập nhật ô input server URL cho Admin
+        const inputUrl = document.getElementById('inputCommServerUrl');
+        if (inputUrl && commCloudInfo && commCloudInfo.server_url) {
+          inputUrl.value = commCloudInfo.server_url;
+        }
+
+        // Cập nhật Tab Cloud Save trong modal chi tiết game nếu đang mở
+        const tabBadge = document.getElementById('cloudTabStatusBadge');
+        const tabSubText = document.getElementById('cloudTabSubText');
+        if (isCommCloudLoggedIn) {
+          if (tabBadge) {
+            tabBadge.textContent = `🟢 ID: ${commCloudInfo.cloud_id}`;
+            tabBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+          }
+          if (tabSubText) {
+            tabSubText.textContent = 'Đồng bộ qua Đám Mây Cổ Ngữ (Google Drive chung an toàn, 0% cảnh báo)';
+          }
+        }
+
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        console.warn('[Check Community Cloud Status Error]', err);
+      }
+    }
+
+    async function registerCommunityCloud() {
+      const regId = (document.getElementById('inputCommRegId')?.value || '').trim();
+      const regPass = (document.getElementById('inputCommRegPass')?.value || '').trim();
+      const serverUrl = (document.getElementById('inputCommServerUrl')?.value || '').trim();
+
+      if (!regId) {
+        showToast('Vui lòng nhập Mã Cloud ID bạn muốn tạo!', 'warning');
+        document.getElementById('inputCommRegId')?.focus();
+        return;
+      }
+      if (regId.length < 3) {
+        showToast('Mã Cloud ID phải có ít nhất 3 ký tự!', 'warning');
+        return;
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(regId)) {
+        showToast('Mã Cloud ID chỉ được chứa chữ cái, số, gạch ngang (-) hoặc gạch dưới (_)!', 'warning');
+        return;
+      }
+      if (!regPass || regPass.length < 4) {
+        showToast('Mật khẩu bảo vệ phải có ít nhất 4 ký tự!', 'warning');
+        document.getElementById('inputCommRegPass')?.focus();
+        return;
+      }
+
+      const btn = document.getElementById('btnCommRegisterAction');
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i>
+          <span>ĐANG TẠO MÃ CLOUD ID TRÊN MÁY CHỦ...</span>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        const resp = await fetch('/api/community_cloud/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cloud_id: regId, password: regPass, server_url: serverUrl })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast(`Tạo thành công Mã Cloud ID '${regId}'! Đang đẩy save lên Mây...`, 'success');
+          await checkCommunityCloudStatus();
+          await uploadCommunitySave(true);
+        } else {
+          showToast(data.error || 'Lỗi khi tạo Mã Cloud ID!', 'error');
+        }
+      } catch (err) {
+        showToast(`Không thể kết nối máy chủ: ${err}`, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function loginCommunityCloud() {
+      const logId = (document.getElementById('inputCommLogId')?.value || '').trim();
+      const logPass = (document.getElementById('inputCommLogPass')?.value || '').trim();
+      const serverUrl = (document.getElementById('inputCommServerUrl')?.value || '').trim();
+
+      if (!logId) {
+        showToast('Vui lòng nhập Mã Cloud ID của bạn!', 'warning');
+        document.getElementById('inputCommLogId')?.focus();
+        return;
+      }
+      if (!logPass) {
+        showToast('Vui lòng nhập Mật khẩu bảo vệ!', 'warning');
+        document.getElementById('inputCommLogPass')?.focus();
+        return;
+      }
+
+      const btn = document.getElementById('btnCommLoginAction');
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i>
+          <span>ĐANG XÁC THỰC VỚI MÁY CHỦ...</span>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        const resp = await fetch('/api/community_cloud/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cloud_id: logId, password: logPass, server_url: serverUrl })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast(`Đăng nhập thành công Mã ID '${logId}'! Đang kéo save về máy...`, 'success');
+          await checkCommunityCloudStatus();
+          await downloadCommunitySave(true);
+        } else {
+          showToast(data.error || 'Đăng nhập thất bại!', 'error');
+        }
+      } catch (err) {
+        showToast(`Lỗi kết nối máy chủ: ${err}`, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function logoutCommunityCloud() {
+      if (!confirm('Bạn có chắc chắn muốn đăng xuất tài khoản Đám Mây khỏi máy này? (Save trên máy vẫn được giữ nguyên)')) {
+        return;
+      }
+      try {
+        const resp = await fetch('/api/community_cloud/logout', { method: 'POST' });
+        const data = await resp.json();
+        showToast('Đã đăng xuất tài khoản Đám Mây Cổ Ngữ!', 'info');
+        await checkCommunityCloudStatus();
+      } catch (err) {
+        showToast(`Lỗi khi đăng xuất: ${err}`, 'error');
+      }
+    }
+
+    async function uploadCommunitySave(isSilent = false) {
+      const btnHero = document.getElementById('btnCommUploadHero');
+      const origHero = btnHero ? btnHero.innerHTML : '';
+      if (btnHero) {
+        btnHero.disabled = true;
+        btnHero.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i><span>ĐANG TẢI LÊN...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      if (!isSilent) showToast('Đang gom save và đẩy lên Đám Mây Cổ Ngữ...', 'info');
+
+      try {
+        const resp = await fetch('/api/community_cloud/upload', { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast('Đã lưu trữ toàn bộ Save Game lên Đám Mây thành công!', 'success');
+          await checkCommunityCloudStatus();
+          if (typeof refreshVaultModalData === 'function' && document.getElementById('vaultModal') && !document.getElementById('vaultModal').classList.contains('hidden')) {
+            await refreshVaultModalData();
+          }
+        } else {
+          showToast(data.error || 'Lỗi khi đẩy save lên mây!', 'error');
+        }
+      } catch (err) {
+        showToast(`Lỗi đường truyền: ${err}`, 'error');
+      } finally {
+        if (btnHero) {
+          btnHero.disabled = false;
+          btnHero.innerHTML = origHero;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function downloadCommunitySave(isSilent = false) {
+      const btnHero = document.getElementById('btnCommDownloadHero');
+      const origHero = btnHero ? btnHero.innerHTML : '';
+      if (btnHero) {
+        btnHero.disabled = true;
+        btnHero.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i><span>ĐANG KÉO SAVE VỀ...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      if (!isSilent) showToast('Đang tải và khôi phục Save Game từ Đám Mây...', 'info');
+
+      try {
+        const resp = await fetch('/api/community_cloud/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auto_unpack: true })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast('Đã tải và khôi phục tiến trình Save Game thành công!', 'success');
+          await checkCommunityCloudStatus();
+          if (typeof refreshVaultModalData === 'function' && document.getElementById('vaultModal') && !document.getElementById('vaultModal').classList.contains('hidden')) {
+            await refreshVaultModalData();
+          }
+        } else {
+          showToast(data.error || 'Lỗi khi kéo save về máy!', 'error');
+        }
+      } catch (err) {
+        showToast(`Lỗi đường truyền: ${err}`, 'error');
+      } finally {
+        if (btnHero) {
+          btnHero.disabled = false;
+          btnHero.innerHTML = origHero;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function saveCommunityServerUrl() {
+      const url = (document.getElementById('inputCommServerUrl')?.value || '').trim();
+      try {
+        const resp = await fetch('/api/community_cloud/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ server_url: url })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast('Đã lưu địa chỉ Máy Chủ Đám Mây thành công!', 'success');
+          await checkCommunityCloudStatus();
+        } else {
+          showToast(data.error || 'Lỗi khi lưu cấu hình máy chủ!', 'error');
+        }
+      } catch (err) {
+        showToast(`Lỗi: ${err}`, 'error');
+      }
+    }
+
+    // ========================================================
     // GOOGLE DRIVE CLOUD SAVE & ECOSYSTEM FUNCTIONS
     // ========================================================
     let isCloudConnected = false;
@@ -5569,6 +6209,7 @@
       const modal = document.getElementById('cloudConnectModal');
       if (modal) {
         modal.classList.remove('hidden');
+        checkCommunityCloudStatus();
         checkGdriveStatus();
         if (window.lucide) lucide.createIcons();
       }
@@ -5876,6 +6517,22 @@
 
     async function syncCurrentGameSave(action) {
       if (!activeModalGameId) return;
+
+      if (isCommCloudLoggedIn) {
+        if (action === 'upload') {
+          await uploadCommunitySave();
+        } else {
+          await downloadCommunitySave();
+        }
+        await loadCloudSaveTab(activeModalGameId);
+        return;
+      }
+
+      if (!isCloudConnected) {
+        showToast('Bạn chưa kết nối Đám Mây Cổ Ngữ! Vui lòng tạo ID hoặc đăng nhập.', 'info');
+        openCloudModal();
+        return;
+      }
 
       const btnUp = document.getElementById('btnUploadCloudSave');
       const btnDown = document.getElementById('btnDownloadCloudSave');
@@ -6544,6 +7201,7 @@
     }
     fetchGames();
     startGlobalPlaytimeWatcher();
+    checkCommunityCloudStatus();
     checkGdriveStatus();
   </script>
 
