@@ -72,6 +72,11 @@ DEFAULT_SCOPES = [
 
 CLOUD_ROOT_FOLDER_NAME = "VietModHub_Cloud"
 
+# Default Embedded Desktop OAuth Client ID for CỔ NGỮ (VietModHub Pro)
+# Any Desktop OAuth Client ID created for Desktop App on Google Cloud Console
+DEFAULT_CLIENT_ID = "536736877210-vevco08ggq3ic9jeja13mom37kpimqv5.apps.googleusercontent.com"
+DEFAULT_CLIENT_SECRET = ""
+
 
 def base64url_encode(data: bytes) -> str:
     """Encode bytes using URL-safe base64 without padding."""
@@ -432,7 +437,7 @@ class CloudSyncManager:
             "picture": prof.get("picture", "")
         }
 
-    def start_oauth_flow(self, client_id: str, client_secret: str = "") -> dict:
+    def start_oauth_flow(self, client_id: str = "", client_secret: str = "") -> dict:
         """
         Bắt đầu luồng OAuth2 PKCE Desktop Flow:
         1. Tạo code_verifier & code_challenge (S256).
@@ -440,8 +445,15 @@ class CloudSyncManager:
         3. Mở trình duyệt mặc định để người dùng đăng nhập.
         4. Thu nhận Authorization Code, đổi lấy Tokens và lưu trữ mã hóa.
         """
-        if not client_id:
-            return {"success": False, "error": "Chưa cấu hình Google Client ID"}
+        cid = (client_id or DEFAULT_CLIENT_ID or "").strip()
+        csec = (client_secret or DEFAULT_CLIENT_SECRET or "").strip()
+        if not cid:
+            return {
+                "success": False,
+                "error": "Chưa có Google Client ID. Vui lòng dán Client ID (Desktop App) từ Google Cloud Console vào ô cấu hình."
+            }
+        client_id = cid
+        client_secret = csec
 
         # 1. Sinh PKCE Verifier & Challenge
         code_verifier = secrets.token_urlsafe(64)
@@ -1091,3 +1103,145 @@ class CloudSyncManager:
                 print(f"[CloudSyncManager] Post-session sync error cho '{game_id}': {e}")
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    # ==========================================
+    # CƠ CHẾ ĐỒNG BỘ HỒ SƠ DI ĐỘNG HỢP NHẤT (PORTABLE VAULT DRIVE SYNC)
+    # ==========================================
+
+    def sync_vault_to_drive(self, vault_path: str) -> dict:
+        """
+        Tải 1 tệp PlayerProfile.congu_save duy nhất lên Google Drive (Zero-Bloat, siêu tốc).
+        """
+        if not self.is_connected():
+            return {"success": False, "error": "Chưa kết nối Google Drive"}
+        if not os.path.exists(vault_path):
+            return {"success": False, "error": f"Không tìm thấy file Vault: {vault_path}"}
+
+        try:
+            root_id, _ = self.client.get_cloud_root_folders()
+            cloud_files = self.client.list_files_in_folder(root_id)
+
+            # Tìm file vault trên Cloud nếu đã có
+            vault_name = os.path.basename(vault_path)
+            cloud_file = cloud_files.get(vault_name) or cloud_files.get("PlayerProfile.congu_save")
+            existing_file_id = cloud_file["id"] if cloud_file else None
+
+            # Tính SHA-256
+            hasher = hashlib.sha256()
+            with open(vault_path, "rb") as f:
+                while chunk := f.read(65536):
+                    hasher.update(chunk)
+            vault_hash = hasher.hexdigest()
+
+            app_props = {
+                "sha256": vault_hash,
+                "type": "congu_save_vault",
+                "mtime": str(int(os.path.getmtime(vault_path))),
+                "size": str(os.path.getsize(vault_path))
+            }
+
+            upload_res = self.client.upload_file_multipart(
+                name=vault_name,
+                file_path_or_bytes=vault_path,
+                parent_id=root_id,
+                app_properties=app_props,
+                existing_file_id=existing_file_id
+            )
+
+            return {
+                "success": True,
+                "message": f"Đã đồng bộ {vault_name} lên Google Drive thành công!",
+                "file_id": upload_res.get("id"),
+                "size_bytes": os.path.getsize(vault_path),
+                "sha256": vault_hash
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Đồng bộ Vault lên Google Drive thất bại: {e}"}
+
+    def download_vault_from_drive(self, target_vault_path: str) -> dict:
+        """
+        Tải file PlayerProfile.congu_save từ Google Drive về máy tính mới (1-Click Restore).
+        """
+        if not self.is_connected():
+            return {"success": False, "error": "Chưa kết nối Google Drive"}
+
+        try:
+            root_id, _ = self.client.get_cloud_root_folders()
+            cloud_files = self.client.list_files_in_folder(root_id)
+
+            vault_name = os.path.basename(target_vault_path)
+            cloud_file = cloud_files.get(vault_name) or cloud_files.get("PlayerProfile.congu_save")
+            if not cloud_file:
+                # Tìm bất kỳ file nào có đuôi .congu_save
+                for fname, fmeta in cloud_files.items():
+                    if fname.endswith(".congu_save"):
+                        cloud_file = fmeta
+                        break
+
+            if not cloud_file:
+                return {"success": False, "error": "Không tìm thấy file Hồ Sơ (.congu_save) trên Google Drive của bạn."}
+
+            cloud_file_id = cloud_file["id"]
+            tmp_download = target_vault_path + f".tmp_{secrets.token_hex(4)}"
+
+            self.client.download_file(cloud_file_id, tmp_download)
+
+            # Kiểm tra tính toàn vẹn của tệp .congu_save vừa tải về
+            try:
+                with zipfile.ZipFile(tmp_download, "r") as zf:
+                    if "profile_manifest.json" not in zf.namelist():
+                        raise ValueError("Tệp tải về thiếu profile_manifest.json")
+                    manifest = json.loads(zf.read("profile_manifest.json").decode("utf-8"))
+            except Exception as val_err:
+                if os.path.exists(tmp_download):
+                    os.remove(tmp_download)
+                return {"success": False, "error": f"Tệp trên Google Drive không phải file Vault hợp lệ: {val_err}"}
+
+            # Tạo bản sao lưu tệp hiện tại nếu có
+            if os.path.exists(target_vault_path):
+                bak_path = target_vault_path + ".congu_vault_bak"
+                try:
+                    shutil.copy2(target_vault_path, bak_path)
+                except Exception:
+                    pass
+
+            os.makedirs(os.path.dirname(os.path.abspath(target_vault_path)), exist_ok=True)
+            os.replace(tmp_download, target_vault_path)
+
+            return {
+                "success": True,
+                "message": "Đã tải và nạp Hồ Sơ Di Động từ Google Drive thành công!",
+                "manifest": manifest,
+                "vault_path": target_vault_path
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Tải Vault từ Google Drive thất bại: {e}"}
+
+    def get_vault_cloud_info(self, vault_name: str = "PlayerProfile.congu_save") -> dict:
+        """Kiểm tra thông tin file Vault đang lưu trên Google Drive."""
+        if not self.is_connected():
+            return {"connected": False}
+        try:
+            root_id, _ = self.client.get_cloud_root_folders()
+            cloud_files = self.client.list_files_in_folder(root_id)
+            cf = cloud_files.get(vault_name) or cloud_files.get("PlayerProfile.congu_save")
+            if not cf:
+                for fname, fmeta in cloud_files.items():
+                    if fname.endswith(".congu_save"):
+                        cf = fmeta
+                        break
+            if not cf:
+                return {"connected": True, "exists": False}
+
+            return {
+                "connected": True,
+                "exists": True,
+                "id": cf.get("id"),
+                "name": cf.get("name"),
+                "size": int(cf.get("size", 0)),
+                "modifiedTime": cf.get("modifiedTime"),
+                "appProperties": cf.get("appProperties", {})
+            }
+        except Exception as e:
+            return {"connected": True, "exists": False, "error": str(e)}
+

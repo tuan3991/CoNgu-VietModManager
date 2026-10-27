@@ -1882,6 +1882,7 @@ def handle_game_exit_hook(game_id: str, game_dir: str):
     Điểm móc nối tự động sau khi thoát game (Post-Exit Hook):
     - Ghi log và đồng bộ trạng thái.
     - Sẵn sàng kích hoạt: Đồng bộ Cloud Save & Quét Thành Tựu mới mở khóa.
+    - Tự động đóng gói Save + Thành tựu vào Hồ Sơ Di Động Hợp Nhất (PlayerProfile.congu_save).
     """
     log_startup(f"[PlaytimeTracker] Kích hoạt Post-Exit Hook cho '{game_id}' tại '{game_dir}'")
     try:
@@ -1889,6 +1890,16 @@ def handle_game_exit_hook(game_id: str, game_dir: str):
             ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
     except Exception as e:
         print(f"[AchievementTracker] Post-exit scan error: {e}")
+
+    try:
+        if "SAVE_VAULT" in globals() and SAVE_VAULT:
+            g_cfg = next((g for g in get_games() if g.get("id") == game_id), None)
+            if g_cfg:
+                vault = get_vault_instance()
+                vault.pack_game_to_vault(g_cfg, game_dir)
+                log_startup(f"[SaveVault] Đã tự động gom Save + Thành tựu của '{game_id}' vào Hồ Sơ Di Động (.congu_save)")
+    except Exception as e:
+        print(f"[SaveVault] Post-exit vault pack error: {e}")
 
     try:
         if "CLOUD_SYNC_MGR" in globals() and CLOUD_SYNC_MGR:
@@ -1900,8 +1911,10 @@ def handle_game_exit_hook(game_id: str, game_dir: str):
 
 PLAYTIME_MGR = PlaytimeManager(db_path=PLAYTIME_FILE, on_game_exit_callback=handle_game_exit_hook)
 
-from cloud_sync import CloudSyncManager
+from cloud_sync import CloudSyncManager, DEFAULT_CLIENT_ID, DEFAULT_CLIENT_SECRET
 CLOUD_SYNC_MGR = CloudSyncManager(APPDATA_DIR)
+
+from vault_manager import ConguSaveVault
 
 
 def load_user_config():
@@ -1934,6 +1947,42 @@ def save_user_config(cfg):
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Error saving config: {e}")
+
+def get_vault_instance() -> ConguSaveVault:
+    """Lấy thể hiện quản lý Hồ Sơ Di Động Hợp Nhất (PlayerProfile.congu_save)."""
+    global SAVE_VAULT
+    cfg = load_user_config()
+    custom_path = cfg.get("custom_vault_path")
+    if custom_path:
+        target = os.path.abspath(custom_path)
+    elif os.path.exists(os.path.join(APP_DIR, "PlayerProfile.congu_save")):
+        target = os.path.join(APP_DIR, "PlayerProfile.congu_save")
+    else:
+        target = os.path.join(APPDATA_DIR, "PlayerProfile.congu_save")
+
+    if "SAVE_VAULT" not in globals() or SAVE_VAULT is None or SAVE_VAULT.vault_path != target:
+        SAVE_VAULT = ConguSaveVault(target)
+    return SAVE_VAULT
+
+SAVE_VAULT = get_vault_instance()
+
+def get_games():
+    """Lấy danh sách các game từ games.json hoặc api_instance."""
+    if "api_instance" in globals() and api_instance:
+        try:
+            return api_instance.get_games()
+        except Exception:
+            pass
+    gp = get_active_games_json_path()
+    if os.path.exists(gp):
+        try:
+            with open(gp, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
 
 def get_all_configured_game_paths():
     """Lấy danh sách toàn bộ thư mục game đã được định danh trên máy."""
@@ -3625,6 +3674,64 @@ class ModManagerAPI:
                 return {"success": False, "message": f"Lỗi khi lưu ảnh bìa: {e}"}
 
         return {"success": False, "message": "Chưa chọn ảnh nào."}
+
+    def select_vault_file_dialog(self):
+        """Mở hộp thoại chọn tệp .congu_save từ USB/ổ cứng ngoài."""
+        chosen_file = None
+        if self.window:
+            try:
+                file_types = ('Hồ Sơ CỔ NGỮ (*.congu_save;*.congu_vault;*.zip)', 'All files (*.*)')
+                res = self.window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types)
+                if res and len(res) > 0:
+                    chosen_file = res[0]
+            except Exception as e:
+                print(f"[!] PyWebView file dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.askopenfilename(
+                    title="Chọn tệp Hồ Sơ CỔ NGỮ (.congu_save)",
+                    filetypes=[("Hồ Sơ CỔ NGỮ", "*.congu_save;*.congu_vault;*.zip"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+        return chosen_file or ""
+
+    def export_vault_dialog(self):
+        """Mở hộp thoại chọn vị trí lưu file .congu_save ra USB hoặc thư mục bất kỳ."""
+        chosen_file = None
+        if self.window:
+            try:
+                file_types = ('Hồ Sơ CỔ NGỮ (*.congu_save)', 'All files (*.*)')
+                res = self.window.create_file_dialog(webview.SAVE_DIALOG, save_filename="PlayerProfile.congu_save", file_types=file_types)
+                if res:
+                    chosen_file = res if isinstance(res, str) else res[0]
+            except Exception as e:
+                print(f"[!] PyWebView save file dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.asksaveasfilename(
+                    title="Xuất Hồ Sơ CỔ NGỮ (.congu_save) ra USB / Ổ cứng",
+                    initialfile="PlayerProfile.congu_save",
+                    defaultextension=".congu_save",
+                    filetypes=[("Hồ Sơ CỔ NGỮ", "*.congu_save"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+        return chosen_file or ""
 
     def search_game_for_avatar(self, query: str) -> list[dict]:
         """Tìm danh sách game kèm ảnh preview từ Kho CỔ NGỮ, Steam Store trực tiếp trên mạng, và DB bổ trợ."""
@@ -6238,6 +6345,31 @@ class ModManagerAPI:
                     if candidate_exe:
                         break
 
+        # Vault Pre-Launch Check & Auto-Restore:
+        # Nếu trong Vault có bản save mà máy hiện tại chưa có, tự động nạp từ Vault vào máy
+        try:
+            vault = get_vault_instance()
+            manifest = vault.read_manifest()
+            vault_game_info = manifest.get("games", {}).get(game_id)
+            if vault_game_info and game_path:
+                vault_save_time = vault_game_info.get("save_updated_at", 0)
+                save_locs, _ = vault._extract_game_locations(g, game_path)
+                local_has_save = False
+                for sloc in save_locs:
+                    rp = vault.resolve_macro_path(sloc.get("path", ""), game_path)
+                    if rp and os.path.exists(rp):
+                        if os.path.isdir(rp) and os.listdir(rp):
+                            local_has_save = True
+                            break
+                        elif os.path.isfile(rp):
+                            local_has_save = True
+                            break
+                if not local_has_save and vault_save_time > 0:
+                    log_startup(f"[Vault] Phát hiện save trong Hồ Sơ cho '{game_id}', tự động bung vào máy trước khi mở game...")
+                    vault.unpack_game_from_vault(g, game_path, backup_existing=True)
+        except Exception as e:
+            print(f"[Vault Pre-Launch Hook Warning]: {e}")
+
         # Khởi chạy tách rời (Detached) để đóng CỔ NGỮ không làm tắt game (Zero-Leak Clean Exit)
         creation_flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
         launched = False
@@ -7241,16 +7373,23 @@ def api_cloud_login():
     """Khởi chạy luồng xác thực Google OAuth2 PKCE Desktop Flow."""
     data = request.json or {}
     cfg = load_user_config()
-    client_id = data.get("client_id") or cfg.get("google_client_id", "")
-    client_secret = data.get("client_secret") or cfg.get("google_client_secret", "")
+    client_id = data.get("client_id") or cfg.get("google_client_id", "") or DEFAULT_CLIENT_ID
+    client_secret = data.get("client_secret") or cfg.get("google_client_secret", "") or DEFAULT_CLIENT_SECRET
 
     if not client_id:
         response.status = 400
         response.content_type = "application/json"
         return json.dumps({
             "success": False,
-            "error": "Vui lòng nhập Google Client ID trong phần Cài Đặt (hoặc cấp quyền OAuth ứng dụng)."
+            "error": "Chưa có Google Client ID. Vui lòng nhập Client ID của bạn bên dưới (hoặc chờ quản trị viên cấp Client ID mặc định)."
         }, ensure_ascii=False)
+
+    # Tự động lưu Client ID vào cấu hình nếu người dùng nhập riêng
+    if data.get("client_id"):
+        cfg["google_client_id"] = data["client_id"].strip()
+        if data.get("client_secret"):
+            cfg["google_client_secret"] = data["client_secret"].strip()
+        save_user_config(cfg)
 
     response.content_type = "application/json"
     res = CLOUD_SYNC_MGR.start_oauth_flow(client_id, client_secret)
@@ -7282,13 +7421,14 @@ def api_cloud_config():
         save_user_config(cfg)
         return json.dumps({"success": True, "message": "Đã lưu cấu hình Google OAuth thành công!"})
     else:
-        cid = cfg.get("google_client_id", "")
-        csec = cfg.get("google_client_secret", "")
+        cid = cfg.get("google_client_id", "") or DEFAULT_CLIENT_ID
+        csec = cfg.get("google_client_secret", "") or DEFAULT_CLIENT_SECRET
         masked_sec = (csec[:4] + "********" + csec[-4:]) if len(csec) > 8 else ("********" if csec else "")
         return json.dumps({
             "client_id": cid,
             "has_secret": bool(csec),
-            "masked_secret": masked_sec
+            "masked_secret": masked_sec,
+            "is_default": not bool(cfg.get("google_client_id")) and bool(DEFAULT_CLIENT_ID)
         })
 
 @server_app.route("/api/cloud/save/status", method="POST")
@@ -7366,6 +7506,166 @@ def api_cloud_save_restore_backup():
     game_dir = cfg.get(f"{game_id}_path")
 
     res = CLOUD_SYNC_MGR.restore_local_backup(game_id, backup_filename, game_config, game_dir)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+
+# ==============================================================================
+# HỒ SƠ DI ĐỘNG HỢP NHẤT (PORTABLE SAVE VAULT - .congu_save) API
+# ==============================================================================
+
+@server_app.route("/api/vault/status", method="GET")
+def api_vault_status():
+    """Lấy thông tin tổng quan của Hồ Sơ Di Động Hợp Nhất (.congu_save)."""
+    response.content_type = "application/json"
+    vault = get_vault_instance()
+    info = vault.get_vault_info()
+    cloud_info = {}
+    if "CLOUD_SYNC_MGR" in globals() and CLOUD_SYNC_MGR and CLOUD_SYNC_MGR.is_connected():
+        cloud_info = CLOUD_SYNC_MGR.get_vault_cloud_info(os.path.basename(vault.vault_path))
+    info["cloud"] = cloud_info
+    return json.dumps(info, ensure_ascii=False)
+
+@server_app.route("/api/vault/pack", method="POST")
+def api_vault_pack():
+    """Gom Save Game, Thành tựu & Giờ chơi vào Hồ Sơ Di Động."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id")
+    vault = get_vault_instance()
+    games = get_games()
+    cfg = load_user_config()
+
+    if game_id:
+        game_config = next((g for g in games if g["id"] == game_id), None)
+        if not game_config:
+            response.status = 404
+            return json.dumps({"success": False, "error": f"Không tìm thấy game '{game_id}'"})
+        game_dir = cfg.get(f"{game_id}_path", "")
+        res = vault.pack_game_to_vault(game_config, game_dir)
+        return json.dumps({"success": True, "game_stat": res, "message": f"Đã đóng gói {game_config.get('title', game_id)} vào Hồ Sơ!"}, ensure_ascii=False)
+    else:
+        # Đóng gói toàn bộ game tìm thấy
+        results = {}
+        count = 0
+        for g in games:
+            gid = g["id"]
+            gdir = cfg.get(f"{gid}_path", "")
+            if gdir and os.path.exists(gdir):
+                stat = vault.pack_game_to_vault(g, gdir)
+                results[gid] = stat
+                count += 1
+        return json.dumps({"success": True, "count": count, "games": results, "message": f"Đã đóng gói {count} tựa game vào Hồ Sơ!"}, ensure_ascii=False)
+
+@server_app.route("/api/vault/unpack", method="POST")
+def api_vault_unpack():
+    """Bung Save Game & Thành tựu từ Hồ Sơ Di Động ra máy tính."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id")
+    backup_existing = data.get("backup_existing", True)
+    vault = get_vault_instance()
+    games = get_games()
+    cfg = load_user_config()
+
+    if game_id:
+        game_config = next((g for g in games if g["id"] == game_id), None)
+        if not game_config:
+            response.status = 404
+            return json.dumps({"success": False, "error": f"Không tìm thấy game '{game_id}'"})
+        game_dir = cfg.get(f"{game_id}_path", "")
+        res = vault.unpack_game_from_vault(game_config, game_dir, backup_existing=backup_existing)
+        return json.dumps(res, ensure_ascii=False)
+    else:
+        # Bung toàn bộ game đã cài
+        res = vault.unpack_all_installed_games(games, cfg)
+        return json.dumps({"success": True, "results": res, "message": f"Đã bung Save cho {len(res)} game vào máy!"}, ensure_ascii=False)
+
+@server_app.route("/api/vault/export", method="POST")
+def api_vault_export():
+    """Xuất file .congu_save ra USB hoặc thư mục được chọn."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    target_path = data.get("target_path")
+    if not target_path:
+        target_path = api_instance.export_vault_dialog()
+        if not target_path:
+            return json.dumps({"success": False, "cancelled": True, "message": "Người dùng đã hủy xuất file"})
+
+    vault = get_vault_instance()
+    res = vault.export_vault(target_path)
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/vault/import", method="POST")
+def api_vault_import():
+    """Nạp file .congu_save từ USB hoặc file được chọn vào hệ thống."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    source_path = data.get("source_path")
+    auto_unpack = data.get("auto_unpack", True)
+    if not source_path:
+        source_path = api_instance.select_vault_file_dialog()
+        if not source_path:
+            return json.dumps({"success": False, "cancelled": True, "message": "Người dùng đã hủy chọn file"})
+
+    vault = get_vault_instance()
+    res = vault.import_vault(source_path)
+    if res.get("success") and auto_unpack:
+        games = get_games()
+        cfg = load_user_config()
+        unpack_res = vault.unpack_all_installed_games(games, cfg)
+        res["auto_unpack_results"] = unpack_res
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/vault/open_folder", method="POST")
+def api_vault_open_folder():
+    """Mở thư mục chứa file PlayerProfile.congu_save trên Windows Explorer."""
+    response.content_type = "application/json"
+    vault = get_vault_instance()
+    folder = os.path.dirname(vault.vault_path)
+    try:
+        if os.path.exists(vault.vault_path):
+            subprocess.Popen(f'explorer /select,"{vault.vault_path}"')
+        else:
+            os.startfile(folder)
+        return json.dumps({"success": True, "folder": folder})
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
+
+@server_app.route("/api/vault/cloud/upload", method="POST")
+def api_vault_cloud_upload():
+    """Tải file PlayerProfile.congu_save lên Google Drive (Zero-Bloat, siêu tốc)."""
+    response.content_type = "application/json"
+    if "CLOUD_SYNC_MGR" not in globals() or not CLOUD_SYNC_MGR:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Chưa khởi tạo CloudSyncManager"})
+
+    vault = get_vault_instance()
+    res = CLOUD_SYNC_MGR.sync_vault_to_drive(vault.vault_path)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/vault/cloud/download", method="POST")
+def api_vault_cloud_download():
+    """Tải file PlayerProfile.congu_save từ Google Drive về máy và nạp vào hệ thống."""
+    response.content_type = "application/json"
+    if "CLOUD_SYNC_MGR" not in globals() or not CLOUD_SYNC_MGR:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Chưa khởi tạo CloudSyncManager"})
+
+    data = request.json or {}
+    auto_unpack = data.get("auto_unpack", True)
+    vault = get_vault_instance()
+    res = CLOUD_SYNC_MGR.download_vault_from_drive(vault.vault_path)
+    if res.get("success") and auto_unpack:
+        games = get_games()
+        cfg = load_user_config()
+        unpack_res = vault.unpack_all_installed_games(games, cfg)
+        res["auto_unpack_results"] = unpack_res
     if not res.get("success"):
         response.status = 400
     return json.dumps(res, ensure_ascii=False)

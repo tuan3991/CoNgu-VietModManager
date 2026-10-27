@@ -1536,5 +1536,67 @@
         "%PUBLIC%/Documents/Steam/CODEX/300820/achievements.ini"
       ]
     }
+  },
+  {
+    "id": "ffrs",
+    "steam_appid": "3259780",
+    "title": "FINAL FANTASY RESONANCE",
+    "vietnamese_title": "FINAL FANTASY RESONANCE (Việt Hóa)",
+    "developer": "Square Enix & Lancarse",
+    "engine": "Unreal Engine 5",
+    "genre": "JRPG Cổ Điển Lượt Đánh, HD-2D, Phiêu Lưu Sử Thi",
+    "description": "Bản chuyển thể HD-2D hoàn chỉnh, độc lập của thiên sử thi Lapis từ Final Fantasy Brave Exvius. Đồng hành cùng các hiệp sĩ Grandshelt Rain, Lasswell và thiếu nữ bí ẩn Fina bảo vệ Tinh Thể sinh mệnh trước thế lực tàn bạo Veritas of the Dark.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "26,725 câu thoại & mô tả",
+      "status": "Hoàn thành 100% (Zero Omission)",
+      "version": "v1.0.0 (Bản Chuẩn UE5)",
+      "author": "Cổ Ngữ Translation Team",
+      "font": "Alps & Garrick HD có dấu đầy đủ (134/134 VN_CHARS)",
+      "last_updated": "27/10/2026",
+      "mod_size": "~1.9 MB"
+    },
+    "mod_subfolder": "Final Fantasy Resonance",
+    "mod_type": "pak",
+    "mod_file": "FFRS-Windows_Vietnamese_P.pak",
+    "relative_install_path": "FFRS/Content/Paks",
+    "target_pak_name": "FFRS-Windows_Vietnamese_P.pak",
+    "executable_name": "FFRS.exe",
+    "default_folder_names": [
+      "FINAL FANTASY RESONANCE",
+      "Final Fantasy Resonance",
+      "FFRS"
+    ],
+    "assets": {
+      "poster": "/assets/ffrs/library_600x900.jpg",
+      "banner": "/assets/ffrs/library_hero.jpg",
+      "logo": "/assets/ffrs/logo.png",
+      "header": "/assets/ffrs/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn UE5)",
+        "release_date": "27/10/2026",
+        "changelog": "Bản phát hành chính thức Việt hóa trọn vẹn 100% cốt truyện, hệ thống, Chamber of Arms trials và font chữ chuẩn Unreal Engine 5.",
+        "is_latest": true
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FINAL_FANTASY_RESONANCE_Viethoa.congu",
+    "mod_size": "~1.9 MB",
+    "install_steps": [
+      {
+        "action": "copy_file",
+        "source": "FFRS-Windows_Vietnamese_P.pak",
+        "target": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak",
+        "backup": false
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "delete_file",
+        "target": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak"
+      }
+    ],
+    "congu_sha256": "addf16fa118f0aad497a07e1cebcec8f6217264b59d95d63d935d635a8fdba42"
   }
 ]

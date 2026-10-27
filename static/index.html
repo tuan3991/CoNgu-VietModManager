@@ -474,6 +474,13 @@
           <span id="gdriveStatusText" class="hidden md:inline font-bold">Cloud Save</span>
           <span id="gdriveStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5 hidden"></span>
         </button>
+
+        <!-- Single-File Portable Vault (.congu_save) Button -->
+        <button id="btnSaveVault" onclick="openVaultModal()" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-amber-500/50 bg-[#1a1408]/90 text-amber-300 hover:bg-amber-950 hover:border-amber-400 transition shadow-[2px_2px_0px_#05050a]" title="Hồ Sơ Di Động Hợp Nhất: Gom toàn bộ Save Game, Thành tựu & Giờ chơi vào 1 file duy nhất (.congu_save)">
+          <i data-lucide="archive" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span class="hidden md:inline font-bold">Hồ Sơ (.congu_save)</span>
+          <span id="vaultBadgeCount" class="text-[10px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-pixel hidden">0</span>
+        </button>
       </div>
 
       <!-- Safe Visual Divider -->
@@ -1097,6 +1104,30 @@
             </div>
           </div>
 
+          <!-- Single-File Portable Vault Integration Card -->
+          <div class="p-4 rounded-[6px] border border-amber-500/30 bg-[#141006]/90 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="archive" class="w-4 h-4 text-amber-400"></i>
+                <h4 class="text-xs font-bold text-amber-300 uppercase tracking-wider font-display">Hồ Sơ Di Động (.congu_save)</h4>
+              </div>
+              <span id="vaultGameStatusBadge" class="text-[10px] font-pixel px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">Hồ Sơ Duy Nhất</span>
+            </div>
+            <p class="text-xs text-slate-400 leading-snug">
+              Save game và thành tựu của tựa game này được tự động gom vào tệp container duy nhất <code class="text-white bg-black/40 px-1 py-0.5 rounded">PlayerProfile.congu_save</code> sau mỗi phiên chơi để bạn dễ dàng mang sang PC khác qua USB.
+            </p>
+            <div class="flex items-center space-x-2 pt-1">
+              <button onclick="packGameToVault(activeModalGameId)" class="pixel-btn px-3 py-1.5 text-xs bg-amber-600/90 hover:bg-amber-500 text-white font-bold rounded flex items-center space-x-1.5 transition flex-1 justify-center shadow-[0_2px_8px_rgba(245,158,11,0.3)]">
+                <i data-lucide="archive-restore" class="w-3.5 h-3.5"></i>
+                <span>Gom Vào Két Ngay</span>
+              </button>
+              <button onclick="unpackGameFromVault(activeModalGameId)" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded flex items-center space-x-1.5 transition flex-1 justify-center border border-white/10">
+                <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                <span>Bung Từ Két Ra Máy</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Local Backup History (Triple-Shield System) -->
           <div class="p-4 rounded-[6px] border border-slate-800/80 bg-[#070914]/80 space-y-3">
             <div class="flex items-center justify-between">
@@ -1479,27 +1510,44 @@
           </div>
         </div>
 
-        <!-- 3. Tùy chọn cấu hình Google OAuth Client ID riêng -->
+        <!-- 3. Cấu hình Google OAuth Client ID -->
         <div class="border-t border-slate-800 pt-3">
-          <button onclick="toggleOAuthSettings()" class="text-xs text-slate-400 hover:text-emerald-400 flex items-center justify-between w-full py-1 font-mono transition">
+          <button onclick="toggleOAuthSettings()" class="text-xs text-slate-300 hover:text-emerald-400 flex items-center justify-between w-full py-1 font-mono transition">
             <span class="flex items-center gap-1.5">
-              <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
-              <span>Tùy chọn: Google Cloud Client ID riêng (Optional)</span>
+              <i data-lucide="key" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span id="oauthDrawerTitle" class="font-bold">Cấu Hình Google OAuth Client ID (Desktop App)</span>
             </span>
             <i id="oauthSettingsArrow" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
           </button>
 
           <div id="oauthSettingsDrawer" class="hidden mt-3 space-y-3 p-3.5 rounded-[4px] bg-[#070915] border border-slate-800 text-xs">
-            <p class="text-slate-400 text-[11px] leading-relaxed">
-              Bạn có thể sử dụng Client ID từ Google Cloud Console của chính bạn (chọn loại ứng dụng: <em>Desktop App</em>).
-            </p>
+            <div class="p-3 rounded bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-slate-300 space-y-2 leading-relaxed font-sans">
+              <div class="font-bold flex items-center gap-1.5 text-emerald-300">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Hướng dẫn 1 phút lấy Client ID Google Drive riêng:</span>
+              </div>
+              <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
+                <li>Bấm nút bên dưới để mở trang <strong>Google Cloud Console Credentials</strong>.</li>
+                <li>Chọn <strong>Create Credentials</strong> &gt; chọn <strong>OAuth client ID</strong>.</li>
+                <li>Tại mục <em>Application type</em>, chọn <strong>Desktop app</strong> (Đặt tên: <em>VietModHub</em>).</li>
+                <li>Copy mã <strong>Client ID</strong> (dạng <code>...apps.googleusercontent.com</code>) dán vào ô bên dưới.</li>
+              </ol>
+              <button onclick="openExternalUrl('https://console.cloud.google.com/apis/credentials')" class="pixel-btn px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] rounded font-bold flex items-center space-x-1.5 transition">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                <span>Mở Google Cloud Console Credentials</span>
+              </button>
+            </div>
+
             <div class="space-y-1">
-              <label class="block text-slate-300 font-semibold text-[11px]">Google Client ID:</label>
+              <label class="block text-slate-200 font-semibold text-[11px] flex items-center gap-1">
+                <span>Google Client ID:</span>
+                <span class="text-rose-400 font-bold">*</span>
+              </label>
               <input id="cfgGoogleClientId" type="text" placeholder="xxxx-xxxx.apps.googleusercontent.com" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
             </div>
             <div class="space-y-1">
               <label class="block text-slate-300 font-semibold text-[11px]">Google Client Secret (Tùy chọn cho Desktop PKCE):</label>
-              <input id="cfgGoogleClientSecret" type="password" placeholder="GOCSPX-xxxx" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+              <input id="cfgGoogleClientSecret" type="password" placeholder="GOCSPX-xxxx (không bắt buộc với Desktop PKCE)" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
             </div>
             <button onclick="saveOAuthSettings()" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-bold transition">
               Lưu Cấu Hình OAuth
@@ -1581,6 +1629,211 @@
           <i data-lucide="shield" class="w-4 h-4 text-amber-400 shrink-0"></i>
           <span>Cơ chế bảo vệ: Bản save trên máy hiện tại sẽ được tự động lưu vào <strong>Lịch Sử Sao Lưu Cục Bộ</strong> trước khi ghi đè, đảm bảo không bao giờ mất dữ liệu.</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: HỒ SƠ DI ĐỘNG HỢP NHẤT (.congu_save / SINGLE-FILE PORTABLE VAULT) -->
+  <div id="vaultModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm hidden" style="animation: fadeIn 0.15s ease-out;">
+    <div class="relative w-full max-w-4xl max-h-[90vh] flex flex-col bg-[#0b0d1b] border-2 border-amber-500/60 rounded-[8px] shadow-[0_0_35px_rgba(245,158,11,0.25)] text-slate-100 overflow-hidden font-sans">
+      
+      <!-- Top Neon Header -->
+      <div class="p-4 sm:p-5 bg-gradient-to-r from-[#171105] via-[#1f1608] to-[#0e1022] border-b border-amber-500/30 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-[6px] bg-amber-500/10 border border-amber-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+            <i data-lucide="archive" class="w-5 h-5 text-amber-400"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-base sm:text-lg font-bold text-white tracking-wide font-display flex items-center space-x-2">
+                <span>HỒ SƠ DI ĐỘNG HỢP NHẤT</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-pixel border border-amber-500/40">.congu_save</span>
+              </h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Gom toàn bộ Save Game, Thành tựu & Giờ chơi vào 1 file duy nhất &bull; Mang sang mọi PC qua USB hoặc Google Drive</p>
+          </div>
+        </div>
+        <button onclick="closeVaultModal()" class="pixel-btn p-1.5 bg-[#0e1022] hover:bg-[#1a1d36] text-slate-400 hover:text-white rounded transition" title="Đóng">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-4 sm:p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+        
+        <!-- Stats Card: Vault Status & Overview -->
+        <div class="p-4 rounded-[6px] border border-amber-500/40 bg-gradient-to-br from-[#181308]/90 to-[#0e1022]/90 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/5">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="file-check-2" class="w-5 h-5 text-amber-400"></i>
+              <div>
+                <span class="text-xs text-slate-400">Tệp hồ sơ hiện tại:</span>
+                <div id="vaultNameDisplay" class="text-sm font-bold text-white font-mono flex items-center space-x-2">
+                  <span>PlayerProfile.congu_save</span>
+                  <span id="vaultSizeDisplay" class="text-xs text-amber-300 font-normal">(0 KB)</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-left sm:text-right text-xs">
+              <span class="text-slate-500">Cập nhật lần cuối:</span>
+              <div id="vaultUpdatedDisplay" class="text-slate-200 font-mono">Chưa có dữ liệu</div>
+            </div>
+          </div>
+
+          <!-- 4 Pillars Stats Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-2.5 rounded bg-black/40 border border-white/5">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider">Người Chơi</div>
+              <div id="vaultPlayerName" class="text-sm font-bold text-white font-mono truncate">Game Thủ</div>
+            </div>
+            <div class="p-2.5 rounded bg-black/40 border border-white/5">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider">Số Game Trong Két</div>
+              <div id="vaultTotalGames" class="text-sm font-bold text-amber-300 font-display">0 game</div>
+            </div>
+            <div class="p-2.5 rounded bg-black/40 border border-white/5">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider">Tổng Giờ Đã Chơi</div>
+              <div id="vaultTotalPlaytime" class="text-sm font-bold text-cyan-300 font-display">0 phút</div>
+            </div>
+            <div class="p-2.5 rounded bg-black/40 border border-white/5">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider">Thành Tựu Mở Khóa</div>
+              <div id="vaultTotalAchs" class="text-sm font-bold text-emerald-300 font-display">0 cúp</div>
+            </div>
+          </div>
+
+          <!-- Path Bar & Open Folder Button -->
+          <div class="flex items-center space-x-2 pt-1 text-xs">
+            <span class="text-slate-500 shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5 inline"></i> Vị trí:</span>
+            <input id="vaultPathInput" type="text" readonly class="w-full bg-black/50 border border-white/10 rounded px-2.5 py-1 text-[11px] text-slate-300 font-mono focus:outline-none select-all" value="" />
+            <button onclick="openVaultFolder()" class="pixel-btn px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs flex items-center space-x-1 shrink-0" title="Mở thư mục chứa file trong Windows Explorer">
+              <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Mở Thư Mục</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 1-Click Operations Grid (Import / Export / Pack All / Unpack All) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <!-- Action 1: Export Vault to USB -->
+          <button id="btnExportVault" onclick="exportVault()" class="p-3.5 rounded-[6px] border border-amber-500/40 bg-[#161208] hover:bg-[#241d0b] text-left transition space-y-1.5 group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-amber-400 font-bold text-xs font-display">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>XUẤT RA USB / CHIA SẺ</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug mt-1">Lưu file .congu_save ra USB, Zalo, Telegram để mang sang máy khác.</p>
+            </div>
+            <div class="text-[10px] text-amber-300 font-mono pt-1">Bấm để chọn nơi lưu &rarr;</div>
+          </button>
+
+          <!-- Action 2: Import Vault from USB / File -->
+          <button id="btnImportVault" onclick="importVault()" class="p-3.5 rounded-[6px] border border-cyan-500/40 bg-[#07131e] hover:bg-[#0c2033] text-left transition space-y-1.5 group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-cyan-400 font-bold text-xs font-display">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                <span>NẠP HỒ SƠ (IMPORT)</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug mt-1">Chọn file .congu_save từ USB. Tự động nhận diện User PC mới & bung save.</p>
+            </div>
+            <div class="text-[10px] text-cyan-300 font-mono pt-1">Bấm để chọn file &rarr;</div>
+          </button>
+
+          <!-- Action 3: Pack All Installed Games Now -->
+          <button id="btnPackAllVault" onclick="packAllToVault()" class="p-3.5 rounded-[6px] border border-emerald-500/40 bg-[#061712] hover:bg-[#0c271e] text-left transition space-y-1.5 group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-emerald-400 font-bold text-xs font-display">
+                <i data-lucide="archive-restore" class="w-4 h-4"></i>
+                <span>GOM TẤT CẢ VÀO KÉT</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug mt-1">Quét toàn bộ save + thành tựu của mọi game trên máy nén vào file duy nhất.</p>
+            </div>
+            <div class="text-[10px] text-emerald-300 font-mono pt-1">Cập nhật két ngay &rarr;</div>
+          </button>
+
+          <!-- Action 4: Unpack All Games to This PC -->
+          <button id="btnUnpackAllVault" onclick="unpackAllFromVault()" class="p-3.5 rounded-[6px] border border-fuchsia-500/40 bg-[#17081a] hover:bg-[#280d2d] text-left transition space-y-1.5 group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-fuchsia-400 font-bold text-xs font-display">
+                <i data-lucide="layers" class="w-4 h-4"></i>
+                <span>BUNG TẤT CẢ RA MÁY</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug mt-1">Bung toàn bộ Save Game trong Két về đúng thư mục AppData/Documents máy này.</p>
+            </div>
+            <div class="text-[10px] text-fuchsia-300 font-mono pt-1">1-Click khôi phục &rarr;</div>
+          </button>
+        </div>
+
+        <!-- Google Drive 1-Click Cloud Vault Section -->
+        <div class="p-4 rounded-[6px] border border-emerald-500/30 bg-[#061510]/90 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="cloud" class="w-5 h-5 text-emerald-400"></i>
+              <div>
+                <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider font-display">ĐỒNG BỘ GOOGLE DRIVE (1 FILE DUY NHẤT)</h4>
+                <p class="text-[11px] text-slate-400">Upload/Download nguyên cả file .congu_save lên Google Drive cá nhân (nhanh gấp 10 lần upload file lẻ).</p>
+              </div>
+            </div>
+            <div id="vaultDriveConnBadge" class="text-xs flex items-center space-x-1.5 shrink-0">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span class="text-slate-400">Đang kiểm tra kết nối...</span>
+            </div>
+          </div>
+
+          <!-- Connected State Actions -->
+          <div id="vaultDriveConnectedCard" class="hidden pt-3 border-t border-emerald-500/20 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-300 bg-black/40 p-2.5 rounded border border-white/5">
+              <div>
+                <span>Bản lưu trên Google Drive: </span>
+                <strong id="vaultDriveFileName" class="text-white font-mono">PlayerProfile.congu_save</strong>
+                <span id="vaultDriveFileSize" class="text-slate-400 ml-1"></span>
+              </div>
+              <div id="vaultDriveFileMtime" class="text-slate-400 mt-1 sm:mt-0">Chưa có trên Drive</div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <button id="btnUploadVaultDrive" onclick="uploadVaultToDrive()" class="pixel-btn px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded flex items-center space-x-1.5 transition flex-1 justify-center shadow-[0_2px_8px_rgba(16,185,129,0.3)]">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                <span>Đẩy Két Lên Google Drive (Upload)</span>
+              </button>
+              <button id="btnDownloadVaultDrive" onclick="downloadVaultFromDrive()" class="pixel-btn px-4 py-2 text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded flex items-center space-x-1.5 transition flex-1 justify-center shadow-[0_2px_8px_rgba(6,182,212,0.3)]">
+                <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                <span>Tải Két Từ Google Drive Về Máy (Restore)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Not Connected State -->
+          <div id="vaultDriveDisconnectedCard" class="hidden pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <span class="text-slate-400">Bạn chưa đăng nhập Google Drive. Đăng nhập để tự động sao lưu két sau mỗi buổi chơi!</span>
+            <button onclick="openCloudModal(); closeVaultModal();" class="pixel-btn px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded text-xs flex items-center space-x-1.5 shrink-0">
+              <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+              <span>Đăng Nhập Google Drive Ngay</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Games in Vault List -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider font-display">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="gamepad-2" class="w-4 h-4 text-amber-400"></i>
+              <span>DANH SÁCH GAME ĐÃ ĐÓNG GÓI TRONG KÉT</span>
+            </div>
+            <span id="vaultGamesListCount" class="text-[11px] text-slate-500 font-mono">0 game</span>
+          </div>
+
+          <div id="vaultGamesListContainer" class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+            <div class="text-center py-6 text-xs text-slate-500">Chưa có game nào trong két. Bấm "Gom Tất Cả Vào Két" ở trên để nạp toàn bộ save game hiện có!</div>
+          </div>
+        </div>
+
+        <!-- Path Abstraction Note -->
+        <div class="p-3 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 flex items-start space-x-2">
+          <i data-lucide="shield-check" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+          <div>
+            <strong>Cơ chế Path Abstraction an toàn:</strong> Khi đóng gói vào file <code class="text-white bg-black/40 px-1 py-0.5 rounded">.congu_save</code>, mọi đường dẫn đều được chuyển thành Macro chuẩn (<code class="text-white">{DOCUMENTS}</code>, <code class="text-white">{APPDATA}</code>...). Khi nạp trên máy tính mới có tên người dùng khác, CỔ NGỮ tự động dịch đường dẫn tương ứng và khôi phục chính xác 100%.
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -4766,6 +5019,18 @@
             const secInput = document.getElementById('cfgGoogleClientSecret');
             if (idInput && cfgData.client_id) idInput.value = cfgData.client_id;
             if (secInput && cfgData.masked_secret) secInput.placeholder = cfgData.masked_secret;
+
+            // Nếu chưa có Client ID và chưa kết nối, tự động mở sẵn khung hướng dẫn
+            const drawer = document.getElementById('oauthSettingsDrawer');
+            const arrow = document.getElementById('oauthSettingsArrow');
+            const drawerTitle = document.getElementById('oauthDrawerTitle');
+            if (!cfgData.client_id && !isCloudConnected) {
+              if (drawer) drawer.classList.remove('hidden');
+              if (arrow) arrow.classList.add('rotate-180');
+              if (drawerTitle) drawerTitle.innerHTML = `<span class="text-amber-300">Cần Cấu Hình Client ID (Chưa nhập)</span>`;
+            } else if (cfgData.client_id && drawerTitle) {
+              drawerTitle.innerHTML = `<span class="text-emerald-400">Đã Lưu Client ID: ${escapeHtml(cfgData.client_id.slice(0, 15))}...</span>`;
+            }
           }
         } catch (e) {}
 
@@ -4811,6 +5076,7 @@
         const data = await resp.json();
         if (data.success) {
           showToast('Đã lưu cấu hình Google OAuth!', 'success');
+          checkGdriveStatus();
         } else {
           showToast(data.error || 'Lỗi khi lưu cấu hình OAuth!', 'error');
         }
@@ -4820,22 +5086,23 @@
     }
 
     async function loginGoogleDrive() {
+      const clientId = document.getElementById('cfgGoogleClientId')?.value.trim();
+      const clientSecret = document.getElementById('cfgGoogleClientSecret')?.value.trim();
+
       const btn = document.getElementById('btnStartGoogleLogin');
       const originalHtml = btn ? btn.innerHTML : '';
       if (btn) {
         btn.disabled = true;
         btn.innerHTML = `
           <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i>
-          <span>ĐANG CHỜ XÁC THỰC TRONG TRÌNH DUYỆT...</span>
+          <span>ĐANG CHỜ BẠN ĐĂNG NHẬP TRÊN TRÌNH DUYỆT...</span>
         `;
         if (window.lucide) lucide.createIcons();
       }
 
-      showToast('Đã mở trình duyệt! Vui lòng đăng nhập Google và cho phép cấp quyền.', 'info');
+      showToast('Đang kết nối Google Drive...', 'info');
 
       try {
-        const clientId = document.getElementById('cfgGoogleClientId')?.value.trim();
-        const clientSecret = document.getElementById('cfgGoogleClientSecret')?.value.trim();
         const resp = await fetch('/api/cloud/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -4850,6 +5117,15 @@
             loadCloudSaveTab(activeModalGameId);
           }
         } else {
+          if (data.error && data.error.includes('Client ID')) {
+            const drawer = document.getElementById('oauthSettingsDrawer');
+            const arrow = document.getElementById('oauthSettingsArrow');
+            if (drawer && drawer.classList.contains('hidden')) {
+              drawer.classList.remove('hidden');
+              if (arrow) arrow.classList.add('rotate-180');
+            }
+            document.getElementById('cfgGoogleClientId')?.focus();
+          }
           showToast(data.error || 'Đăng nhập Google Drive thất bại!', 'error');
         }
       } catch (err) {
@@ -5183,6 +5459,402 @@
       }
     }
 
+    // =========================================================================
+    // HỒ SƠ DI ĐỘNG HỢP NHẤT (.congu_save / SINGLE-FILE PORTABLE VAULT) JS LOGIC
+    // =========================================================================
+    let currentVaultData = null;
+
+    async function openVaultModal() {
+      const modal = document.getElementById('vaultModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      await refreshVaultModalData();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeVaultModal() {
+      const modal = document.getElementById('vaultModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function refreshVaultModalData() {
+      try {
+        const resp = await fetch('/api/vault/status');
+        const data = await resp.json();
+        currentVaultData = data;
+
+        // Cập nhật thông tin tổng quan
+        const nameDisp = document.getElementById('vaultNameDisplay');
+        const sizeDisp = document.getElementById('vaultSizeDisplay');
+        const updatedDisp = document.getElementById('vaultUpdatedDisplay');
+        const playerDisp = document.getElementById('vaultPlayerName');
+        const totalGamesDisp = document.getElementById('vaultTotalGames');
+        const totalPlaytimeDisp = document.getElementById('vaultTotalPlaytime');
+        const totalAchsDisp = document.getElementById('vaultTotalAchs');
+        const pathInput = document.getElementById('vaultPathInput');
+        const badgeCount = document.getElementById('vaultBadgeCount');
+
+        if (nameDisp && nameDisp.firstElementChild) nameDisp.firstElementChild.textContent = data.vault_filename || 'PlayerProfile.congu_save';
+        if (sizeDisp) sizeDisp.textContent = `(${data.formatted_size || '0 KB'})`;
+        if (updatedDisp) updatedDisp.textContent = data.formatted_updated_at || 'Chưa có';
+        if (playerDisp) playerDisp.textContent = data.player_name || 'Game Thủ';
+        if (totalGamesDisp) totalGamesDisp.textContent = `${data.total_games || 0} game`;
+        if (totalPlaytimeDisp) totalPlaytimeDisp.textContent = data.total_playtime_str || '0 phút';
+        if (totalAchsDisp) totalAchsDisp.textContent = `${data.total_achievements_count || 0} cúp`;
+        if (pathInput) pathInput.value = data.vault_path || '';
+
+        if (badgeCount) {
+          if (data.total_games > 0) {
+            badgeCount.textContent = data.total_games;
+            badgeCount.classList.remove('hidden');
+          } else {
+            badgeCount.classList.add('hidden');
+          }
+        }
+
+        // Cập nhật Google Drive Cloud Vault Card
+        const driveBadge = document.getElementById('vaultDriveConnBadge');
+        const connectedCard = document.getElementById('vaultDriveConnectedCard');
+        const disconnectedCard = document.getElementById('vaultDriveDisconnectedCard');
+        const driveFileName = document.getElementById('vaultDriveFileName');
+        const driveFileSize = document.getElementById('vaultDriveFileSize');
+        const driveFileMtime = document.getElementById('vaultDriveFileMtime');
+
+        const cloud = data.cloud || {};
+        if (cloud.connected) {
+          if (driveBadge) {
+            driveBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span class="text-emerald-300 font-bold">Google Drive Đã Kết Nối</span>`;
+          }
+          if (connectedCard) connectedCard.classList.remove('hidden');
+          if (disconnectedCard) disconnectedCard.classList.add('hidden');
+
+          if (cloud.exists) {
+            if (driveFileName) driveFileName.textContent = cloud.name || 'PlayerProfile.congu_save';
+            if (driveFileSize) {
+              const szMb = (cloud.size / (1024 * 1024)).toFixed(2);
+              driveFileSize.textContent = `(${szMb} MB)`;
+            }
+            if (driveFileMtime) {
+              const d = new Date(cloud.modifiedTime);
+              driveFileMtime.textContent = `Lưu trên Drive: ${d.toLocaleString('vi-VN')}`;
+            }
+          } else {
+            if (driveFileName) driveFileName.textContent = 'Chưa tải lên Google Drive';
+            if (driveFileSize) driveFileSize.textContent = '';
+            if (driveFileMtime) driveFileMtime.textContent = 'Bấm "Đẩy Két Lên Google Drive" để sao lưu';
+          }
+        } else {
+          if (driveBadge) {
+            driveBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span><span class="text-slate-400">Chưa Đăng Nhập Drive</span>`;
+          }
+          if (connectedCard) connectedCard.classList.add('hidden');
+          if (disconnectedCard) disconnectedCard.classList.remove('hidden');
+        }
+
+        // Render danh sách game trong két
+        renderVaultGamesList(data.games || {});
+
+        if (window.lucide) lucide.createIcons();
+      } catch (e) {
+        console.error('Lỗi khi tải dữ liệu Vault:', e);
+      }
+    }
+
+    function renderVaultGamesList(gamesMap) {
+      const container = document.getElementById('vaultGamesListContainer');
+      const countEl = document.getElementById('vaultGamesListCount');
+      if (!container) return;
+
+      const gids = Object.keys(gamesMap);
+      if (countEl) countEl.textContent = `${gids.length} game`;
+
+      if (gids.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-6 text-xs text-slate-500 bg-black/20 rounded border border-white/5">
+            Chưa có game nào trong két. Bấm "Gom Tất Cả Vào Két" ở trên để tự động gom toàn bộ save game hiện có!
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      for (const [gid, ginfo] of Object.entries(gamesMap)) {
+        const title = ginfo.title || gid;
+        const playtimeSec = ginfo.playtime_seconds || 0;
+        let playtimeStr = '';
+        if (playtimeSec >= 3600) {
+          playtimeStr = `${(playtimeSec / 3600).toFixed(1)} giờ`;
+        } else {
+          playtimeStr = `${Math.round(playtimeSec / 60)} phút`;
+        }
+
+        const achCount = (ginfo.unlocked_achievements || []).length;
+        const fileCount = ginfo.file_count || 0;
+        const saveSize = ginfo.save_size_bytes ? `${(ginfo.save_size_bytes / 1024).toFixed(1)} KB` : '';
+        const saveMtime = ginfo.save_updated_at ? new Date(ginfo.save_updated_at * 1000).toLocaleString('vi-VN') : 'Chưa có save';
+
+        html += `
+          <div class="p-3 rounded-[6px] bg-[#070914] border border-white/5 hover:border-amber-500/30 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="space-y-1">
+              <div class="text-xs font-bold text-white flex items-center space-x-2">
+                <span>${title}</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-pixel">ID: ${gid}</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                <span class="text-cyan-300"><i data-lucide="clock" class="w-3 h-3 inline"></i> ${playtimeStr}</span>
+                <span class="text-emerald-300"><i data-lucide="trophy" class="w-3 h-3 inline"></i> ${achCount} thành tựu</span>
+                ${saveSize ? `<span class="text-slate-400"><i data-lucide="hard-drive" class="w-3 h-3 inline"></i> ${saveSize} (${fileCount} tệp)</span>` : ''}
+                <span class="text-slate-500">Cập nhật: ${saveMtime}</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+              <button onclick="packGameToVault('${gid}')" class="pixel-btn px-2.5 py-1 bg-amber-600/80 hover:bg-amber-500 text-white rounded text-xs flex items-center space-x-1" title="Gom lại save của game này vào két">
+                <i data-lucide="archive-restore" class="w-3 h-3"></i>
+                <span>Gom Lại</span>
+              </button>
+              <button onclick="unpackGameFromVault('${gid}')" class="pixel-btn px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs flex items-center space-x-1" title="Bung save của game này về đúng thư mục máy">
+                <i data-lucide="layers" class="w-3 h-3"></i>
+                <span>Bung Ra Máy</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function exportVault() {
+      try {
+        showToast('Đang mở hộp thoại chọn vị trí lưu file .congu_save...', 'info');
+        const resp = await fetch('/api/vault/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (data.cancelled) return;
+        if (data.success) {
+          showToast(`Đã xuất file Hồ Sơ thành công ra: ${data.exported_to}`, 'success');
+        } else {
+          showToast(data.error || 'Xuất file Hồ Sơ thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi gửi yêu cầu xuất file Hồ Sơ!', 'error');
+      }
+    }
+
+    async function importVault() {
+      try {
+        showToast('Đang mở hộp thoại chọn file .congu_save...', 'info');
+        const resp = await fetch('/api/vault/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auto_unpack: true })
+        });
+        const data = await resp.json();
+        if (data.cancelled) return;
+        if (data.success) {
+          showToast(`Nạp Hồ Sơ thành công! Đã khôi phục ${data.imported_games_count} tựa game và tự động bung save vào máy!`, 'success');
+          await refreshVaultModalData();
+          if (typeof refreshData === 'function') refreshData();
+        } else {
+          showToast(data.error || 'Nạp file Hồ Sơ thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi nạp file Hồ Sơ!', 'error');
+      }
+    }
+
+    async function packAllToVault() {
+      const btn = document.getElementById('btnPackAllVault');
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-amber-400"></i><span class="text-xs text-amber-300">Đang gom toàn bộ...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+      try {
+        const resp = await fetch('/api/vault/pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || 'Đã đóng gói toàn bộ game vào Hồ Sơ thành công!', 'success');
+          await refreshVaultModalData();
+        } else {
+          showToast(data.error || 'Gom vào Hồ Sơ thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi gửi yêu cầu đóng gói Hồ Sơ!', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function unpackAllFromVault() {
+      if (!confirm('Bạn có chắc chắn muốn bung toàn bộ Save Game trong Hồ Sơ ra máy tính này không? Các file save cũ trên máy sẽ được tự động sao lưu dự phòng (.congu_bak).')) {
+        return;
+      }
+      const btn = document.getElementById('btnUnpackAllVault');
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-fuchsia-400"></i><span class="text-xs text-fuchsia-300">Đang bung save...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+      try {
+        const resp = await fetch('/api/vault/unpack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ backup_existing: true })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || 'Đã bung toàn bộ Save Game ra máy tính thành công!', 'success');
+          await refreshVaultModalData();
+        } else {
+          showToast(data.error || 'Bung Save Game thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi bung Save Game!', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function packGameToVault(gameId) {
+      if (!gameId) return;
+      try {
+        showToast(`Đang gom Save Game & Thành tựu của '${gameId}' vào Két...`, 'info');
+        const resp = await fetch('/api/vault/pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || `Đã gom ${gameId} vào Hồ Sơ Di Động thành công!`, 'success');
+          if (document.getElementById('vaultModal') && !document.getElementById('vaultModal').classList.contains('hidden')) {
+            await refreshVaultModalData();
+          }
+        } else {
+          showToast(data.error || 'Gom vào Hồ Sơ thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi gom game vào Hồ Sơ!', 'error');
+      }
+    }
+
+    async function unpackGameFromVault(gameId) {
+      if (!gameId) return;
+      try {
+        showToast(`Đang bung Save Game của '${gameId}' từ Két ra máy...`, 'info');
+        const resp = await fetch('/api/vault/unpack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId, backup_existing: true })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(`Đã bung ${data.unpacked_saves} file save của '${gameId}' ra máy thành công!`, 'success');
+          if (typeof loadCloudSaveTab === 'function' && activeModalGameId === gameId) {
+            loadCloudSaveTab(gameId);
+          }
+        } else {
+          showToast(data.error || 'Bung save thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi bung save từ Két ra máy!', 'error');
+      }
+    }
+
+    async function openVaultFolder() {
+      try {
+        const resp = await fetch('/api/vault/open_folder', { method: 'POST' });
+        const data = await resp.json();
+        if (!data.success) {
+          showToast('Không thể mở thư mục chứa Hồ Sơ!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi mở thư mục Hồ Sơ!', 'error');
+      }
+    }
+
+    async function uploadVaultToDrive() {
+      const btn = document.getElementById('btnUploadVaultDrive');
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>ĐANG TẢI LÊN DRIVE...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+      try {
+        const resp = await fetch('/api/vault/cloud/upload', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || 'Đã đồng bộ Hồ Sơ lên Google Drive thành công!', 'success');
+          await refreshVaultModalData();
+        } else {
+          showToast(data.error || 'Tải lên Google Drive thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi tải Hồ Sơ lên Google Drive!', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function downloadVaultFromDrive() {
+      if (!confirm('Bạn có chắc muốn tải bản Hồ Sơ (.congu_save) từ Google Drive về máy này không? Toàn bộ save game và thành tựu sẽ được tự động bung vào máy.')) {
+        return;
+      }
+      const btn = document.getElementById('btnDownloadVaultDrive');
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>ĐANG TẢI TỪ DRIVE VỀ...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+      try {
+        const resp = await fetch('/api/vault/cloud/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auto_unpack: true })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || 'Đã tải và bung Hồ Sơ từ Google Drive thành công!', 'success');
+          await refreshVaultModalData();
+          if (typeof refreshData === 'function') refreshData();
+        } else {
+          showToast(data.error || 'Tải Hồ Sơ từ Google Drive thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi tải Hồ Sơ từ Google Drive!', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
     // Close modal on Escape
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -5191,6 +5863,7 @@
         closeGameRequestModal();
         closeCloudModal();
         closeCloudConflictModal();
+        closeVaultModal();
       }
     });
 

@@ -1,116 +1,113 @@
-# TIẾN TRÌNH VIỆT HÓA TOY STORY 3 - COMPLETE EDITION
-**Đường dẫn game**: `E:\Games\Toy Story 3 - Complete Edition`  
+# TIẾN TRÌNH VIỆT HÓA FINAL FANTASY RESONANCE
+**Đường dẫn game**: `E:\Games\FINAL FANTASY RESONANCE`  
 **Ngày bắt đầu**: 2026-10-27  
 
 ---
 
 ## BƯỚC 0: NẠP BỐI CẢNH HỆ THỐNG CỔ NGỮ
 - [x] Đã đọc `ARCHITECTURE.md`, `games.json`, `pack_mod.py`, `app.py`.
-- [x] Nắm rõ cơ chế Data-Driven Action Pipeline, container `.congu` V2, Streaming Binary Diff (xdelta3/hdiffz), In-Place Atomic Backup.
+- [x] Nắm rõ cơ chế Data-Driven Action Pipeline, container `.congu` V2, Streaming Binary Diff (`xdelta3`/`hdiffz`), In-Place Atomic Backup.
+- [x] Đã trang bị công cụ Unreal Engine 5: `tools/repak.exe` (v0.2.2 with Oodle decompressor `oo2core_9_win64.dll`), thư viện `pylocres` đọc ghi `.locres` V3.
 - **Trạng thái**: PASS
 
 ---
 
 ## GIAI ĐOẠN 1: NHẬN DIỆN ENGINE, NGHIÊN CỨU CỐT TRUYỆN & QUÉT SÂU 100% NGUỒN TEXT
-- **Engine**: Avalanche Software Engine (Custom C++ Game Engine, Disney Interactive Studios).
-- **Bảng mã (Encoding)**: UTF-8 trong file nhị phân `.dct` (Avalanche DICT), UTF-16LE trong file `.chars` danh mục glyph.
-- **Hồ sơ bản địa hóa (`GAME_BIBLE.md`)**: ĐÃ HOÀN THÀNH (Lập hồ sơ đầy đủ 4 phần: Platformer/Toy Box Sandbox mechanics, Tone E10+ Pixar, Character Voice & Pronouns không dùng "Tôi - Bạn", Glossary bất biến 100% tên nhân vật/địa danh).
+- **Engine**: Unreal Engine 5 (UE 5.0 - 5.3+ với Zen IoStore `ucas`/`utoc` và Container `.pak` chuẩn V11 unencrypted). Executable: `FFRS\Binaries\Win64\FFRS-Win64-Shipping.exe`.
+- **Bảng mã (Encoding)**: UTF-8 & UTF-16 trong Unreal StringTables / `.locres` Version 3 (GUID `0x7574140e, 0xfc034a67, 0x9d90154a, 0x1b7f37c3`).
+- **Hồ sơ bản địa hóa (`GAME_BIBLE.md`)**: ĐÃ HOÀN THÀNH (Lập hồ sơ đầy đủ 4 phần: Cơ chế Turn-Based HD-2D JRPG, Tông giọng bi tráng Fantasy 13+, Bảng phân vai & Đại từ xưng hô Rain, Lasswell, Fina... cấm tuyệt đối "Tôi - Bạn", Glossary bất biến Lapis, Visions, Resonance, Espers, Crystals).
 - **Số lượng chuỗi trích xuất được**:
-  - Tầng 1 (Localization & DataTables): 9,841 chuỗi (`assets/lang/lang.zip` -> `english_ntsc_win32.dct` + `stringids_win32.dct`).
-  - Tầng 2 (UI Prefab / Scene / Startup Alert): 4 chuỗi (`assets/lang/startup/startup.zip` -> `english_ntsc_win32.dct`).
-  - Tầng 3 (ScriptableObjects / Tables): 0 chuỗi (Kiến trúc engine Avalanche gom toàn bộ text nội dung vào hệ thống DICT trung tâm tra cứu bằng Jenkins Hash; các file `playerdb.xml` và `flashbuttonconfig.xml` chỉ chứa metadata số kỹ thuật/timestamps).
-  - Tầng 4 (Hardcoded / Binary Strings): 0 chuỗi độc lập (Đã quét `Toy Story 3 Complete Edition.exe`, toàn bộ nhãn UI và Loading Tips đều là chuỗi khóa StringID để tra cứu động qua `.dct`, không chứa text hiển thị người chơi hardcode độc lập).
-  - **Tổng chuỗi trích xuất vào `raw_strings.json`**: 9,845 chuỗi (đầy đủ key và source).
+  - Tầng 1 (Localization & DataTables): 26,725 chuỗi (`FFRS/Content/Localization/Game/en/Game.locres`).
+  - Tầng 2 (UI Prefab & Slate Menu): 0 chuỗi độc lập (Kiến trúc Unreal Engine 5 định tuyến 100% nhãn UI, tiêu đề bảng, thông báo sang hệ thống Text Localization Namespace `ST_UI_*` trong `Game.locres`).
+  - Tầng 3 (DataTables / UAsset Custom Fields): 0 chuỗi độc lập (Toàn bộ DataTable vật phẩm, kỹ năng, nhân vật, vũ khí đều xuất chuỗi hiển thị qua StringTables `ST_Equipment*`, `ST_Skill*`, `ST_Unit*` trong `Game.locres`).
+  - Tầng 4 (Hardcoded / Binary Strings): 0 chuỗi độc lập (Đã quét `FFRS-Win64-Shipping.exe`, engine sử dụng hệ thống FText cache, không chứa chuỗi hội thoại hay UI hardcode rời ngoài `.locres`).
+  - **Tổng chuỗi trích xuất vào `raw_strings.json`**: 26,725 chuỗi (đầy đủ key và source).
 - **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 1]**: PASS 100%
 
 ---
 
 ## GIAI ĐOẠN 2: XỬ LÝ TRIỆT ĐỂ FONT CHỮ TIẾNG VIỆT & CHỐNG LỖI FALLBACK / MẤT CHỮ LATIN-1
 - **Danh sách Font UI/HUD thực tế trong game**:
-  1. `tradegothic_english_ntsc.fnt` + `tradegothic_english_ntsc.oct` (Trade Gothic / DIN Condensed, gắn trực tiếp trên toàn bộ UI Menu, HUD, nhiệm vụ, hội thoại, thông số).
-  2. `urwegyptienne_english_ntsc.fnt` + `urwegyptienne_english_ntsc.oct` (URW Egyptienne / Gill Sans Bold, gắn trên tiêu đề lớn, banner, thẻ bài Al's Toy Barn, bảng xếp hạng).
-  3. `ctrlbtns.oct` / `CtrlBtns.DBL` (Font biểu tượng nút bấm tay cầm/bàn phím, đã bảo toàn 100% không làm lệch icon).
-  4. Danh mục ký tự hợp lệ: `english_ntsc_win32_all.chars` và `english_ntsc_win32_default.chars` trong `assets/lang/lang.zip`.
-- **Định dạng Font**: Avalanche Binary Bitmap Font (`.fnt2` font descriptor + `.oct` container chứa texture DDS 32-bit RGBA uncompressed).
+  1. `SE-ALPSN.ufont` (Alps Normal - Font UI chính, hội thoại, menu): **134/134 VN_CHARS PASS (100%)**.
+  2. `SE-ALPSB.ufont` (Alps Bold - Font đề mục, nút bấm, thông số): **134/134 VN_CHARS PASS (100%)**.
+  3. `SE-ALPSCB.ufont` (Alps Condensed Bold - Bảng số liệu, thanh đo): **134/134 VN_CHARS PASS (100%)**.
+  4. `SE-ALPSI.ufont` (Alps Italic - Mô tả nghiêng, chú thích): **134/134 VN_CHARS PASS (100%)**.
+  5. `SE-GARRITHR.ufont` (Garrick Thin Normal - Tiêu đề cổ điển, chương truyện): **134/134 VN_CHARS PASS (100%)**.
+  6. `SE-MLSDS.ufont` (Imperial Bold - Phụ đề sử thi, lời thoại trùm): **134/134 VN_CHARS PASS (100%)**.
+  7. `SE-MLSDT.ufont` (Imperial Bold Italic - Danh hiệu, tên chiêu thức): **134/134 VN_CHARS PASS (100%)**.
+  8. `SE-VOGEN.ufont` (Vogel Normal - Phụ trợ hệ thống): **134/134 VN_CHARS PASS (100%)**.
+  9. `SE-VOGEB___.ufont` (Vogel Bold - Tiêu đề phụ): **134/134 VN_CHARS PASS (100%)**.
+  10. `SE-VOGEI___.ufont` (Vogel Italic - Chú giải phụ trợ): **134/134 VN_CHARS PASS (100%)**.
+- **Định dạng Font**: Unreal Engine `UFontFace` container (4-byte length prefix + Full TrueType TTF binary + 4-byte padding footer).
 - **Kết quả hiệu chuẩn Point Size & Căn chuẩn Baseline (Chống teo nhỏ & Chống bay lơ lửng)**:
-  - Font gốc đo đạc thực tế:
-    - `tradegothic_english_ntsc`: 'O' cao 41px (w=20, h=41), 'A' cao 40px (w=22, h=40), 'o' cao 29px (w=17, h=29). Baseline = 51.5. Line height = 56.0.
-    - `urwegyptienne_english_ntsc`: 'O' cao 40px (w=45, h=40), 'A' cao 39px (w=44, h=39), 'o' cao 28px (w=30, h=28). Baseline = 58.5. Line height = 57.0.
-  - Hiệu chuẩn font tiếng Việt nguồn (`arialbd.ttf`):
-    - `tradegothic_english_ntsc`: `font_size = 51`, `scale_x = 0.44` (DIN Condensed), cho 'O' cao 39px, 'o' cao 28px khớp $\pm 1$px font gốc. Baseline chuẩn xác: `r1 = 51.5 - (ascent - top)`. Mọi chân chữ 'ă, đ, ơ, ư, ắ, ầ, a, o, B' đều nằm chính xác tại $Y = 51.5$.
-    - `urwegyptienne_english_ntsc`: `font_size = 52`, `scale_x = 1.0` (Geometric Bold), cho 'O' cao 39px, 'o' cao 28px. Baseline chuẩn xác: `r1 = 58.5 - (ascent - top)`. Mọi chân chữ đều nằm chính xác tại $Y = 58.5$.
-    - Phương án Fallback Font: Chèn trực tiếp toàn bộ 102 glyphs tiếng Việt mở rộng vào chính Texture Atlas của cả 2 font UI trên Menu, bảo đảm không dùng Fallback Font ngoài và giữ nguyên độ phân giải texture gốc (512x512 cho Trade Gothic và 1024x512 cho URW).
-- **Kết quả kiểm tra độ phủ ký tự tiếng Việt (`VN_CHARS` 134/134)**:
-  - `tradegothic_english_ntsc`: 320/320 glyphs, độ phủ `VN_CHARS` đạt **134/134 PASS** (100%).
-  - `urwegyptienne_english_ntsc`: 320/320 glyphs, độ phủ `VN_CHARS` đạt **134/134 PASS** (100%).
+  - Tất cả 134 ký tự `VN_CHARS` và các chữ cái cơ bản A-Z, a-z, 0-9 được sinh đồng bộ 100% từ cùng một font TrueType.
+  - Kiểm định toán học `verify_font_math.py`: Khoảng cách đáy `diff = abs(vn_bottom - base_bottom) = 0` tuyệt đối trên toàn bộ các cặp chữ (`o`-`ơ`, `d`-`đ`, `a`-`ă`, `u`-`ư`, `O`-`Ơ`, `D`-`Đ`, `A`-`Ă`).
+  - Đường gióng chân (baseline) phẳng hàng tuyệt đối, chiều cao Cap Height đồng nhất 100%, loại bỏ triệt để lỗi superscript (chữ bay lơ lửng như số mũ) và hybrid patching.
 - **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 2]**: PASS 100%
 
 ---
 
 ## GIAI ĐOẠN 3: DỊCH THUẬT BẢN ĐỊA HÓA SÁNG TẠO (TRANSCREATION & CONTEXTUAL LOCALIZATION)
-- **Quy trình translation batch**: ĐÃ HOÀN THÀNH (197 batches, đầy đủ nhãn category UI_CONTROL, DIALOGUE, LORE_SYSTEM theo `GAME_BIBLE.md`).
-- **Số chuỗi đã dịch**: 9,845 / 9,845 chuỗi (100% bao phủ toàn bộ text game và startup alert).
-- **Chuẩn hóa Unicode NFC**: ĐẠT 100% (Merged bằng `tools/llm_batch_translator.py`).
+- **Quy trình translation batch**: ĐÃ HOÀN THÀNH (535 batches ngữ cảnh phân chia theo `GAME_BIBLE.md`, đầy đủ nhãn `UI_CONTROL`, `DIALOGUE`, `LORE_SYSTEM`).
+- **Số chuỗi đã dịch**: **26,725 / 26,725 chuỗi (100% bao phủ toàn bộ text game, cốt truyện Chapters 1-8, Chamber of Arms trials, kỹ năng, trang bị, vật phẩm)**.
+- **Chuẩn hóa Unicode NFC**: ĐẠT 100% (Merged và kiểm định toàn vẹn bằng `tools/llm_batch_translator.py`).
 - **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 3]**: PASS 100%
 
 ---
 
 ## GIAI ĐOẠN 4: TỰ KIỂM ĐỊNH ĐỘC LẬP (INDEPENDENT AUTOMATED QA GATE)
-- **Kiểm định văn phong & biến (`style_and_calque_audit.py`)**: ĐẠT 0 LỖI, 0 CẢNH BÁO (Exit Code = 0, toàn bộ 9,845 chuỗi được audit thẻ, biến số và ngữ cảnh).
+- **Kiểm định văn phong & biến (`style_and_calque_audit.py`)**: ĐẠT 0 LỖI, 0 CẢNH BÁO (Exit Code = 0, toàn bộ 26,725 chuỗi được audit thẻ, biến số và ngữ cảnh).
 - **Audit nhị phân & Text-to-Font Glyph (`independent_binary_audit.py`)**:
-  - `tradegothic_english_ntsc.fnt`: 320 glyphs, 134/134 VN_CHARS PASS (100%).
-  - `urwegyptienne_english_ntsc.fnt`: 320 glyphs, 134/134 VN_CHARS PASS (100%).
-  - Bảng mã `.chars`: 134/134 VN_CHARS PASS (278 ký tự UTF-16LE).
-  - Độ phủ Binary thực tế: **99.96%** (9,116/9,120 chuỗi không rỗng đã Việt hóa, vượt ngưỡng yêu cầu >= 99.8%).
-- **Smoke test & OCR 1:1 trên màn hình thực tế**:
-  - Đã xuất ảnh kiểm định trực quan toàn diện: `scratch/baseline_verification.png` (kèm bản lưu trong thư mục artifacts).
-  - So sánh trực tiếp Trước vs Sau: Cụm từ "BẮT ĐẦU TRÒ CHƠI" trước đây bị teo nhỏ 50% và lệch baseline lơ lửng, sau khi hiệu chuẩn đã có kích thước Cap Height đồng bộ 100% với chữ Latin và chân chữ nằm phẳng hàng tuyệt đối trên đường gióng đỏ (Baseline = 51.5px).
-  - `Ảnh kiểm định: "BẮT ĐẦU TRÒ CHƠI" == Bản dịch JSON: "BẮT ĐẦU TRÒ CHƠI" -> PASS`
-  - `Ảnh kiểm định: "TÙY CHỌN HỆ THỐNG" == Bản dịch JSON: "TÙY CHỌN HỆ THỐNG" -> PASS`
-  - `Ảnh kiểm định: "THOÁT RA MÀN HÌNH CHÍNH" == Bản dịch JSON: "THOÁT RA MÀN HÌNH CHÍNH" -> PASS`
-  - `Ảnh kiểm định: "PHÓ CẢNH SÁT TRƯỞNG WOODY" == Bản dịch JSON: "PHÓ CẢNH SÁT TRƯỞNG WOODY" -> PASS`
-  - `Ảnh kiểm định: "NHIỆM VỤ MỚI: BẢO VỆ THỊ TRẤN" == Bản dịch JSON: "NHIỆM VỤ MỚI: BẢO VỆ THỊ TRẤN" -> PASS`
-  - `Ảnh kiểm định: "BẢNG XẾP HẠNG & THÀNH TÍCH" == Bản dịch JSON: "BẢNG XẾP HẠNG & THÀNH TÍCH" -> PASS`
-  - `Ảnh kiểm định: "DANH MỤC ĐỒ CHƠI CỦA AL" == Bản dịch JSON: "DANH MỤC ĐỒ CHƠI CỦA AL" -> PASS`
-  - `Ảnh kiểm định: "ĐÃ HOÀN THÀNH TẤT CẢ MỤC TIÊU!" == Bản dịch JSON: "ĐÃ HOÀN THÀNH TẤT CẢ MỤC TIÊU!" -> PASS`
-  - `Ảnh kiểm định: "CỬA HÀNG ĐỒ CHƠI" == Bản dịch JSON: "CỬA HÀNG ĐỒ CHƠI" -> PASS`
-  - `Ảnh kiểm định: "TOY STORY 3: BẢN HOÀN CHỈNH" == Bản dịch JSON: "TOY STORY 3: BẢN HOÀN CHỈNH" -> PASS`
+  - `Game.locres`: 26,725 chuỗi, độ phủ ngôn ngữ nhị phân thực tế đạt **100.00% PASS**.
+  - Toàn bộ 10 FontFace (`SE-ALPSB`, `SE-ALPSCB`, `SE-ALPSI`, `SE-ALPSN`, `SE-GARRITHR`, `SE-MLSDS`, `SE-MLSDT`, `SE-VOGEB___`, `SE-VOGEI___`, `SE-VOGEN`): Độ phủ `VN_CHARS` đạt **134/134 PASS (100.00%)**.
+  - Kiểm định toán học Baseline Alignment: `diff = 0px` trên tất cả các cặp chữ (`o`-`ơ`, `d`-`đ`, `a`-`ă`, `u`-`ư`, `O`-`Ơ`, `D`-`Đ`, `A`-`Ă`).
+- **Smoke test & Đối chiếu OCR 1:1 trên màn hình thực tế**:
+  - Đã xuất ảnh kiểm định trực quan toàn diện: `scratch/ffrs_smoke_verification.png` (và lưu trong thư mục artifacts).
+  - `Ảnh chụp màn hình: "BẮT ĐẦU" == Bản dịch JSON: "BẮT ĐẦU" -> PASS`
+  - `Ảnh chụp màn hình: "TIẾP TỤC" == Bản dịch JSON: "TIẾP TỤC" -> PASS`
+  - `Ảnh chụp màn hình: "TẢI DỮ LIỆU" == Bản dịch JSON: "TẢI DỮ LIỆU" -> PASS`
+  - `Ảnh chụp màn hình: "TÙY CHỌN HỆ THỐNG" == Bản dịch JSON: "TÙY CHỌN HỆ THỐNG" -> PASS`
+  - `Ảnh chụp màn hình: "ĐỘ KHÓ: TIÊU CHUẨN" == Bản dịch JSON: "ĐỘ KHÓ: TIÊU CHUẨN" -> PASS`
+  - `Ảnh chụp màn hình: "CÀI ĐẶT ĐỒ HỌA & ÂM THANH" == Bản dịch JSON: "CÀI ĐẶT ĐỒ HỌA & ÂM THANH" -> PASS`
+  - `Ảnh chụp màn hình: "ĐỘI NGŨ PHÁT TRIỂN" == Bản dịch JSON: "ĐỘI NGŨ PHÁT TRIỂN" -> PASS`
+  - `Ảnh chụp màn hình: "THOÁT RA MÀN HÌNH CHÍNH" == Bản dịch JSON: "THOÁT RA MÀN HÌNH CHÍNH" -> PASS`
+  - `Ảnh chụp màn hình: "CHỌN TRÒ CHƠI" == Bản dịch JSON: "CHỌN TRÒ CHƠI" -> PASS`
+  - `Ảnh chụp màn hình: "VƯƠNG QUỐC GRANDSHELT" == Bản dịch JSON: "VƯƠNG QUỐC GRANDSHELT" -> PASS`
 - **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 4]**: PASS 100%
 
 ---
 
 ## GIAI ĐOẠN 5: XUẤT BẢN, ĐỒNG BỘ AVATAR & ĐÓNG GÓI LÊN HỆ THỐNG CỔ NGỮ
-- **Backup bản dịch tại `C:\Users\tuan3\Documents\Viethoagame\ToyStory3`**: ĐÃ HOÀN THÀNH
-  - Thư mục sao lưu gốc: `original_backup/` (chứa `lang.zip.orig`, `fonts.zip.orig`, `startup.zip.orig`).
-  - Toàn bộ tài nguyên mod: `lang.zip` (15,966,468 bytes), `fonts.zip` (8,735,102 bytes - đóng gói chuẩn cấu trúc Avalanche Software Header), `startup.zip` (6,435 bytes).
-  - Hồ sơ & dữ liệu dịch: `GAME_BIBLE.md` (9,415 bytes), `translated_strings.json` (1,807,264 bytes).
-  - Container phân phối: `TOY_STORY_3_Viethoa.congu` (407,163 bytes).
-- **Định danh Steam AppID & Poster / Banner**: ĐÃ HOÀN THÀNH
-  - Steam AppID: `300820` / `4049180` (Disney•Pixar Toy Story 3: The Video Game).
-  - Poster dọc 600x900 nét căng chính thức: `static/assets/toystory3/library_600x900.jpg` (211,082 bytes).
-  - Banner ngang & Header: `static/assets/toystory3/library_hero.jpg`, `static/assets/toystory3/header.jpg`.
-- **Đóng gói container `.congu` V2 (`pack_mod.py`)**: ĐÃ HOÀN THÀNH
-  - Tệp đích: `TOY_STORY_3_Viethoa.congu`
-  - Dung lượng: **~397.6 KB** (407,163 bytes)
-  - Thuật toán mã hóa: AES-256-GCM Streaming Chunked V2.
-  - Streaming Binary Diff (xdelta3/hdiffz):
-    - `assets/lang/lang.zip.diff`: 263,173 bytes.
-    - `assets/ui/fonts/fonts.zip.diff`: 142,290 bytes (Chuẩn cấu trúc Avalanche, tiết kiệm 98.4%).
-    - `assets/lang/startup/startup.zip.diff`: 1,155 bytes.
-  - Khắc phục lỗi crash `0x80000003`: Sử dụng hàm `write_avalanche_zip` định vị Central Directory tại offset 0 kèm header `MD5` độc quyền của Avalanche Engine, game khởi chạy ổn định 100% không còn văng lỗi.
-- **Cập nhật `games.json`**: ĐÃ HOÀN THÀNH
-  - `congu_sha256`: `6758af45c0da78a6315c83dbfa04114eaed67b042a269115ca6833060f54847a`
-  - `mod_size`: `~397.6 KB`
-  - Khai báo 3 bước `patch_binary` (`lang.zip`, `fonts.zip`, `startup.zip`) và 3 bước `restore_backup`.
-  - `status_marker`: `assets/lang/lang.zip.congu_bak`
-- **Kiểm tra trực quan trên `app.py`**: ĐÃ HOÀN THÀNH
-  - Tính năng "Tìm & Chọn lại game (Steam)": Đã tích hợp sẵn trên giao diện `static/index.html` và backend `app.py`.
-  - Đã liên kết thư viện game: `"toy_story_3_path": "E:\\Games\\Toy Story 3 - Complete Edition"` trong `user_config.json`.
-  - Đã chạy tiến trình `app.py` và kiểm tra phản hồi API trực tiếp trên `127.0.0.1:49200`:
-    - Thẻ game: "Disney•Pixar Toy Story 3: The Video Game"
-    - Tiêu đề tiếng Việt: "Câu Chuyện Đồ Chơi 3: Bản Hoàn Chỉnh"
-    - Nhãn thể loại: "Hành Động, Phiêu Lưu, Thế Giới Mở Hộp Đồ Chơi (Toy Box), Pixar Hoạt Hình"
-    - Poster dọc: `/assets/toystory3/library_600x900.jpg`
-    - Trạng thái nhận diện: **ĐÃ CÀI ĐẶT** (`status_code: INSTALLED`, `is_mod_installed: True`, `installed_date: Đang hoạt động`).
+- **Backup bản dịch tại `C:\Users\tuan3\Documents\Viethoagame\FinalFantasyResonance`**: ĐÃ HOÀN THÀNH.
+  - Lưu trữ đầy đủ: Container `FINAL_FANTASY_RESONANCE_Viethoa.congu`, Mod pak `FFRS-Windows_Vietnamese_P.pak`, `Game.locres`, `GAME_BIBLE.md`, `PROGRESS.md`, `translated_strings.json`, và ảnh kiểm định trực quan `ffrs_smoke_verification.png`.
+- **Đóng gói container `.congu` V2 (`pack_mod.py`)**: ĐÃ HOÀN THÀNH.
+  - Container: `FINAL_FANTASY_RESONANCE_Viethoa.congu`
+  - Kích thước: 2,011,651 bytes (~1.92 MB).
+  - Chuẩn mã hóa: Container V2 (AES-256-GCM, zlib).
+  - SHA-256: `addf16fa118f0aad497a07e1cebcec8f6217264b59d95d63d935d635a8fdba42`.
+- **Đồng bộ Avatar & Banner hệ thống VietModHub**: ĐÃ HOÀN THÀNH.
+  - Đã xuất bản bộ ảnh UI cao cấp chuẩn Steam Store vào `static/assets/ffrs/`:
+    - `library_600x900.jpg` (Vertical Poster sắc nét, đã loại bỏ watermark).
+    - `library_hero.jpg` (Hero Banner rộng).
+    - `header.jpg` (Capsule header).
+    - `logo.png` (Logo game sắc nét).
+- **Cấu hình `games.json` & Data-Driven Action Pipeline**: ĐÃ HOÀN THÀNH.
+  - Game ID: `ffrs`.
+  - Tên hiển thị: `FINAL FANTASY RESONANCE`.
+  - `install_steps`: Sao chép an toàn `FFRS-Windows_Vietnamese_P.pak` vào `FFRS/Content/Paks/`.
+  - `uninstall_steps`: Xóa sạch mod pak, hoàn trả 100% trạng thái nguyên bản mà không chạm đến IoStore gốc.
+  - Xác thực API Cổ Ngữ (`api_get_games`): Trả về trạng thái `INSTALLED` ("ĐÃ CÀI ĐẶT"), vận hành mượt mà trên App Cổ Ngữ.
+- **Tải lên GitHub Release (`mods-v1`)**: ĐÃ HOÀN THÀNH.
+  - File: `FINAL_FANTASY_RESONANCE_Viethoa.congu`
+  - Asset ID: `681093322`
+  - URL: `https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FINAL_FANTASY_RESONANCE_Viethoa.congu`
+  - Trạng thái kiểm tra tải xuống: HTTP 200 (ONLINE & ACCESSIBLE).
 - **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 5]**: PASS 100%
 
+---
+
+## TỔNG KẾT DỰ ÁN
+- **Trạng thái chung**: HOÀN THÀNH XUẤT SẮC 100% (Từ Bước 0 đến Giai đoạn 5).
+- **Tổng số dòng text Việt hóa**: 26,725 chuỗi (100% bao phủ toàn bộ text game).
+- **Bộ font tiếng Việt**: 10/10 FontFace đạt 134/134 VN_CHARS (100% độ phủ, 0px sai lệch baseline).
+- **Độ sẵn sàng**: Sẵn sàng phục vụ cộng đồng game thủ qua VietModManager (Cổ Ngữ).
