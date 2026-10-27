@@ -450,6 +450,15 @@
         </div>
         <p class="text-xs text-slate-400 font-sans tracking-normal">Hệ Thống Quản Lý & Tự Động Cài Đặt Game Việt Hóa</p>
       </div>
+
+      <!-- Quick Sidebar Toggle Button next to logo -->
+      <button 
+        id="btnBrandToggleSidebar"
+        onclick="toggleSidebar()" 
+        class="pixel-btn p-1.5 ml-1 bg-[#0e1022] hover:bg-[#151933] text-[#00F0FF] border border-[#00F0FF]/40 hover:border-[#00F0FF] rounded-[2px] no-drag transition shadow-[2px_2px_0px_#05050a] flex items-center justify-center cursor-pointer" 
+        title="Bật/Tắt Cột Danh Sách Game bên trái (Ctrl+B)">
+        <i id="brandToggleSidebarIcon" data-lucide="panel-left-close" class="w-4 h-4"></i>
+      </button>
     </div>
 
     <!-- Center Search Bar (Neon Cyan Border, Sharp Pixel Edge - NO DRAG) -->
@@ -565,6 +574,17 @@
 
   <!-- APP WORKSPACE LAYOUT: STEAM-STYLE LEFT SIDEBAR + MAIN CONTENT AREA -->
   <div class="flex-1 flex w-full relative z-10 overflow-hidden items-stretch" style="min-height: calc(100vh - 105px);">
+
+    <!-- COLLAPSED SIDEBAR STRIP / EXPAND TRIGGER (Hiển thị khi thu gọn sidebar để mở lại 1-click) -->
+    <div id="collapsedSidebarStrip" class="hidden shrink-0 w-9 bg-[#070817]/95 border-r border-[#00F0FF]/30 flex flex-col items-center py-2.5 space-y-3 z-20 select-none transition-all">
+      <button onclick="toggleSidebar()" class="pixel-btn p-1.5 text-[#00F0FF] hover:text-white bg-[#0e1022] hover:bg-[#00F0FF]/25 border border-[#00F0FF]/60 rounded-[2px] shadow-[0_0_8px_rgba(0,240,255,0.4)] transition cursor-pointer" title="Mở rộng danh sách game bên trái (Ctrl+B)">
+        <i data-lucide="chevrons-right" class="w-4 h-4"></i>
+      </button>
+      <div class="flex-1 flex flex-col items-center justify-center cursor-pointer group py-4 hover:bg-[#00F0FF]/10 transition rounded w-full" onclick="toggleSidebar()" title="Bấm để mở lại danh sách game (Ctrl+B)">
+        <i data-lucide="gamepad-2" class="w-4 h-4 text-slate-500 group-hover:text-[#00F0FF] transition mb-2"></i>
+        <span class="text-[10px] font-pixel text-slate-500 group-hover:text-[#00F0FF] transition tracking-widest uppercase font-bold" style="writing-mode: vertical-rl; transform: rotate(180deg);">THƯ VIỆN</span>
+      </div>
+    </div>
 
     <!-- STEAM-STYLE LEFT SIDEBAR (GAME LIBRARY LIST) -->
     <aside id="librarySidebar" class="w-64 lg:w-72 shrink-0 bg-[#070817]/95 border-r border-[#00F0FF]/20 flex flex-col backdrop-blur-md transition-all duration-200 select-none z-20">
@@ -2419,22 +2439,41 @@
 
     function toggleSidebar() {
       const sidebar = document.getElementById('librarySidebar');
+      const strip = document.getElementById('collapsedSidebarStrip');
       const btn = document.getElementById('btnToggleSidebar');
+      const brandIcon = document.getElementById('brandToggleSidebarIcon');
+      const brandBtn = document.getElementById('btnBrandToggleSidebar');
+
       if (!sidebar) return;
       const isHidden = sidebar.classList.contains('hidden');
       if (isHidden) {
         sidebar.classList.remove('hidden');
+        if (strip) strip.classList.add('hidden');
         if (btn) {
           btn.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+        }
+        if (brandIcon) {
+          brandIcon.setAttribute('data-lucide', 'panel-left-close');
+        }
+        if (brandBtn) {
+          brandBtn.title = 'Thu gọn danh sách game bên trái (Ctrl+B)';
         }
         localStorage.setItem('sidebar_visible', 'true');
       } else {
         sidebar.classList.add('hidden');
+        if (strip) strip.classList.remove('hidden');
         if (btn) {
           btn.classList.remove('bg-[#00F0FF]/20', 'text-[#00F0FF]');
         }
+        if (brandIcon) {
+          brandIcon.setAttribute('data-lucide', 'panel-left-open');
+        }
+        if (brandBtn) {
+          brandBtn.title = 'Mở rộng danh sách game bên trái (Ctrl+B)';
+        }
         localStorage.setItem('sidebar_visible', 'false');
       }
+      lucide.createIcons();
     }
 
 
@@ -6341,8 +6380,13 @@
       }
     }
 
-    // Close modal on Escape
+    // Global Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
       if (e.key === 'Escape') {
         closeGameModal();
         closeProgressModal();
@@ -6478,14 +6522,25 @@
     })();
 
     // Start
-    if (localStorage.getItem('sidebar_visible') === 'false') {
-      const sb = document.getElementById('librarySidebar');
-      const sbtn = document.getElementById('btnToggleSidebar');
+    const isSidebarStoredHidden = localStorage.getItem('sidebar_visible') === 'false';
+    const sb = document.getElementById('librarySidebar');
+    const strip = document.getElementById('collapsedSidebarStrip');
+    const sbtn = document.getElementById('btnToggleSidebar');
+    const brandIcon = document.getElementById('brandToggleSidebarIcon');
+    const brandBtn = document.getElementById('btnBrandToggleSidebar');
+
+    if (isSidebarStoredHidden) {
       if (sb) sb.classList.add('hidden');
+      if (strip) strip.classList.remove('hidden');
       if (sbtn) sbtn.classList.remove('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+      if (brandIcon) brandIcon.setAttribute('data-lucide', 'panel-left-open');
+      if (brandBtn) brandBtn.title = 'Mở rộng danh sách game bên trái (Ctrl+B)';
     } else {
-      const sbtn = document.getElementById('btnToggleSidebar');
+      if (sb) sb.classList.remove('hidden');
+      if (strip) strip.classList.add('hidden');
       if (sbtn) sbtn.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]');
+      if (brandIcon) brandIcon.setAttribute('data-lucide', 'panel-left-close');
+      if (brandBtn) brandBtn.title = 'Thu gọn danh sách game bên trái (Ctrl+B)';
     }
     fetchGames();
     startGlobalPlaytimeWatcher();
