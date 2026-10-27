@@ -1554,7 +1554,7 @@
       "author": "Cổ Ngữ Translation Team",
       "font": "Alps & Garrick HD có dấu đầy đủ (134/134 VN_CHARS)",
       "last_updated": "27/10/2026",
-      "mod_size": "~1.9 MB"
+      "mod_size": "~9.9 MB"
     },
     "mod_subfolder": "FinalFantasyResonance",
     "mod_type": "pak",
@@ -1582,13 +1582,24 @@
       }
     ],
     "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FINAL_FANTASY_RESONANCE_Viethoa.congu",
-    "mod_size": "~1.9 MB",
+    "mod_size": "~9.9 MB",
     "install_steps": [
       {
         "action": "copy_file",
         "source": "FFRS-Windows_Vietnamese_P.pak",
         "destination": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak",
-        "target": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak",
+        "backup": false
+      },
+      {
+        "action": "copy_file",
+        "source": "FFRS-Windows_Vietnamese_P.pak",
+        "destination": "FFRS/Content/Paks/FFRS-Windows_99_P.pak",
+        "backup": false
+      },
+      {
+        "action": "copy_file",
+        "source": "FFRS-Windows_Vietnamese_P.pak",
+        "destination": "FFRS/Content/Paks/~mods/FFRS-Windows_Vietnamese_P.pak",
         "backup": false
       }
     ],
@@ -1596,8 +1607,16 @@
       {
         "action": "delete",
         "target": "FFRS/Content/Paks/FFRS-Windows_Vietnamese_P.pak"
+      },
+      {
+        "action": "delete",
+        "target": "FFRS/Content/Paks/FFRS-Windows_99_P.pak"
+      },
+      {
+        "action": "delete",
+        "target": "FFRS/Content/Paks/~mods/FFRS-Windows_Vietnamese_P.pak"
       }
     ],
-    "congu_sha256": "addf16fa118f0aad497a07e1cebcec8f6217264b59d95d63d935d635a8fdba42"
+    "congu_sha256": "dd360d7328f797d0ee93fc5875b3e0692b72e5855756215a27b4993c2464064c"
   }
 ]
