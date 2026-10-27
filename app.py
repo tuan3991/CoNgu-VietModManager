@@ -182,6 +182,8 @@ import glob
 import urllib.request
 import ssl
 import urllib.parse
+import ctypes
+from ctypes import wintypes
 
 # Base paths with PyInstaller frozen support
 if getattr(sys, 'frozen', False):
@@ -207,8 +209,24 @@ BACKUP_ROOT = os.path.join(APPDATA_DIR, "backups")
 USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
 COVERS_DIR = os.path.join(APPDATA_DIR, "covers")
 COVERS_CACHE_FILE = os.path.join(APPDATA_DIR, "covers_cache.json")
+PLAYTIME_FILE = os.path.join(APPDATA_DIR, "playtime.json")
 os.makedirs(APPDATA_DIR, exist_ok=True)
 os.makedirs(COVERS_DIR, exist_ok=True)
+
+def log_startup(msg: str):
+    """Ghi log khoi dong ung dung de chan doan su co tren moi may tinh."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    formatted = f"[{timestamp}] {msg}"
+    try:
+        print(formatted.encode("ascii", "replace").decode("ascii"))
+    except Exception:
+        pass
+    try:
+        log_file = os.path.join(APPDATA_DIR, "startup.log")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(formatted + "\n")
+    except Exception:
+        pass
 
 def load_covers_cache():
     """Nạp cache metadata & avatar đã tìm được của game lẻ từ tệp JSON."""
@@ -893,6 +911,999 @@ def check_game_running(g, game_path=None):
 
     return False, None
 
+# --- CẤU HÌNH WIN32 API BẰNG CTYPES (FOLDER-SCOPE PROCESS TRACKING) ---
+TH32CS_SNAPPROCESS = 0x00000002
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+class PROCESSENTRY32W(ctypes.Structure):
+    _fields_ = [
+        ("dwSize", wintypes.DWORD),
+        ("cntUsage", wintypes.DWORD),
+        ("th32ProcessID", wintypes.DWORD),
+        ("th32DefaultHeapID", ctypes.POINTER(wintypes.ULONG)),
+        ("th32ModuleID", wintypes.DWORD),
+        ("cntThreads", wintypes.DWORD),
+        ("th32ParentProcessID", wintypes.DWORD),
+        ("pcPriClassBase", wintypes.LONG),
+        ("dwFlags", wintypes.DWORD),
+        ("szExeFile", wintypes.WCHAR * 260),
+    ]
+
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
+
+kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+
+kernel32.Process32FirstW.restype = wintypes.BOOL
+kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+
+kernel32.Process32NextW.restype = wintypes.BOOL
+kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+
+kernel32.OpenProcess.restype = wintypes.HANDLE
+kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+
+kernel32.CloseHandle.restype = wintypes.BOOL
+kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
+kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+kernel32.QueryFullProcessImageNameW.argtypes = [
+    wintypes.HANDLE,
+    wintypes.DWORD,
+    wintypes.LPWSTR,
+    ctypes.POINTER(wintypes.DWORD),
+]
+
+EXCLUDED_HELPER_EXES = {
+    "unitycrashhandler64.exe",
+    "unitycrashhandler32.exe",
+    "crashreportclient.exe",
+    "crashreportclienteditor.exe",
+    "unins000.exe",
+    "unins001.exe",
+    "uninstall.exe",
+    "dxwebsetup.exe",
+    "vcredist_x64.exe",
+    "vcredist_x86.exe",
+    "vc_redist.x64.exe",
+    "vc_redist.x86.exe",
+    "cmd.exe",
+    "powershell.exe",
+    "conhost.exe"
+}
+
+def is_any_exe_running_in_folder(game_dir: str) -> bool:
+    """
+    Kiểm tra xem có bất kỳ file .exe nào nằm trong thư mục `game_dir` đang chạy không.
+    Giải quyết triệt để trường hợp Launcher gọi tiến trình con (-Win64-Shipping.exe) rồi tự tắt.
+    Tự động bỏ qua các tiến trình phụ trợ (Crash Reporter, Trình gỡ cài đặt, DirectX Setup).
+    """
+    if not game_dir or not os.path.isdir(game_dir):
+        return False
+
+    target_root = os.path.normcase(os.path.realpath(game_dir))
+    if not target_root.endswith(os.sep):
+        target_root += os.sep
+
+    h_snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+    if not h_snap or h_snap == INVALID_HANDLE_VALUE or h_snap == -1:
+        return False
+
+    try:
+        pe32 = PROCESSENTRY32W()
+        pe32.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+        if not kernel32.Process32FirstW(h_snap, ctypes.byref(pe32)):
+            return False
+
+        buf_len = wintypes.DWORD(1024)
+        path_buf = ctypes.create_unicode_buffer(1024)
+
+        while True:
+            pid = pe32.th32ProcessID
+            if pid > 4:
+                h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if h_proc:
+                    try:
+                        buf_len.value = 1024
+                        if kernel32.QueryFullProcessImageNameW(h_proc, 0, path_buf, ctypes.byref(buf_len)):
+                            raw_val = path_buf.value
+                            if raw_val:
+                                proc_path = os.path.normcase(os.path.realpath(raw_val))
+                                proc_name = os.path.basename(proc_path).lower()
+                                if proc_name not in EXCLUDED_HELPER_EXES and proc_path.startswith(target_root):
+                                    return True
+                    except Exception:
+                        pass
+                    finally:
+                        kernel32.CloseHandle(h_proc)
+
+            if not kernel32.Process32NextW(h_snap, ctypes.byref(pe32)):
+                break
+    except Exception:
+        pass
+    finally:
+        kernel32.CloseHandle(h_snap)
+
+    return False
+
+
+class PlaytimeManager:
+    """Bộ quản lý khởi chạy game và đếm giờ chơi chuẩn xác theo thời gian thực (Zero-Leak Clean Exit)."""
+
+    def __init__(self, db_path: str = None, on_game_exit_callback=None):
+        self.appdata_dir = APPDATA_DIR
+        os.makedirs(self.appdata_dir, exist_ok=True)
+        self.db_path = db_path or os.path.join(self.appdata_dir, "playtime.json")
+        self.lock = threading.RLock()
+        self.active_games = {}  # {game_id: {"start_ts": float, "last_chk": float, "last_active": float, "game_dir": str}}
+        self.on_game_exit_callback = on_game_exit_callback
+        self._data = self._load_db()
+
+    def _load_db(self) -> dict:
+        if os.path.exists(self.db_path):
+            try:
+                with open(self.db_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"[PlaytimeManager] Load DB error: {e}")
+        return {}
+
+    def _save_db(self, game_id: str = None, game_dir: str = None):
+        with self.lock:
+            try:
+                tmp_path = self.db_path + ".tmp"
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp_path, self.db_path)
+            except Exception as e:
+                print(f"[PlaytimeManager] Save DB error: {e}")
+
+            # Lưu đồng bộ 1 bản Portable ngay trong thư mục game (nếu có quyền ghi)
+            if game_id:
+                target_dir = game_dir
+                if not target_dir or not os.path.isdir(target_dir):
+                    try:
+                        cfg = load_user_config()
+                        target_dir = cfg.get(f"{game_id}_path")
+                    except Exception:
+                        pass
+                if target_dir and os.path.isdir(target_dir):
+                    try:
+                        local_file = os.path.join(target_dir, ".congu_playtime.json")
+                        with open(local_file, "w", encoding="utf-8") as lf:
+                            json.dump(self._data.get(game_id, {}), lf, ensure_ascii=False, indent=2)
+                    except OSError:
+                        pass
+
+    def is_game_running(self, game_id: str) -> bool:
+        with self.lock:
+            return game_id in self.active_games
+
+    def get_game_stats(self, game_id: str, game_dir: str = None) -> dict:
+        """Lấy thông tin giờ chơi đã định dạng đẹp để gửi lên Frontend (Hỗ trợ Live Playtime khi đang chơi)."""
+        with self.lock:
+            rec = self._data.get(game_id)
+            if not game_dir:
+                try:
+                    cfg = load_user_config()
+                    game_dir = cfg.get(f"{game_id}_path")
+                except Exception:
+                    pass
+
+            # Khôi phục / đồng bộ hai chiều từ file portable trong thư mục game (Bảo toàn dữ liệu tuyệt đối)
+            if game_dir and os.path.isdir(game_dir):
+                local_file = os.path.join(game_dir, ".congu_playtime.json")
+                if os.path.exists(local_file):
+                    try:
+                        with open(local_file, "r", encoding="utf-8") as lf:
+                            local_rec = json.load(lf)
+                            local_sec = int(local_rec.get("total_seconds", 0))
+                            current_sec = int(rec.get("total_seconds", 0)) if rec else 0
+                            if local_sec > current_sec:
+                                rec = local_rec
+                                self._data[game_id] = rec
+                                self._save_db(game_id, game_dir)
+                            elif current_sec > local_sec:
+                                # Đồng bộ ngược vào file portable nếu máy có giờ chơi mới hơn
+                                try:
+                                    with open(local_file, "w", encoding="utf-8") as wlf:
+                                        json.dump(rec, wlf, ensure_ascii=False, indent=2)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                elif rec and int(rec.get("total_seconds", 0)) > 0:
+                    try:
+                        with open(local_file, "w", encoding="utf-8") as wlf:
+                            json.dump(rec, wlf, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+
+            rec = rec or {"total_seconds": 0, "last_played_ts": None, "sessions_count": 0}
+            total_sec = int(rec.get("total_seconds", 0))
+
+            # Tự nhận diện cả khi người dùng mở game bằng Shortcut ngoài Desktop
+            is_running = game_id in self.active_games
+            if not is_running and game_dir and os.path.isdir(game_dir):
+                if is_any_exe_running_in_folder(game_dir):
+                    self.start_tracking(game_id, game_dir)
+                    is_running = True
+
+            # Tính Live Playtime trực tiếp nếu game đang chạy
+            if is_running:
+                active_info = self.active_games.get(game_id)
+                if active_info:
+                    start_session_ts = active_info.get("start_ts", time.time())
+                    live_seconds = int(time.time() - active_info.get("last_chk", start_session_ts))
+                    total_sec += max(0, live_seconds)
+
+            # Định dạng chuỗi hiển thị thông minh giống Steam
+            if total_sec == 0:
+                formatted_time = "Chưa chơi"
+            elif total_sec < 60:
+                formatted_time = f"{total_sec} giây" if is_running else "< 1 phút"
+            elif total_sec < 3600:
+                formatted_time = f"{max(1, total_sec // 60)} phút"
+            else:
+                formatted_time = f"{round(total_sec / 3600, 1)} giờ"
+
+            last_ts = rec.get("last_played_ts")
+            if is_running:
+                last_played_str = "Đang chơi"
+            elif not last_ts:
+                last_played_str = "Chưa từng mở"
+            else:
+                try:
+                    diff_days = (datetime.now().date() - datetime.fromtimestamp(last_ts).date()).days
+                    if diff_days == 0:
+                        last_played_str = "Hôm nay"
+                    elif diff_days == 1:
+                        last_played_str = "Hôm qua"
+                    else:
+                        last_played_str = datetime.fromtimestamp(last_ts).strftime("%d/%m/%Y")
+                except Exception:
+                    last_played_str = "Vừa xong"
+
+            return {
+                "game_id": game_id,
+                "is_running": is_running,
+                "total_seconds": total_sec,
+                "formatted_time": formatted_time,
+                "last_played_str": last_played_str,
+                "sessions_count": rec.get("sessions_count", 0)
+            }
+
+    def start_background_scanner(self, get_installed_paths_callback):
+        """Khởi động luồng quét ngầm nhận diện game mở từ Shortcut Desktop / Steam."""
+        if hasattr(self, '_scanner_running') and self._scanner_running:
+            return
+        self._scanner_running = True
+        self.get_installed_paths = get_installed_paths_callback
+
+        def _scan_loop():
+            # Chờ 4s đầu để app khởi động mượt mà
+            time.sleep(4)
+            while self._scanner_running:
+                try:
+                    time.sleep(5)
+                    if not self.get_installed_paths:
+                        continue
+                    installed_paths = self.get_installed_paths()
+                    if not installed_paths:
+                        continue
+                    for gid, gpath in installed_paths.items():
+                        if not gpath or not os.path.isdir(gpath):
+                            continue
+                        with self.lock:
+                            is_active = gid in self.active_games
+                        if not is_active:
+                            if is_any_exe_running_in_folder(gpath):
+                                log_startup(f"[PlaytimeTracker] Tự động phát hiện game '{gid}' mở từ Shortcut Desktop/Steam tại '{gpath}'!")
+                                self.start_tracking(gid, gpath)
+                except Exception as e:
+                    pass
+
+        t = threading.Thread(target=_scan_loop, daemon=True)
+        t.start()
+
+    def start_tracking(self, game_id: str, game_dir: str):
+        """Bắt đầu luồng theo dõi đếm giờ tự động (Daemon Watcher)."""
+        with self.lock:
+            if game_id in self.active_games:
+                return
+            now = time.time()
+            self.active_games[game_id] = {
+                "start_ts": now,
+                "last_chk": now,
+                "last_active": now,
+                "game_dir": game_dir
+            }
+            rec = self._data.setdefault(game_id, {
+                "total_seconds": 0, "last_played_ts": int(now), "sessions_count": 0, "daily_log": {}
+            })
+            rec["last_played_ts"] = int(now)
+            rec["sessions_count"] = rec.get("sessions_count", 0) + 1
+            self._save_db(game_id, game_dir)
+
+        t = threading.Thread(
+            target=self._monitor_loop,
+            args=(game_id, game_dir),
+            daemon=True
+        )
+        t.start()
+        log_startup(f"[PlaytimeTracker] Đã kích hoạt luồng theo dõi cho '{game_id}'")
+
+    def _monitor_loop(self, game_id: str, game_dir: str):
+        """Vòng lặp kiểm tra mỗi 3s và lưu checkpoint nhịp tim mỗi 60s."""
+        time.sleep(3)
+        start_ts = time.time()
+        last_checkpoint = start_ts
+        last_active = start_ts
+        session_saved_sec = 0
+        unseen_streak = 0
+
+        try:
+            while True:
+                time.sleep(3)
+                now = time.time()
+
+                if is_any_exe_running_in_folder(game_dir):
+                    unseen_streak = 0
+                    last_active = now
+
+                    # Quét phát hiện thành tựu thời gian thực (Cơ chế Hydra Launcher / Achievement Watcher)
+                    try:
+                        if "ACHIEVEMENT_MGR" in globals() and ACHIEVEMENT_MGR:
+                            ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
+                    except Exception:
+                        pass
+
+                    elapsed_delta = int(now - last_checkpoint)
+                    # Lưu nhịp tim mỗi 60 giây chống mất dữ liệu khi mất điện hoặc crash
+                    if elapsed_delta >= 60:
+                        self._add_seconds(game_id, game_dir, elapsed_delta)
+                        session_saved_sec += elapsed_delta
+                        last_checkpoint = now
+                        with self.lock:
+                            if game_id in self.active_games:
+                                self.active_games[game_id]["last_chk"] = now
+                                self.active_games[game_id]["last_active"] = now
+                else:
+                    # Chờ xác nhận 2 nhịp liên tiếp (~6s) phòng lúc Launcher đang chuyển sang Shipping.exe
+                    unseen_streak += 1
+                    if unseen_streak >= 2:
+                        session_elapsed = int(max(0, last_active - start_ts))
+                        remaining_delta = max(0, session_elapsed - session_saved_sec)
+                        if remaining_delta > 0:
+                            self._add_seconds(game_id, game_dir, remaining_delta)
+                        break
+        except Exception as e:
+            print(f"[PlaytimeTracker] Monitor loop error: {e}")
+        finally:
+            with self.lock:
+                self.active_games.pop(game_id, None)
+
+        log_startup(f"[PlaytimeTracker] Phiên chơi của '{game_id}' đã kết thúc.")
+        if self.on_game_exit_callback:
+            try:
+                self.on_game_exit_callback(game_id, game_dir)
+            except Exception as e:
+                print(f"[PlaytimeTracker] Post-exit hook error: {e}")
+
+    def _add_seconds(self, game_id: str, game_dir: str, seconds: int):
+        if seconds <= 0:
+            return
+        with self.lock:
+            today_key = datetime.now().strftime("%Y-%m-%d")
+            now_ts = int(time.time())
+            rec = self._data.setdefault(game_id, {
+                "total_seconds": 0, "last_played_ts": now_ts, "sessions_count": 1, "daily_log": {}
+            })
+            rec["total_seconds"] = int(rec.get("total_seconds", 0)) + seconds
+            rec["last_played_ts"] = now_ts
+            daily = rec.setdefault("daily_log", {})
+            daily[today_key] = int(daily.get(today_key, 0)) + seconds
+            self._save_db(game_id, game_dir)
+
+    def flush_all_active(self):
+        """Lưu nốt số giây đang chơi dở trước khi CỔ NGỮ đóng hẳn (Zero-Leak Clean Exit)."""
+        with self.lock:
+            now = time.time()
+            for gid, info in list(self.active_games.items()):
+                last_chk = info.get("last_chk", info.get("start_ts", now))
+                delta = int(now - last_chk)
+                if delta > 0:
+                    gdir = info.get("game_dir")
+                    self._add_seconds(gid, gdir, delta)
+                    info["last_chk"] = now
+
+    def get_all_stats(self) -> dict:
+        """Trả về toàn bộ thống kê giờ chơi và trạng thái đang chạy cho tất cả game."""
+        with self.lock:
+            result = {}
+            for gid, rec in self._data.items():
+                is_running = gid in self.active_games
+                total_sec = int(rec.get("total_seconds", 0))
+                if is_running:
+                    active_info = self.active_games.get(gid)
+                    if active_info:
+                        start_session_ts = active_info.get("start_ts", time.time())
+                        live_seconds = int(time.time() - active_info.get("last_chk", start_session_ts))
+                        total_sec += max(0, live_seconds)
+
+                if total_sec == 0:
+                    formatted_time = "Chưa chơi"
+                elif total_sec < 60:
+                    formatted_time = f"{total_sec} giây" if is_running else "< 1 phút"
+                elif total_sec < 3600:
+                    formatted_time = f"{max(1, total_sec // 60)} phút"
+                else:
+                    formatted_time = f"{round(total_sec / 3600, 1)} giờ"
+
+                result[gid] = {
+                    "game_id": gid,
+                    "is_running": is_running,
+                    "total_seconds": total_sec,
+                    "formatted_time": formatted_time,
+                    "last_played_str": "Đang chơi" if is_running else (rec.get("last_played_str") or "Gần đây"),
+                    "sessions_count": rec.get("sessions_count", 0)
+                }
+            return result
+
+
+class AchievementManager:
+    """
+    Bộ quản lý phát hiện, đọc tiến độ và đồng bộ Thành tựu cho game lẻ
+    theo chuẩn cơ chế không can thiệp RAM của Hydra Launcher & Achievement Watcher.
+    Hỗ trợ tự động nhận diện Emulator: Goldberg, GSE, RUNE, CODEX, TENOKE, OnlineFix, FLT, ALI213, SmartSteamEmu.
+    """
+
+    def __init__(self, steam_api_key: str = ""):
+        self.appdata_dir = APPDATA_DIR
+        self.schema_dir = os.path.join(self.appdata_dir, "achievements_schema")
+        self.progress_file = os.path.join(self.appdata_dir, "achievements_progress.json")
+        os.makedirs(self.schema_dir, exist_ok=True)
+        self.steam_api_key = steam_api_key
+        self.lock = threading.RLock()
+        self.unlocked_cache = {}  # {appid_or_gid: {"ACH_ID": ts, ...}}
+        self.newly_unlocked_queue = []  # [{"game_id": ..., "id": ..., "title": ..., "description": ..., "icon": ...}]
+        self._progress_data = self._load_progress()
+
+    def _load_progress(self) -> dict:
+        if os.path.exists(self.progress_file):
+            try:
+                with open(self.progress_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
+    def _save_progress(self):
+        with self.lock:
+            try:
+                tmp = self.progress_file + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(self._progress_data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, self.progress_file)
+            except Exception:
+                pass
+
+    def _resolve_appid_from_metadata(self, game_id: str) -> str:
+        """Tìm steam_appid của game từ games.json."""
+        if not game_id:
+            return ""
+        try:
+            p = get_active_games_json_path()
+            if os.path.exists(p):
+                with open(p, "r", encoding="utf-8") as f:
+                    for g in json.load(f):
+                        if g.get("id") == game_id:
+                            return str(g.get("steam_appid") or "")
+        except Exception:
+            pass
+        return ""
+
+    def _get_candidate_save_files(self, appid: str, game_dir: str = "") -> list[tuple[str, str]]:
+        """Trả về danh sách các đường dẫn file lưu thành tựu có thể tồn tại của mọi Steam Emulator."""
+        if not appid and not game_dir:
+            return []
+
+        candidates = []
+        appdata = os.environ.get("APPDATA", "")
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        public_doc = os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Documents")
+        user_profile = os.environ.get("USERPROFILE", "")
+        documents = os.path.join(user_profile, "Documents")
+
+        if appid:
+            s_appid = str(appid)
+            candidates.extend([
+                # 1. Goldberg / GSE Saves (Định dạng JSON)
+                ("goldberg_json", os.path.join(appdata, "Goldberg SteamEmu Saves", s_appid, "achievements.json")),
+                ("goldberg_json", os.path.join(appdata, "GSE Saves", s_appid, "achievements.json")),
+                ("goldberg_json", os.path.join(localappdata, "Goldberg SteamEmu Saves", s_appid, "achievements.json")),
+                ("goldberg_json", os.path.join(localappdata, "GSE Saves", s_appid, "achievements.json")),
+                # 2. RUNE / CODEX / FLT / OnlineFix / SmartSteamEmu (Định dạng INI)
+                ("ini", os.path.join(public_doc, "Steam", "RUNE", s_appid, "achievements.ini")),
+                ("ini", os.path.join(public_doc, "Steam", "CODEX", s_appid, "achievements.ini")),
+                ("ini", os.path.join(appdata, "Steam", "CODEX", s_appid, "achievements.ini")),
+                ("ini", os.path.join(public_doc, "OnlineFix", s_appid, "Stats", "Achievements.ini")),
+                ("ini", os.path.join(appdata, "FLT", s_appid, "stats", "achievements.ini")),
+                ("ini", os.path.join(appdata, "SmartSteamEmu", s_appid, "achievements.ini")),
+                ("ini", os.path.join(appdata, "SmartSteamEmu", s_appid, "stats", "achievements.ini")),
+                ("ini", os.path.join(documents, "Steam", "CODEX", s_appid, "achievements.ini")),
+                ("ini", os.path.join(documents, "Steam", "RUNE", s_appid, "achievements.ini")),
+                ("ini", os.path.join(documents, "OnlineFix", s_appid, "Stats", "Achievements.ini")),
+            ])
+
+        # 3. Các file lưu ngay bên trong thư mục cài đặt game (TENOKE, ALI213, OnlineFix portable, Goldberg local)
+        if game_dir and os.path.isdir(game_dir):
+            for pattern, fmt in [
+                ("**/steam_settings/achievements.json", "goldberg_local_schema"),
+                ("**/SteamData/user_stats.ini", "tenoke_ini"),
+                ("**/Profile/Stats/Achievements.ini", "ini"),
+                ("**/OnlineFix/**/Achievements.ini", "ini"),
+                ("**/achievements.ini", "ini"),
+                ("**/achievements.json", "goldberg_json"),
+            ]:
+                try:
+                    for found_path in glob.glob(os.path.join(game_dir, pattern), recursive=True):
+                        item = (fmt, found_path)
+                        if fmt != "goldberg_local_schema" and item not in candidates:
+                            candidates.append(item)
+                except Exception:
+                    pass
+
+        return candidates
+
+    def scan_unlocked_achievements(self, appid: str, game_dir: str = "") -> dict[str, int]:
+        """
+        Quét toàn bộ các nguồn emulator và trả về dict: { "ACH_ID": unlock_timestamp }
+        """
+        unlocked = {}
+        for fmt, file_path in self._get_candidate_save_files(str(appid or ""), game_dir):
+            if not os.path.isfile(file_path):
+                continue
+            try:
+                mtime_fallback = int(os.path.getmtime(file_path))
+                if fmt == "goldberg_json":
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        data = json.load(f)
+                    if isinstance(data, dict):
+                        for ach_id, info in data.items():
+                            if isinstance(info, dict):
+                                if info.get("earned") is True or info.get("unlocked") is True:
+                                    ts = int(info.get("earned_time") or info.get("time") or mtime_fallback)
+                                    unlocked[ach_id] = min(unlocked.get(ach_id, ts), ts)
+                            elif isinstance(info, (int, float)) and info > 0:
+                                unlocked[ach_id] = min(unlocked.get(ach_id, int(info)), int(info))
+                            elif info is True:
+                                unlocked[ach_id] = min(unlocked.get(ach_id, mtime_fallback), mtime_fallback)
+                    elif isinstance(data, list):
+                        for item in data:
+                            if isinstance(item, dict):
+                                ach_id = item.get("name") or item.get("id")
+                                if ach_id and (item.get("earned") is True or item.get("unlocked") is True):
+                                    ts = int(item.get("earned_time") or item.get("time") or mtime_fallback)
+                                    unlocked[ach_id] = min(unlocked.get(ach_id, ts), ts)
+
+                elif fmt == "tenoke_ini":
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        text = f.read()
+                    for match in re.finditer(r'"([^"]+)"\s*=\s*\{[^}]*unlocked\s*=\s*true(?:[^}]*time\s*=\s*(\d+))?', text, re.I):
+                        ach_id = match.group(1)
+                        ts = int(match.group(2)) if match.group(2) else mtime_fallback
+                        unlocked[ach_id] = min(unlocked.get(ach_id, ts), ts)
+
+                elif fmt == "ini":
+                    import configparser
+                    cp = configparser.ConfigParser(strict=False)
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        cp.read_file(f)
+                    for section in cp.sections():
+                        sec_lower = section.lower()
+                        if sec_lower in ("steamachievements", "achievements", "stats"):
+                            for k, v in cp.items(section):
+                                if v.strip().lower() in ("1", "true") and not k.isdigit():
+                                    unlocked[k] = min(unlocked.get(k, mtime_fallback), mtime_fallback)
+                            continue
+                        achieved_val = (
+                            cp.get(section, "Achieved", fallback=None)
+                            or cp.get(section, "achieved", fallback=None)
+                            or cp.get(section, "State", fallback="0")
+                        )
+                        if str(achieved_val).strip().lower() in ("1", "true"):
+                            ts_str = (
+                                cp.get(section, "UnlockTime", fallback=None)
+                                or cp.get(section, "Timestamp", fallback=None)
+                                or cp.get(section, "Time", fallback="0")
+                            )
+                            ts = int(ts_str) if str(ts_str).isdigit() and int(ts_str) > 0 else mtime_fallback
+                            unlocked[section] = min(unlocked.get(section, ts), ts)
+            except Exception:
+                continue
+
+        return unlocked
+
+    def get_or_fetch_schema(self, appid: str, game_dir: str = "", game_id: str = "") -> list[dict]:
+        """Lấy danh sách thành tựu gốc (Tên, Mô tả, Icon) từ Cache, thư mục game hoặc Steam Store API."""
+        if not appid and not game_id:
+            return []
+
+        # 0. Kiểm tra cache theo appid hoặc game_id (chỉ chấp nhận nếu có cách thực hiện / description)
+        for ckey in [appid, game_id]:
+            if not ckey:
+                continue
+            cache_file = os.path.join(self.schema_dir, f"{ckey}.json")
+            if os.path.isfile(cache_file):
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if data and isinstance(data, list) and any(bool(item.get("description")) for item in data):
+                            return data
+                except Exception:
+                    pass
+
+        schema_list = []
+
+        # 1. Nguồn 1: Quét trực tiếp file steam_settings/achievements.json có sẵn trong thư mục game lẻ (Offline 0s)
+        if game_dir and os.path.isdir(game_dir):
+            for pattern in ["**/steam_settings/achievements.json", "**/achievements.json"]:
+                for path in glob.glob(os.path.join(game_dir, pattern), recursive=True):
+                    try:
+                        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                            raw = json.load(f)
+                        if isinstance(raw, list):
+                            for item in raw:
+                                if not isinstance(item, dict):
+                                    continue
+                                ach_id = item.get("name") or item.get("id")
+                                if not ach_id:
+                                    continue
+                                disp_name = item.get("displayName", item.get("name", ""))
+                                if isinstance(disp_name, dict):
+                                    disp_name = disp_name.get("english", next(iter(disp_name.values()), ""))
+                                desc = item.get("description", "")
+                                if isinstance(desc, dict):
+                                    desc = desc.get("english", next(iter(desc.values()), ""))
+                                
+                                icon_val = item.get("icon", "")
+                                icongray_val = item.get("icongray", item.get("icon_gray", ""))
+                                if icon_val and not icon_val.startswith("http") and os.path.exists(os.path.join(os.path.dirname(path), icon_val)):
+                                    icon_val = os.path.abspath(os.path.join(os.path.dirname(path), icon_val))
+                                if icongray_val and not icongray_val.startswith("http") and os.path.exists(os.path.join(os.path.dirname(path), icongray_val)):
+                                    icongray_val = os.path.abspath(os.path.join(os.path.dirname(path), icongray_val))
+
+                                schema_list.append({
+                                    "id": ach_id,
+                                    "title": disp_name or ach_id,
+                                    "description": desc or "",
+                                    "icon": icon_val,
+                                    "icongray": icongray_val,
+                                    "hidden": bool(item.get("hidden", 0)),
+                                    "group": item.get("group", "")
+                                })
+                            if schema_list:
+                                break
+                    except Exception:
+                        pass
+                if schema_list:
+                    break
+
+        pct_map = {}
+        if appid and str(appid).isdigit():
+            try:
+                pct_url = f"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
+                raw_pct = steam_direct_request(pct_url, timeout=4.0)
+                if raw_pct:
+                    pct_data = json.loads(raw_pct.decode("utf-8", "ignore"))
+                    for p in pct_data.get("achievementpercentages", {}).get("achievements", []):
+                        pct_map[p["name"].lower()] = round(float(p.get("percent", 0)), 1)
+            except Exception:
+                pass
+
+        # 2. Nguồn 2: Steam Community SSR Data (Toàn bộ 100% Thành tựu + Cách thực hiện + DLC Packs - Chuẩn Achievement Watcher)
+        if not schema_list and appid and str(appid).isdigit():
+            try:
+                comm_url = f"https://steamcommunity.com/achievements/{appid}"
+                raw_comm = steam_direct_request(comm_url, timeout=5.0)
+                if raw_comm:
+                    html_text = raw_comm.decode("utf-8", "ignore")
+                    m = re.search(r'<script[^>]*id=["\']valve-ssr-data["\'][^>]*>(.*?)</script>', html_text, re.DOTALL)
+                    if m:
+                        root_data = json.loads(m.group(1).strip())
+                        query_data_raw = root_data.get("renderContext", {}).get("queryData", {})
+                        if isinstance(query_data_raw, str):
+                            query_data = json.loads(query_data_raw)
+                        else:
+                            query_data = query_data_raw or {}
+
+                        for q in query_data.get("queries", []):
+                            data_node = q.get("state", {}).get("data")
+                            if isinstance(data_node, dict) and "groups" in data_node:
+                                for g in data_node.get("groups", []):
+                                    group_title = g.get("name") or ""
+                                    for a in g.get("achievements", []):
+                                        ach_id = a.get("api_name")
+                                        if not ach_id:
+                                            continue
+                                        disp_name = a.get("name") or ach_id
+                                        desc = a.get("description") or ""
+                                        icon_url = a.get("icon_achieved") or ""
+                                        icongray_url = a.get("icon_unachieved") or icon_url
+                                        is_hidden = bool(a.get("hidden", False))
+                                        schema_list.append({
+                                            "id": ach_id,
+                                            "title": disp_name,
+                                            "description": desc,
+                                            "icon": icon_url,
+                                            "icongray": icongray_url,
+                                            "hidden": is_hidden,
+                                            "group": group_title,
+                                            "global_percent": pct_map.get(ach_id.lower(), None)
+                                        })
+            except Exception as e:
+                print(f"[AchievementManager] Steam Community SSR fetch error: {e}")
+
+        # 3. Nguồn 3: Nếu có Steam Web API Key
+        if not schema_list and self.steam_api_key and appid and str(appid).isdigit():
+            try:
+                url = f"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={self.steam_api_key}&appid={appid}&l=english"
+                raw_s = steam_direct_request(url, timeout=4.0)
+                if raw_s:
+                    data = json.loads(raw_s.decode("utf-8", "ignore"))
+                    raw_ach = data.get("game", {}).get("availableGameStats", {}).get("achievements", [])
+                    for a in raw_ach:
+                        ach_id = a.get("name")
+                        schema_list.append({
+                            "id": ach_id,
+                            "title": a.get("displayName", ach_id),
+                            "description": a.get("description", ""),
+                            "icon": a.get("icon", ""),
+                            "icongray": a.get("icongray", ""),
+                            "hidden": bool(a.get("hidden", 0)),
+                            "global_percent": pct_map.get(str(ach_id).lower(), None)
+                        })
+            except Exception:
+                pass
+
+        # 4. Nguồn 4: Fallback qua Steam Store API appdetails
+        if not schema_list and appid and str(appid).isdigit():
+            try:
+                details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&filters=achievements"
+                raw_det = steam_direct_request(details_url, timeout=4.0)
+                if raw_det:
+                    det = json.loads(raw_det.decode("utf-8", "ignore"))
+                    ach_data = det.get(str(appid), {}).get("data", {}).get("achievements", {})
+                    highlighted = ach_data.get("highlighted", [])
+                    for a in highlighted:
+                        ach_name = a.get("name") or a.get("localized_name")
+                        icon_url = a.get("path")
+                        if not icon_url and a.get("icon"):
+                            icon_url = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{a['icon']}"
+                        schema_list.append({
+                            "id": a.get("name", ach_name),
+                            "title": a.get("localized_name") or ach_name,
+                            "description": "",
+                            "icon": icon_url or "",
+                            "icongray": "",
+                            "hidden": bool(a.get("hidden", 0)),
+                            "global_percent": pct_map.get(str(a.get("name", ach_name)).lower(), None)
+                        })
+            except Exception as e:
+                print(f"[AchievementManager] Store API fetch error: {e}")
+
+        # Gắn thêm tỷ lệ global_percent nếu chưa có
+        for s in schema_list:
+            if s.get("global_percent") is None:
+                s["global_percent"] = pct_map.get(str(s.get("id", "")).lower(), None)
+
+        # Lưu cache nếu lấy được schema có cách thực hiện
+        if schema_list:
+            save_key = appid or game_id
+            cache_file = os.path.join(self.schema_dir, f"{save_key}.json")
+            try:
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(schema_list, f, ensure_ascii=False, indent=2)
+            except OSError:
+                pass
+
+        return schema_list
+
+    def get_game_achievements_view(self, appid: str = "", game_dir: str = "", game_id: str = "") -> dict:
+        """Hàm trả dữ liệu hoàn chỉnh cho Frontend static/index.html hiển thị."""
+        effective_appid = str(appid or "").strip()
+        if not effective_appid and game_dir:
+            effective_appid = extract_local_steam_appid(game_dir) or ""
+        if not effective_appid and game_id:
+            cfg = load_user_config()
+            g_path = cfg.get(f"{game_id}_path")
+            if g_path:
+                effective_appid = extract_local_steam_appid(g_path) or ""
+            if not effective_appid:
+                effective_appid = self._resolve_appid_from_metadata(game_id)
+
+        schema = self.get_or_fetch_schema(effective_appid, game_dir, game_id)
+        unlocked_map = self.scan_unlocked_achievements(effective_appid, game_dir) if (effective_appid or game_dir) else {}
+
+        # Nếu chưa có schema nhưng file save có danh sách mã thành tựu đã mở
+        schema_ids = {str(item.get("id", "")).lower(): item for item in schema if item.get("id")}
+        for unlocked_id, u_ts in unlocked_map.items():
+            if unlocked_id.lower() not in schema_ids:
+                clean_title = re.sub(r"[_\-]+", " ", unlocked_id).title()
+                schema.append({
+                    "id": unlocked_id,
+                    "title": clean_title,
+                    "description": "Thành tựu đạt được trong khi chơi game",
+                    "icon": "",
+                    "icongray": "",
+                    "hidden": False
+                })
+
+        items = []
+        unlocked_count = 0
+        unlocked_lower = {k.lower(): v for k, v in unlocked_map.items()}
+
+        for ach in schema:
+            ach_id = ach.get("id", "")
+            unlock_ts = unlocked_lower.get(ach_id.lower())
+            is_unlocked = unlock_ts is not None
+            if is_unlocked:
+                unlocked_count += 1
+
+            unlock_str = None
+            if unlock_ts:
+                try:
+                    unlock_str = datetime.fromtimestamp(unlock_ts).strftime("%d/%m/%Y %H:%M")
+                except Exception:
+                    unlock_str = "Đã mở khóa"
+
+            items.append({
+                "id": ach_id,
+                "title": ach.get("title_vi") or ach.get("title") or ach_id,
+                "description": ach.get("description_vi") or ach.get("description") or "",
+                "icon": ach.get("icon") if is_unlocked else (ach.get("icongray") or ach.get("icon")),
+                "unlocked": is_unlocked,
+                "unlock_ts": unlock_ts or 0,
+                "unlock_time_str": unlock_str,
+                "global_percent": ach.get("global_percent", None),
+                "hidden": bool(ach.get("hidden", False)),
+                "group": ach.get("group", "")
+            })
+
+        # Sắp xếp: Thành tựu đã mở khóa lên trước (mới nhất xếp trên cùng)
+        items.sort(key=lambda x: (not x["unlocked"], -x["unlock_ts"]))
+        total = len(items)
+        percent = int(round((unlocked_count / total) * 100)) if total > 0 else 0
+
+        # Cập nhật cache trạng thái
+        cache_key = effective_appid or game_id
+        if cache_key:
+            with self.lock:
+                self.unlocked_cache[cache_key] = unlocked_map
+                self._progress_data[cache_key] = {
+                    "total": total,
+                    "unlocked_count": unlocked_count,
+                    "percent": percent,
+                    "last_updated": int(time.time())
+                }
+                self._save_progress()
+
+        return {
+            "appid": effective_appid,
+            "game_id": game_id,
+            "total": total,
+            "unlocked_count": unlocked_count,
+            "percent": percent,
+            "achievements": items
+        }
+
+    def check_for_new_unlocks(self, game_id: str, appid: str, game_dir: str = "") -> list[dict]:
+        """Kiểm tra thời gian thực xem có thành tựu nào vừa được mở khóa không."""
+        if not appid and not game_dir:
+            return []
+
+        effective_appid = str(appid or "").strip()
+        if not effective_appid and game_dir:
+            effective_appid = extract_local_steam_appid(game_dir) or ""
+
+        cache_key = effective_appid or game_id
+        if not cache_key:
+            return []
+
+        current_unlocked = self.scan_unlocked_achievements(effective_appid, game_dir)
+        if not current_unlocked:
+            return []
+
+        new_items = []
+        with self.lock:
+            prev_unlocked = self.unlocked_cache.get(cache_key)
+            if prev_unlocked is None:
+                self.unlocked_cache[cache_key] = current_unlocked
+                return []
+
+            schema = self.get_or_fetch_schema(effective_appid, game_dir, game_id)
+            schema_map = {str(item.get("id", "")).lower(): item for item in schema}
+
+            for ach_id, ts in current_unlocked.items():
+                if ach_id.lower() not in {k.lower(): v for k, v in prev_unlocked.items()}:
+                    meta = schema_map.get(ach_id.lower(), {})
+                    title = meta.get("title_vi") or meta.get("title") or re.sub(r"[_\-]+", " ", ach_id).title()
+                    desc = meta.get("description_vi") or meta.get("description") or "Mở khóa khi chơi game"
+                    icon = meta.get("icon") or ""
+
+                    item_info = {
+                        "game_id": game_id,
+                        "appid": effective_appid,
+                        "id": ach_id,
+                        "title": title,
+                        "description": desc,
+                        "icon": icon,
+                        "unlock_ts": ts
+                    }
+                    new_items.append(item_info)
+                    self.newly_unlocked_queue.append(item_info)
+                    log_startup(f"[AchievementTracker] 🏆 Chúc mừng! Mở khóa thành tựu mới: '{title}' ({ach_id})!")
+
+            self.unlocked_cache[cache_key] = current_unlocked
+
+        return new_items
+
+    def check_game_live_achievements(self, game_id: str, game_dir: str = "") -> list[dict]:
+        """Tự động phân giải appid và quét thành tựu mới mở khóa trong thời gian thực."""
+        appid = ""
+        if game_dir and os.path.isdir(game_dir):
+            appid = extract_local_steam_appid(game_dir) or ""
+        if not appid and game_id:
+            cfg = load_user_config()
+            g_path = cfg.get(f"{game_id}_path")
+            if g_path and os.path.isdir(g_path):
+                appid = extract_local_steam_appid(g_path) or ""
+            if not appid:
+                appid = self._resolve_appid_from_metadata(game_id)
+
+        return self.check_for_new_unlocks(game_id, appid, game_dir)
+
+    def pop_newly_unlocked(self) -> list[dict]:
+        """Lấy toàn bộ danh sách thành tựu mới để Frontend hiện Toast thông báo, sau đó xóa hàng đợi."""
+        with self.lock:
+            items = list(self.newly_unlocked_queue)
+            self.newly_unlocked_queue.clear()
+            return items
+
+
+ACHIEVEMENT_MGR = AchievementManager()
+
+
+def handle_game_exit_hook(game_id: str, game_dir: str):
+    """
+    Điểm móc nối tự động sau khi thoát game (Post-Exit Hook):
+    - Ghi log và đồng bộ trạng thái.
+    - Sẵn sàng kích hoạt: Đồng bộ Cloud Save & Quét Thành Tựu mới mở khóa.
+    """
+    log_startup(f"[PlaytimeTracker] Kích hoạt Post-Exit Hook cho '{game_id}' tại '{game_dir}'")
+    try:
+        if "ACHIEVEMENT_MGR" in globals() and ACHIEVEMENT_MGR:
+            ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
+    except Exception as e:
+        print(f"[AchievementTracker] Post-exit scan error: {e}")
+
+    try:
+        if "CLOUD_SYNC_MGR" in globals() and CLOUD_SYNC_MGR:
+            g_cfg = next((g for g in get_games() if g.get("id") == game_id), None)
+            if g_cfg:
+                CLOUD_SYNC_MGR.post_session_sync(game_id, game_dir, g_cfg)
+    except Exception as e:
+        print(f"[CloudSync] Post-exit sync hook error: {e}")
+
+PLAYTIME_MGR = PlaytimeManager(db_path=PLAYTIME_FILE, on_game_exit_callback=handle_game_exit_hook)
+
+from cloud_sync import CloudSyncManager
+CLOUD_SYNC_MGR = CloudSyncManager(APPDATA_DIR)
+
+
 def load_user_config():
     cfg = {"repo_dir": DEFAULT_REPO_DIR}
     # Tự động di chuyển cấu hình cũ từ APP_DIR sang APPDATA_DIR nếu chưa có
@@ -923,6 +1934,22 @@ def save_user_config(cfg):
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Error saving config: {e}")
+
+def get_all_configured_game_paths():
+    """Lấy danh sách toàn bộ thư mục game đã được định danh trên máy."""
+    try:
+        cfg = load_user_config()
+        paths = {}
+        for k, v in cfg.items():
+            if k.endswith("_path") and v and os.path.isdir(v):
+                gid = k[:-5]
+                paths[gid] = v
+        return paths
+    except Exception:
+        return {}
+
+# Tự động khởi động luồng quét ngầm nhận diện game mở từ Shortcut Desktop / Steam
+PLAYTIME_MGR.start_background_scanner(get_all_configured_game_paths)
 
 def load_user_data():
     data = {"ratings": {}, "comments": {}, "bug_reports": [], "game_requests": [], "voted_requests": [], "machine_id": None}
@@ -2349,10 +3376,29 @@ class ModManagerAPI:
             if cached_meta.get("genre"):
                 g["genre"] = cached_meta["genre"]
 
+            # Gắn dữ liệu Theo Dõi Giờ Chơi (Playtime Tracker)
+            g["playtime"] = PLAYTIME_MGR.get_game_stats(gid, game_path)
+
         if cfg_changed:
             save_user_config(user_cfg)
 
         return games
+
+    def get_playtime_stats(self, game_id):
+        """Lấy dữ liệu thống kê giờ chơi thời gian thực của game."""
+        cfg = load_user_config()
+        game_path = cfg.get(f"{game_id}_path")
+        return PLAYTIME_MGR.get_game_stats(game_id, game_path)
+
+    def get_game_achievements(self, game_id_or_appid: str, game_dir: str = ""):
+        """Lấy danh sách và trạng thái mở khóa thành tựu của game (Chuẩn Hydra Launcher)."""
+        appid = str(game_id_or_appid) if str(game_id_or_appid).isdigit() else ""
+        game_id = "" if appid else str(game_id_or_appid)
+        return ACHIEVEMENT_MGR.get_game_achievements_view(appid=appid, game_dir=game_dir, game_id=game_id)
+
+    def poll_new_achievements(self):
+        """Lấy các thành tựu mới mở khóa trong thời gian thực để Frontend bắn Toast."""
+        return ACHIEVEMENT_MGR.pop_newly_unlocked()
 
     def select_repo_folder(self):
         """Open native folder picker for user to select Viethoagame repository"""
@@ -5152,73 +6198,98 @@ class ModManagerAPI:
             return {"success": False, "message": f"Lỗi khôi phục khẩn cấp: {str(e)}"}
 
     def launch_game(self, game_id):
-        """Launch the game via Steam protocol (preferred for Steam libraries) or direct executable with auto-detection"""
+        """Khởi chạy game độc lập (Detached Process) và kích hoạt luồng theo dõi đếm giờ chuẩn xác."""
         with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
             games = {g["id"]: g for g in json.load(f)}
 
         if game_id not in games:
-            return {"success": False, "message": "Không tìm thấy game!"}
+            return {"success": False, "status": "error", "message": "Không tìm thấy game!"}
 
         g = games[game_id]
         appid = g.get("steam_appid")
         cfg = load_user_config()
         game_path = cfg.get(f"{game_id}_path")
 
-        # 1. Preferred Steam Protocol if path is within a Steam library
-        is_steam_install = bool(game_path and "steamapps" in game_path.lower())
-        if is_steam_install and appid:
-            try:
-                os.startfile(f"steam://rungameid/{appid}")
-                return {
-                    "success": True,
-                    "protocol": "steam",
-                    "message": f"Đang khởi chạy {g['vietnamese_title']} qua giao thức Steam (steam://rungameid/{appid})..."
-                }
-            except Exception as e:
-                print(f"Steam protocol failed: {e}")
+        # 0. Kiểm tra nếu game đã đang chạy
+        if PLAYTIME_MGR.is_game_running(game_id):
+            return {
+                "success": False,
+                "status": "already_running",
+                "message": f"Game {g['vietnamese_title']} đang chạy!",
+                "stats": PLAYTIME_MGR.get_game_stats(game_id, game_path)
+            }
 
-        # 2. Direct executable launch
+        # 1. Tìm file thực thi .exe trong thư mục game
+        candidate_exe = None
         if game_path and os.path.exists(game_path):
             exe_name = g.get("executable_name", "")
-            candidate_exe = os.path.join(game_path, exe_name) if exe_name else None
-            if not candidate_exe or not os.path.isfile(candidate_exe):
+            if exe_name:
+                cand = os.path.join(game_path, exe_name)
+                if os.path.isfile(cand):
+                    candidate_exe = cand
+            if not candidate_exe:
                 target_base = os.path.basename(exe_name).lower() if exe_name else ""
-                found_exe = None
                 for root, dirs, files in os.walk(game_path):
                     for f in files:
                         if f.lower().endswith(".exe"):
                             if target_base and f.lower() == target_base:
-                                found_exe = os.path.join(root, f)
+                                candidate_exe = os.path.join(root, f)
                                 break
-                    if found_exe:
+                    if candidate_exe:
                         break
-                if found_exe:
-                    candidate_exe = found_exe
 
-            if candidate_exe and os.path.isfile(candidate_exe):
+        # Khởi chạy tách rời (Detached) để đóng CỔ NGỮ không làm tắt game (Zero-Leak Clean Exit)
+        creation_flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        launched = False
+        launch_protocol = "executable"
+
+        # Ưu tiên mở trực tiếp qua file .exe nếu tìm thấy (hỗ trợ cả game modded, crack, GOG, Epic, Steam)
+        if candidate_exe and os.path.isfile(candidate_exe):
+            try:
+                subprocess.Popen(
+                    [candidate_exe],
+                    cwd=os.path.dirname(candidate_exe),
+                    creationflags=creation_flags,
+                    close_fds=True
+                )
+                launched = True
+                launch_protocol = "executable"
+            except Exception as e:
+                print(f"[Launch Warning] Direct Popen failed: {e}, falling back to os.startfile...")
                 try:
                     os.startfile(candidate_exe)
-                    return {
-                        "success": True,
-                        "protocol": "executable",
-                        "message": f"Đang khởi chạy {g['vietnamese_title']} ({os.path.basename(candidate_exe)})..."
-                    }
-                except Exception as e:
-                    print(f"Direct exe startfile failed: {e}")
+                    launched = True
+                    launch_protocol = "executable"
+                except Exception as e2:
+                    print(f"[Launch Error] os.startfile failed: {e2}")
 
-        # 3. Fallback to Steam Protocol if available
-        if appid:
+        # Fallback giao thức Steam nếu không khởi chạy được trực tiếp
+        if not launched and appid:
             try:
                 os.startfile(f"steam://rungameid/{appid}")
-                return {
-                    "success": True,
-                    "protocol": "steam",
-                    "message": f"Đang khởi chạy {g['vietnamese_title']} qua giao thức Steam (steam://rungameid/{appid})..."
-                }
-            except Exception:
-                pass
+                launched = True
+                launch_protocol = "steam"
+            except Exception as e:
+                print(f"[Launch Error] Steam protocol failed: {e}")
 
-        return {"success": False, "message": "Không thể khởi động game. Vui lòng mở game trực tiếp từ Steam / Epic Games / GOG!"}
+        if launched:
+            effective_dir = game_path or (os.path.dirname(candidate_exe) if candidate_exe else None)
+            if effective_dir:
+                PLAYTIME_MGR.start_tracking(game_id, effective_dir)
+            stats = PLAYTIME_MGR.get_game_stats(game_id, effective_dir)
+            return {
+                "success": True,
+                "status": "launched",
+                "protocol": launch_protocol,
+                "message": f"Đang khởi chạy {g['vietnamese_title']}...",
+                "stats": stats
+            }
+
+        return {
+            "success": False,
+            "status": "error",
+            "message": "Không thể khởi động game. Vui lòng mở game trực tiếp từ Steam / Epic Games / GOG!"
+        }
 
     def kill_game_process(self, game_id):
         """Force terminate running game process to release file locks before modding"""
@@ -5275,6 +6346,21 @@ class ModManagerAPI:
             os.startfile(repo)
             return {"success": True}
         return {"success": False, "message": "Thư mục Viethoagame không tồn tại!"}
+
+    def open_save_folder(self, game_id):
+        """Mở thư mục lưu file save game trong Windows Explorer"""
+        if "CLOUD_SYNC_MGR" in globals() and CLOUD_SYNC_MGR:
+            games = get_games()
+            g_cfg = next((g for g in games if g["id"] == game_id), None)
+            if g_cfg:
+                cfg = load_user_config()
+                game_dir = cfg.get(f"{game_id}_path")
+                save_dir = CLOUD_SYNC_MGR.get_existing_save_directory(g_cfg, game_dir)
+                if save_dir:
+                    os.makedirs(save_dir, exist_ok=True)
+                    os.startfile(save_dir)
+                    return {"success": True, "path": save_dir}
+        return {"success": False, "message": "Không tìm thấy thư mục save của game này!"}
 
     def verify_mod(self, game_id):
         """Verify integrity of installed mod package with SHA256 checking"""
@@ -5530,14 +6616,30 @@ class ModManagerAPI:
                 "message": "Không thể thoát ứng dụng khi đang thực thi cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ tiến trình hoàn tất để tránh làm hỏng tệp game."
             }
 
-        # 1. Hủy cửa sổ giao diện ngay lập tức
+        # 1. Hủy icon khay hệ thống nếu có
+        global SYSTEM_TRAY
+        try:
+            if SYSTEM_TRAY:
+                SYSTEM_TRAY.Visible = False
+                SYSTEM_TRAY.Dispose()
+                SYSTEM_TRAY = None
+        except Exception:
+            pass
+
+        # 2. Lưu nhịp tim đếm giờ chơi dở trước khi thoát hẳn
+        try:
+            PLAYTIME_MGR.flush_all_active()
+        except Exception:
+            pass
+
+        # 3. Hủy cửa sổ giao diện ngay lập tức
         if self.window:
             try:
                 self.window.destroy()
             except Exception:
                 pass
 
-        # 2. Thoát tiến trình ngay lập tức
+        # 4. Thoát tiến trình ngay lập tức
         def _instant_exit():
             time.sleep(0.05)
             os._exit(0)
@@ -5553,6 +6655,28 @@ class ModManagerAPI:
             except Exception as e:
                 return {"success": False, "error": str(e)}
         return {"success": False, "error": "No window instance"}
+
+    def minimize_to_tray(self):
+        """Minimize CỔ NGỮ window to Windows System Tray (notification area)"""
+        if self.window:
+            try:
+                return minimize_to_tray(self.window)
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+        return {"success": False, "error": "No window instance"}
+
+    def restore_from_tray(self):
+        """Restore CỔ NGỮ window from Windows System Tray"""
+        if self.window:
+            try:
+                return restore_from_tray(self.window)
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+        return {"success": False, "error": "No window instance"}
+
+    def get_all_playtime_stats(self):
+        """Lấy toàn bộ thống kê giờ chơi thời gian thực của các game."""
+        return PLAYTIME_MGR.get_all_stats()
 
     def maximize_window(self):
         """Toggle maximize / restore the desktop window"""
@@ -5610,7 +6734,7 @@ class ThreadingWSGIServer(socketserver.ThreadingMixIn, WSGIServer):
     khi Frontend vừa tải/cài đặt mod vừa polling /api/progress hoặc tải hình ảnh tĩnh.
     """
     daemon_threads = True
-    allow_reuse_address = True
+    allow_reuse_address = False
 
     def handle_error(self, request, client_address):
         # Bỏ qua các ngoại lệ socket connection reset vô hại khi client hủy request sớm
@@ -5640,6 +6764,8 @@ def verify_session_token():
     from calling /api/ endpoints. Only requests bearing the valid per-session Auth-Token are permitted.
     """
     if request.path.startswith("/api/covers/") or request.path.startswith("/api/game/poster_preview"):
+        return
+    if request.path.startswith("/api/window/") or request.path.startswith("/api/achievements/"):
         return
     if request.path.startswith("/api/"):
         token = request.headers.get("X-App-Auth-Token") or request.query.get("token")
@@ -5851,6 +6977,36 @@ def api_launch():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/playtime/<game_id>", method="GET")
+def api_get_playtime(game_id):
+    res = api_instance.get_playtime_stats(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/playtime/stats", method=["GET", "POST"])
+def api_get_all_playtime():
+    data = request.json or {}
+    game_id = data.get("game_id") or request.query.get("game_id")
+    if game_id:
+        res = api_instance.get_playtime_stats(game_id)
+    else:
+        res = PLAYTIME_MGR.get_all_stats()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/achievements/poll_new", method=["GET", "POST"])
+def api_poll_new_achievements():
+    res = api_instance.poll_new_achievements()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/achievements/<game_id_or_appid>", method=["GET", "POST"])
+def api_get_achievements(game_id_or_appid):
+    game_dir = request.query.get("game_dir", "") or (request.json.get("game_dir", "") if request.json else "")
+    res = api_instance.get_game_achievements(game_id_or_appid, game_dir)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
 @server_app.route("/api/kill_process", method="POST")
 def api_kill_process():
     data = request.json or {}
@@ -5889,6 +7045,14 @@ def api_open_mod_folder():
     data = request.json or {}
     game_id = data.get("game_id")
     res = api_instance.open_mod_folder(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/open_save_folder", method="POST")
+def api_open_save_folder():
+    data = request.json or {}
+    game_id = data.get("game_id")
+    res = api_instance.open_save_folder(game_id)
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
@@ -6060,6 +7224,153 @@ def api_request_game():
     return json.dumps(res, ensure_ascii=False)
 
 
+# ========================================================
+# Google Drive Cloud Save & Ecosystem REST API Endpoints
+# ========================================================
+
+@server_app.route("/api/cloud/status", method="GET")
+def api_cloud_status():
+    """Lấy trạng thái kết nối tài khoản Google Drive cá nhân."""
+    response.content_type = "application/json"
+    if "CLOUD_SYNC_MGR" not in globals() or not CLOUD_SYNC_MGR:
+        return json.dumps({"connected": False})
+    return json.dumps(CLOUD_SYNC_MGR.get_connection_info(), ensure_ascii=False)
+
+@server_app.route("/api/cloud/login", method="POST")
+def api_cloud_login():
+    """Khởi chạy luồng xác thực Google OAuth2 PKCE Desktop Flow."""
+    data = request.json or {}
+    cfg = load_user_config()
+    client_id = data.get("client_id") or cfg.get("google_client_id", "")
+    client_secret = data.get("client_secret") or cfg.get("google_client_secret", "")
+
+    if not client_id:
+        response.status = 400
+        response.content_type = "application/json"
+        return json.dumps({
+            "success": False,
+            "error": "Vui lòng nhập Google Client ID trong phần Cài Đặt (hoặc cấp quyền OAuth ứng dụng)."
+        }, ensure_ascii=False)
+
+    response.content_type = "application/json"
+    res = CLOUD_SYNC_MGR.start_oauth_flow(client_id, client_secret)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/cloud/logout", method="POST")
+def api_cloud_logout():
+    """Đăng xuất tài khoản Google Drive."""
+    response.content_type = "application/json"
+    if "CLOUD_SYNC_MGR" in globals() and CLOUD_SYNC_MGR:
+        return json.dumps(CLOUD_SYNC_MGR.logout(), ensure_ascii=False)
+    return json.dumps({"success": True})
+
+@server_app.route("/api/cloud/config", method=["GET", "POST"])
+def api_cloud_config():
+    """Đọc hoặc lưu Client ID / Secret của Google Cloud Console."""
+    response.content_type = "application/json"
+    cfg = load_user_config()
+    if request.method == "POST":
+        data = request.json or {}
+        cid = data.get("client_id", "").strip()
+        csec = data.get("client_secret", "").strip()
+        if cid:
+            cfg["google_client_id"] = cid
+        if csec:
+            cfg["google_client_secret"] = csec
+        save_user_config(cfg)
+        return json.dumps({"success": True, "message": "Đã lưu cấu hình Google OAuth thành công!"})
+    else:
+        cid = cfg.get("google_client_id", "")
+        csec = cfg.get("google_client_secret", "")
+        masked_sec = (csec[:4] + "********" + csec[-4:]) if len(csec) > 8 else ("********" if csec else "")
+        return json.dumps({
+            "client_id": cid,
+            "has_secret": bool(csec),
+            "masked_secret": masked_sec
+        })
+
+@server_app.route("/api/cloud/save/status", method="POST")
+def api_cloud_save_status():
+    """Kiểm tra trạng thái đồng bộ 3 chiều (Local vs Cloud vs Last Sync) của một game."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id")
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Thiếu game_id"})
+
+    games = get_games()
+    game_config = next((g for g in games if g["id"] == game_id), None)
+    if not game_config:
+        response.status = 404
+        return json.dumps({"success": False, "error": f"Không tìm thấy game '{game_id}'"})
+
+    cfg = load_user_config()
+    game_dir = cfg.get(f"{game_id}_path")
+
+    res = CLOUD_SYNC_MGR.check_game_sync_status(game_config, game_dir)
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/cloud/save/sync", method="POST")
+def api_cloud_save_sync():
+    """Thực thi đồng bộ Save Game (Upload, Download hoặc Resolve Conflict)."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id")
+    action = data.get("action")  # "upload", "download", hoặc None (auto)
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Thiếu game_id"})
+
+    games = get_games()
+    game_config = next((g for g in games if g["id"] == game_id), None)
+    if not game_config:
+        response.status = 404
+        return json.dumps({"success": False, "error": f"Không tìm thấy game '{game_id}'"})
+
+    cfg = load_user_config()
+    game_dir = cfg.get(f"{game_id}_path")
+
+    res = CLOUD_SYNC_MGR.sync_game_save(game_config, game_dir, force_action=action)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/cloud/save/backups/<game_id>", method="GET")
+def api_cloud_save_backups(game_id):
+    """Liệt kê danh sách các bản backup cục bộ (tối đa 3 slots)."""
+    response.content_type = "application/json"
+    backups = CLOUD_SYNC_MGR.list_local_backups(game_id)
+    return json.dumps({"game_id": game_id, "backups": backups}, ensure_ascii=False)
+
+@server_app.route("/api/cloud/save/restore_backup", method="POST")
+def api_cloud_save_restore_backup():
+    """Khôi phục lại bản backup cục bộ đã lưu."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id")
+    backup_filename = data.get("backup_filename")
+    if not game_id or not backup_filename:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Thiếu tham số game_id hoặc backup_filename"})
+
+    games = get_games()
+    game_config = next((g for g in games if g["id"] == game_id), None)
+    if not game_config:
+        response.status = 404
+        return json.dumps({"success": False, "error": f"Không tìm thấy game '{game_id}'"})
+
+    cfg = load_user_config()
+    game_dir = cfg.get(f"{game_id}_path")
+
+    res = CLOUD_SYNC_MGR.restore_local_backup(game_id, backup_filename, game_config, game_dir)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+
 @server_app.route("/api/app/quit", method="POST")
 def api_app_quit():
     """Immediately and completely shut down the application and all background processes"""
@@ -6080,6 +7391,25 @@ def api_window_minimize():
     """Minimize the desktop window to taskbar"""
     res = api_instance.minimize_window()
     response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/window/minimize_tray", method="POST")
+def api_window_minimize_tray():
+    """Minimize the desktop window to system tray"""
+    res = api_instance.minimize_to_tray()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/window/restore_tray", method="POST")
+def api_window_restore_tray():
+    """Restore the desktop window from system tray"""
+    if not api_instance.window:
+        response.status = 404
+        return json.dumps({"success": False, "error": "No window instance"})
+    res = api_instance.restore_from_tray()
+    response.content_type = "application/json"
+    if not res.get("success"):
+        response.status = 500
     return json.dumps(res, ensure_ascii=False)
 
 @server_app.route("/api/window/maximize", method="POST")
@@ -6185,11 +7515,163 @@ def get_app_icon_path():
             return os.path.abspath(c)
     return ""
 
+SYSTEM_TRAY = None
+SYSTEM_TRAY_BALLOON_SHOWN = False
+
+def setup_system_tray(window, ico_path=None):
+    """Thiết lập Khay Hệ Thống (System Tray) chuẩn Windows qua Windows Forms (gắn trực tiếp vào UI thread)."""
+    global SYSTEM_TRAY
+    if SYSTEM_TRAY is not None:
+        return
+
+    def _init():
+        global SYSTEM_TRAY
+        try:
+            import clr
+            clr.AddReference('System.Windows.Forms')
+            clr.AddReference('System.Drawing')
+            from System.Windows.Forms import (
+                NotifyIcon, ContextMenuStrip, ToolStripMenuItem,
+                ToolStripSeparator, MouseButtons, ToolTipIcon, FormWindowState
+            )
+            from System.Drawing import Icon, SystemIcons
+
+            tray = NotifyIcon()
+            if ico_path and os.path.exists(ico_path):
+                try:
+                    tray.Icon = Icon(ico_path)
+                except Exception:
+                    tray.Icon = SystemIcons.Application
+            else:
+                tray.Icon = SystemIcons.Application
+
+            tray.Text = "CỔ NGỮ - Quản Lý Game Việt Hóa Pro"[:63]
+
+            menu = ContextMenuStrip()
+            item_open = ToolStripMenuItem("🎮 Mở CỔ NGỮ")
+            item_min = ToolStripMenuItem("⏬ Thu nhỏ xuống Taskbar")
+            item_exit = ToolStripMenuItem("❌ Thoát hoàn toàn")
+
+            def _on_open_click(sender, args):
+                restore_from_tray(window)
+
+            def _on_min_click(sender, args):
+                if window:
+                    try:
+                        restore_from_tray(window)
+                        window.minimize()
+                    except Exception:
+                        pass
+
+            def _on_exit_click(sender, args):
+                quit_from_tray()
+
+            item_open.Click += _on_open_click
+            item_min.Click += _on_min_click
+            item_exit.Click += _on_exit_click
+
+            menu.Items.Add(item_open)
+            menu.Items.Add(item_min)
+            menu.Items.Add(ToolStripSeparator())
+            menu.Items.Add(item_exit)
+
+            tray.ContextMenuStrip = menu
+
+            def _on_tray_mouse_click(sender, e):
+                if hasattr(e, 'Button') and e.Button == MouseButtons.Left:
+                    restore_from_tray(window)
+
+            def _on_tray_double_click(sender, e):
+                restore_from_tray(window)
+
+            tray.MouseClick += _on_tray_mouse_click
+            tray.DoubleClick += _on_tray_double_click
+            tray.Visible = True
+
+            SYSTEM_TRAY = tray
+            log_startup("[SystemTray] Đã khởi tạo biểu tượng Khay Hệ Thống Windows thành công trên UI Thread!")
+        except Exception as e:
+            log_startup(f"[SystemTray] Không thể khởi tạo System Tray: {e}")
+
+    try:
+        if hasattr(window, 'native') and window.native and hasattr(window.native, 'Invoke'):
+            import clr
+            from System import Action
+            window.native.Invoke(Action(_init))
+        else:
+            _init()
+    except Exception as e:
+        log_startup(f"[SystemTray] Invoke error: {e}")
+
+def minimize_to_tray(window):
+    """Thu nhỏ cửa sổ xuống thanh Taskbar an toàn chuẩn Windows."""
+    try:
+        if window:
+            window.minimize()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def restore_from_tray(window):
+    """Khôi phục và hiển thị lại cửa sổ CỔ NGỮ lên trên cùng màn hình."""
+    def _do_restore():
+        try:
+            if hasattr(window, 'native') and window.native:
+                from System.Windows.Forms import FormWindowState
+                window.native.Visible = True
+                window.native.Show()
+                window.native.WindowState = FormWindowState.Normal
+                window.native.BringToFront()
+                window.native.Activate()
+                hwnd = window.native.Handle.ToInt64()
+                if hwnd:
+                    ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    ctypes.windll.user32.SetForegroundWindow(hwnd)
+            else:
+                window.show()
+                window.restore()
+        except Exception as e:
+            log_startup(f"[SystemTray] Restore error: {e}")
+
+    try:
+        if hasattr(window, 'native') and window.native and hasattr(window.native, 'BeginInvoke'):
+            import clr
+            from System import Action
+            window.native.BeginInvoke(Action(_do_restore))
+        elif hasattr(window, 'native') and window.native and hasattr(window.native, 'Invoke'):
+            import clr
+            from System import Action
+            window.native.Invoke(Action(_do_restore))
+        else:
+            threading.Thread(target=_do_restore, daemon=True).start()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def quit_from_tray():
+    """Thoát hoàn toàn ứng dụng từ khay hệ thống (Zero-Leak Clean Exit)."""
+    global SYSTEM_TRAY
+    try:
+        if SYSTEM_TRAY:
+            SYSTEM_TRAY.Visible = False
+            SYSTEM_TRAY.Dispose()
+            SYSTEM_TRAY = None
+    except Exception:
+        pass
+    try:
+        PLAYTIME_MGR.flush_all_active()
+    except Exception:
+        pass
+    os._exit(0)
+
 def log_startup(msg: str):
     """Ghi log khoi dong ung dung de chan doan su co tren moi may tinh."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     formatted = f"[{timestamp}] {msg}"
-    print(formatted)
+    try:
+        print(formatted.encode("ascii", "replace").decode("ascii"))
+    except Exception:
+        pass
     try:
         log_file = os.path.join(APPDATA_DIR, "startup.log")
         with open(log_file, "a", encoding="utf-8") as f:
@@ -6254,6 +7736,10 @@ def launch_app_window_fallback(url):
                 # Nếu thoát nhanh (< 8 giây), đó là do Edge handoff sang tiến trình chạy sẵn -> Giữ sống Backend!
                 if elapsed > 8.0:
                     log_startup(f"Cua so ung dung da dong sau {elapsed:.1f}s. Thoat tien trinh.")
+                    try:
+                        PLAYTIME_MGR.flush_all_active()
+                    except Exception:
+                        pass
                     os._exit(0)
                 else:
                     log_startup(
@@ -6300,6 +7786,36 @@ def main():
         except Exception:
             pass
 
+    # 0. Single-Instance Protection: Nếu ứng dụng đang chạy (hoặc đang ẩn dưới Khay),
+    # tự động đánh thức cửa sổ lên màn hình và thoát tiến trình thứ hai!
+    _app_mutex = None
+    if sys.platform == "win32" and "--server" not in sys.argv and "--no-gui" not in sys.argv:
+        try:
+            import ctypes
+            ERROR_ALREADY_EXISTS = 183
+            _app_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Global\\CoNguVietModHubSingleInstance")
+            last_err = ctypes.windll.kernel32.GetLastError()
+            if last_err == ERROR_ALREADY_EXISTS:
+                log_startup("[*] Phat hien Co Ngu da dang chay (Mutex ton tai). Dang danh thuc cua so...")
+                # 1. Tìm và đưa cửa sổ lên Foreground
+                hwnd = ctypes.windll.user32.FindWindowW(None, "CỔ NGỮ - Trình Quản Lý Game Việt Hóa Pro")
+                if hwnd:
+                    ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    ctypes.windll.user32.SetForegroundWindow(hwnd)
+                # 2. Gửi tín hiệu đánh thức qua HTTP (nếu cửa sổ đang ẩn ở System Tray)
+                try:
+                    import urllib.request
+                    check_url = "http://127.0.0.1:49200/api/window/restore_tray"
+                    req = urllib.request.Request(check_url, data=b"{}", headers={"Content-Type": "application/json"})
+                    with urllib.request.urlopen(req, timeout=1.0) as resp:
+                        pass
+                except Exception:
+                    pass
+                log_startup("[*] Da gui lenh danh thuc. Thoat tien trinh khoi tao thu hai.")
+                sys.exit(0)
+        except Exception as e:
+            log_startup(f"[SingleInstance] Mutex check error: {e}")
+
     # 1. Khởi tạo HTTP Server
     HTTP_SERVER = create_http_server()
     SERVER_PORT = HTTP_SERVER.server_address[1]
@@ -6323,6 +7839,15 @@ def main():
     url = f"http://127.0.0.1:{SERVER_PORT}"
     icon_path = get_app_icon_path()
 
+    if "--server" in sys.argv or "--no-gui" in sys.argv:
+        log_startup(f"[*] Che do Server Headless kich hoat tren {url}. Dang phuc vu yeu cau...")
+        try:
+            while True:
+                time.sleep(1.0)
+        except KeyboardInterrupt:
+            pass
+        return
+
     # Biến cờ đánh dấu người dùng chủ động đóng cửa sổ PyWebView
     user_closed_window = {"closed": False}
     webview_started_at = time.time()
@@ -6344,11 +7869,25 @@ def main():
         def on_shown(w, ico):
             t_icon = threading.Thread(target=apply_titlebar_icon, args=(w, ico), daemon=True)
             t_icon.start()
+            # Gắn trực tiếp vào UI thread của Form để System Tray luôn sống
+            setup_system_tray(w, ico)
 
         def on_closed():
+            global SYSTEM_TRAY
+            try:
+                if SYSTEM_TRAY:
+                    SYSTEM_TRAY.Visible = False
+                    SYSTEM_TRAY.Dispose()
+                    SYSTEM_TRAY = None
+            except Exception:
+                pass
             # Nếu cửa sổ tồn tại > 3 giây rồi mới đóng -> Người dùng chủ động tắt
             if time.time() - webview_started_at > 3.0:
                 user_closed_window["closed"] = True
+                try:
+                    PLAYTIME_MGR.flush_all_active()
+                except Exception:
+                    pass
                 os._exit(0)
 
         window.events.closed += on_closed
@@ -6366,6 +7905,10 @@ def main():
         if time.time() - webview_started_at < 3.0 and not user_closed_window["closed"]:
             raise RuntimeError("WebView2 exited prematurely (< 3s) on target PC")
 
+        try:
+            PLAYTIME_MGR.flush_all_active()
+        except Exception:
+            pass
         os._exit(0)
 
     except Exception as e:

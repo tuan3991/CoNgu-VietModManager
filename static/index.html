@@ -467,14 +467,21 @@
           <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
           <span class="hidden lg:inline">Yêu cầu game</span>
         </button>
+
+        <!-- Google Drive Cloud Ecosystem Button -->
+        <button id="btnGdriveCloud" onclick="openCloudModal()" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/50 bg-[#061712]/90 text-emerald-400 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[2px_2px_0px_#05050a]" title="Quản lý Google Drive Cloud Save & Đồng bộ dữ liệu">
+          <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span id="gdriveStatusText" class="hidden md:inline font-bold">Cloud Save</span>
+          <span id="gdriveStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5 hidden"></span>
+        </button>
       </div>
 
       <!-- Safe Visual Divider -->
       <div class="h-4 w-px bg-white/10 mx-1"></div>
 
-      <!-- Standard Windows Minimal Window Controls (Sát góc phải, không viền thô, 3 icon tối giản) -->
+      <!-- Standard Windows Minimal Window Controls (Sát góc phải, không viền thô, icon sắc nét) -->
       <div class="flex items-center -mr-2 space-x-0.5" title="Điều khiển cửa sổ">
-        <button onclick="minimizeWindow()" class="w-9 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-[3px] transition-colors" title="Thu nhỏ (Minimize)">
+        <button onclick="minimizeWindow()" class="w-9 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-[3px] transition-colors" title="Thu nhỏ xuống Taskbar (Minimize)">
           <i data-lucide="minus" class="w-3.5 h-3.5 stroke-[2]"></i>
         </button>
 
@@ -527,6 +534,10 @@
         <i data-lucide="steam" class="w-3 h-3 text-[#00F0FF]"></i>
         <span>Steam Library: Auto-Detect</span>
       </span>
+      <span id="globalPlaytimeBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-[2px] bg-[#070814]/90 text-cyan-400 border border-cyan-500/50 shadow-[2px_2px_0px_#05050a] font-pixel text-[11px] font-bold tracking-wide" title="Tổng thời gian chơi trên Cổ Ngữ">
+        <i data-lucide="clock" class="w-3 h-3 text-cyan-400"></i>
+        <span id="globalPlaytimeText">Tổng giờ chơi: 0 giờ</span>
+      </span>
 
     </div>
   </div>
@@ -556,6 +567,10 @@
             <span id="heroStatusText">Đã Cài Đặt Việt Hóa</span>
           </span>
           <span id="heroEngine" class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/50 shadow-[2px_2px_0px_#05050a] tracking-wide">Unreal Engine</span>
+          <span id="heroPlaytimeBadge" class="hidden font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-cyan-400 border border-cyan-500/50 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5">
+            <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span id="heroPlaytimeText">Chưa chơi</span>
+          </span>
           <span class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/50 shadow-[2px_2px_0px_#05050a] tracking-wide">100% Hoàn Thành (Zero Omission)</span>
         </div>
 
@@ -666,6 +681,10 @@
             <span id="modalStatusBadge" class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] tracking-wide"></span>
             <span id="modalEngineBadge" class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-[#00F0FF] border border-[#00F0FF]/60 shadow-[2px_2px_0px_#05050a] tracking-wide"></span>
             <span id="modalVersionBadge" class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/50 shadow-[2px_2px_0px_#05050a] tracking-wide"></span>
+            <span id="modalHeaderPlaytimeBadge" class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-cyan-400 border border-cyan-500/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5" title="Thời gian chơi đã ghi nhận">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span id="modalHeaderPlaytimeText">Chưa chơi</span>
+            </span>
             <button id="modalQuickTrailerBtn" onclick="switchModalTab('media')" class="font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#FF2A85]/20 hover:bg-[#FF2A85]/35 text-[#FF2A85] border border-[#FF2A85]/60 shadow-[0_0_10px_rgba(255,42,133,0.3)] tracking-wide flex items-center space-x-1.5 transition ml-auto" title="Xem video trailer & cắt cảnh">
               <i data-lucide="play" class="w-3 h-3 fill-[#FF2A85]"></i>
               <span>Xem Trailer</span>
@@ -695,6 +714,11 @@
           <i data-lucide="star" class="w-3.5 h-3.5 text-[#FFB800]"></i>
           <span>Đánh giá & Báo lỗi</span>
         </button>
+        <button onclick="switchModalTab('cloudsave')" id="tabBtn-cloudsave" class="py-3 px-4 text-slate-400 hover:text-white border-b-2 border-transparent flex items-center space-x-1.5 transition shrink-0">
+          <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Cloud Save & Sao Lưu</span>
+          <span id="modalCloudBadge" class="ml-1 text-[9px] font-pixel px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hidden"></span>
+        </button>
       </div>
 
       <!-- Modal Tab Contents (Scrollable) -->
@@ -709,6 +733,103 @@
               <span class="font-pixel text-xs font-bold tracking-wide">Lưu Ý Đặc Biệt:</span>
             </div>
             <p id="modalNoteText" class="text-xs text-rose-200 font-sans leading-relaxed pl-6"></p>
+          </div>
+
+          <!-- Khung thông tin Giờ chơi & Nút Chơi Ngay (Playtime Tracker) -->
+          <div id="modalPlaytimeContainer" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-lg shadow-black/40">
+            <div class="flex items-center gap-6">
+              <!-- Tổng thời gian chơi -->
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+                  <i data-lucide="clock" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Thời gian chơi</div>
+                  <div id="modalPlaytimeValue" class="text-sm font-bold text-white font-mono">Chưa chơi</div>
+                </div>
+              </div>
+
+              <!-- Lần chơi cuối -->
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Lần cuối</div>
+                  <div id="modalLastPlayedValue" class="text-sm font-semibold text-slate-200">Chưa từng mở</div>
+                </div>
+              </div>
+
+              <!-- Lượt mở game -->
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                  <i data-lucide="history" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Lượt mở</div>
+                  <div id="modalSessionsValue" class="text-sm font-semibold text-slate-200">0 phiên</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Nút bấm Chơi Ngay / Đang Chơi -->
+            <button 
+              id="modalPlayBtn"
+              onclick="launchGameFromHub(activeModalGameId)"
+              class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-emerald-900/30 transition-all shrink-0">
+              <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+              <span>CHƠI NGAY</span>
+            </button>
+          </div>
+
+          <!-- Khối Tiến Độ & Danh Sách Thành Tựu Trong Trang Chi Tiết Game (Chuẩn Hydra Launcher / Achievement Watcher) -->
+          <div id="modalAchievementsCard" class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-lg shadow-black/40 space-y-3">
+            <!-- Header + Thanh Phần Trăm Hoàn Thành -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                  <i data-lucide="trophy" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Thành Tựu Đạt Được</span>
+                    <span class="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">STEAM & HYDRA</span>
+                  </h4>
+                  <p id="ach-summary-text" class="text-[11px] text-slate-400">Đang quét tiến độ thành tựu...</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 self-start sm:self-auto">
+                <span id="ach-count-badge" class="text-xs font-mono font-bold text-slate-300 bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700/50">
+                  0/0
+                </span>
+                <span id="ach-percent-badge" class="text-xs font-extrabold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 rounded-full">
+                  0%
+                </span>
+              </div>
+            </div>
+
+            <!-- Thanh Progress Bar (Cyan / Blue mượt mà chuẩn Steam) -->
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="ach-progress-bar" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 shadow-sm shadow-cyan-500/50" style="width: 0%"></div>
+            </div>
+
+            <!-- Thanh Tabs Lọc Danh Sách & Chú thích -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+              <div class="flex items-center gap-1.5 text-[11px]">
+                <button type="button" onclick="filterAchievementsUI('all')" id="ach-filter-all" class="px-2.5 py-1 rounded bg-slate-800 text-white font-medium hover:bg-slate-700 transition">Tất cả</button>
+                <button type="button" onclick="filterAchievementsUI('unlocked')" id="ach-filter-unlocked" class="px-2.5 py-1 rounded bg-transparent text-slate-400 font-medium hover:text-white transition">Đã mở</button>
+                <button type="button" onclick="filterAchievementsUI('locked')" id="ach-filter-locked" class="px-2.5 py-1 rounded bg-transparent text-slate-400 font-medium hover:text-white transition">Chưa mở</button>
+              </div>
+              <div class="text-[10px] text-slate-400 italic flex items-center gap-1">
+                <i data-lucide="info" class="w-3 h-3 text-cyan-400"></i>
+                <span>Hiển thị hướng dẫn cách thực hiện dưới mỗi thành tựu</span>
+              </div>
+            </div>
+
+            <!-- Danh sách từng Thành tựu (Hiển thị đầy đủ Cách Thực Hiện & % Người Chơi) -->
+            <div id="ach-list-container" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+              <!-- Render động bằng JS -->
+            </div>
           </div>
 
           <!-- Translation Statistics Section (Surface Elevation: Clean, No Borders, Soft 6px Radius) -->
@@ -876,6 +997,119 @@
               <i data-lucide="send" class="w-3.5 h-3.5"></i>
               <span>Gửi Báo Cáo Lỗi</span>
             </button>
+          </div>
+        </div>
+
+        <!-- TAB 5: CLOUD SAVE & SAO LƯU -->
+        <div id="tabContent-cloudsave" class="hidden space-y-5">
+          <!-- Cloud Connection Quick Status Card -->
+          <div id="cloudSaveTopStatusCard" class="p-4 rounded-[6px] border border-emerald-500/40 bg-[#061712]/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_4px_16px_rgba(16,185,129,0.15)]">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-[4px] bg-emerald-500/15 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0">
+                <i data-lucide="cloud" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h4 class="text-sm font-bold text-white font-display tracking-wide">Google Drive Cloud Save</h4>
+                  <span id="cloudTabStatusBadge" class="text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Đang quét...</span>
+                </div>
+                <p id="cloudTabSubText" class="text-xs text-slate-400 mt-0.5 font-sans">Tự động sao lưu tiến trình chơi game lên Google Drive cá nhân của bạn</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+              <button onclick="openCloudModal()" class="pixel-btn px-3 py-1.5 text-xs font-bold border border-emerald-500/50 bg-[#082018] text-emerald-300 hover:bg-emerald-900/60 rounded-[4px] flex items-center space-x-1.5 transition">
+                <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+                <span>Tài Khoản Drive</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Save Locations & Sync Actions Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Local Save Card -->
+            <div class="p-4 rounded-[6px] border border-slate-800 bg-[#090b18]/90 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2 text-xs font-bold text-cyan-400 uppercase tracking-wider font-display">
+                  <i data-lucide="hard-drive" class="w-4 h-4 text-cyan-400"></i>
+                  <span>Bản Save Trên Máy Này</span>
+                </div>
+                <span id="localSavePresenceBadge" class="text-[10px] font-pixel px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">Cục Bộ</span>
+              </div>
+
+              <div class="space-y-1.5 text-xs">
+                <div class="flex items-start justify-between text-slate-400">
+                  <span class="shrink-0 text-slate-500">Đường dẫn:</span>
+                  <span id="localSavePathDisplay" class="font-mono text-slate-300 text-right truncate max-w-[220px] ml-2" title="Đường dẫn thư mục save">...</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-400">
+                  <span class="text-slate-500">Kích thước:</span>
+                  <span id="localSaveSizeDisplay" class="font-bold text-slate-200">0 KB (0 tệp)</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-400">
+                  <span class="text-slate-500">Thời gian sửa:</span>
+                  <span id="localSaveMtimeDisplay" class="font-bold text-slate-200">Chưa có save</span>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-2 pt-2 border-t border-white/5">
+                <button onclick="openLocalSaveFolder(activeModalGameId)" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-[4px] flex items-center space-x-1.5 transition w-full justify-center">
+                  <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+                  <span>Mở Thư Mục Save</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Cloud Save Card -->
+            <div class="p-4 rounded-[6px] border border-slate-800 bg-[#090b18]/90 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider font-display">
+                  <i data-lucide="cloud" class="w-4 h-4 text-emerald-400"></i>
+                  <span>Bản Save Trên Google Drive</span>
+                </div>
+                <span id="cloudSavePresenceBadge" class="text-[10px] font-pixel px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">Đám Mây</span>
+              </div>
+
+              <div class="space-y-1.5 text-xs">
+                <div class="flex items-center justify-between text-slate-400">
+                  <span class="text-slate-500">Tệp lưu trữ:</span>
+                  <span id="cloudSaveFilenameDisplay" class="font-mono text-slate-300">...</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-400">
+                  <span class="text-slate-500">Dung lượng:</span>
+                  <span id="cloudSaveSizeDisplay" class="font-bold text-slate-200">0 KB</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-400">
+                  <span class="text-slate-500">Lần đồng bộ cuối:</span>
+                  <span id="cloudSaveMtimeDisplay" class="font-bold text-slate-200">Chưa tải lên</span>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-2 pt-2 border-t border-white/5">
+                <button id="btnUploadCloudSave" onclick="syncCurrentGameSave('upload')" class="pixel-btn px-3 py-1.5 text-xs bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold rounded-[4px] flex items-center space-x-1.5 transition flex-1 justify-center shadow-[0_2px_8px_rgba(16,185,129,0.3)]">
+                  <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+                  <span>Tải Lên Cloud</span>
+                </button>
+                <button id="btnDownloadCloudSave" onclick="syncCurrentGameSave('download')" class="pixel-btn px-3 py-1.5 text-xs bg-cyan-600/90 hover:bg-cyan-500 text-white font-bold rounded-[4px] flex items-center space-x-1.5 transition flex-1 justify-center shadow-[0_2px_8px_rgba(6,182,212,0.3)]">
+                  <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i>
+                  <span>Tải Về Máy</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Local Backup History (Triple-Shield System) -->
+          <div class="p-4 rounded-[6px] border border-slate-800/80 bg-[#070914]/80 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i>
+                <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider font-display">Lịch Sử Sao Lưu Cục Bộ (Tối đa 3 bản an toàn)</h4>
+              </div>
+              <span class="text-[10px] text-slate-500">Tự động sao lưu trước khi ghi đè save</span>
+            </div>
+
+            <div id="localBackupsList" class="space-y-2">
+              <div class="text-xs text-slate-500 py-3 text-center">Đang kiểm tra các bản sao lưu...</div>
+            </div>
           </div>
         </div>
 
@@ -1165,6 +1399,192 @@
     </div>
   </div>
 
+  <!-- MODAL: GOOGLE DRIVE CLOUD CONNECT & SETTINGS -->
+  <div id="cloudConnectModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-opacity">
+    <div class="relative w-full max-w-xl pixel-modal overflow-hidden flex flex-col bg-[#090b1a] border border-emerald-500/50 shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_25px_rgba(16,185,129,0.25)]">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-emerald-500/30 bg-[#061410] flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-[4px] bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center text-emerald-400">
+            <i data-lucide="cloud" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="font-display text-base font-bold text-white tracking-wide flex items-center gap-2">
+              <span>Google Drive Cloud Ecosystem</span>
+              <span class="text-[9px] font-pixel text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40">CÁ NHÂN</span>
+            </h3>
+            <p class="text-xs text-slate-400 font-sans">Đồng bộ save game & giờ chơi lên Google Drive của chính bạn</p>
+          </div>
+        </div>
+        <button onclick="closeCloudModal()" class="pixel-btn p-1.5 bg-[#0e1022] hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-emerald-500/40 rounded-[2px]" title="Đóng">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+        <!-- 1. Trạng thái ĐÃ KẾT NỐI -->
+        <div id="cloudConnectedSection" class="hidden space-y-4">
+          <div class="p-4 rounded-[6px] border border-emerald-500/40 bg-[#061a14] flex items-center justify-between">
+            <div class="flex items-center space-x-3.5">
+              <img id="cloudUserAvatar" src="" class="w-12 h-12 rounded-full border-2 border-emerald-400 object-cover bg-slate-800" onerror="this.src='/static/app_icon.png'" />
+              <div>
+                <h4 id="cloudUserName" class="text-sm font-bold text-white font-display">Tên Người Dùng</h4>
+                <p id="cloudUserEmail" class="text-xs text-emerald-300 font-mono">user@gmail.com</p>
+                <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 mt-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Đã kết nối • Thư mục: <code class="text-emerald-300">VietModHub_Cloud/saves</code></span>
+                </div>
+              </div>
+            </div>
+            <button onclick="logoutGoogleDrive()" class="pixel-btn px-3 py-1.5 text-xs bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 rounded-[4px] transition flex items-center space-x-1.5">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+              <span>Đăng Xuất</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="p-3 rounded-[4px] border border-slate-800 bg-[#080a18]">
+              <div class="text-slate-400">Phương thức bảo mật:</div>
+              <div class="text-emerald-400 font-bold font-mono mt-0.5">Windows DPAPI (AES-256)</div>
+            </div>
+            <div class="p-3 rounded-[4px] border border-slate-800 bg-[#080a18]">
+              <div class="text-slate-400">Tự động sao lưu:</div>
+              <div class="text-emerald-400 font-bold mt-0.5">Bật (Sau khi thoát game)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Trạng thái CHƯA KẾT NỐI -->
+        <div id="cloudDisconnectedSection" class="space-y-4">
+          <div class="p-4 rounded-[6px] border border-white/10 bg-white/[0.02] space-y-3">
+            <div class="flex items-start space-x-3">
+              <div class="p-2 rounded bg-emerald-500/10 text-emerald-400 shrink-0 mt-0.5">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+              </div>
+              <div class="text-xs leading-relaxed text-slate-300">
+                <strong class="text-white">Tại sao nên kết nối Google Drive?</strong>
+                <ul class="list-disc list-inside space-y-1 text-slate-400 mt-1.5">
+                  <li>Lưu trữ save game không giới hạn trên Google Drive riêng của bạn (Zero backend cost).</li>
+                  <li>Không bao giờ sợ mất file save khi cài lại Win, đổi máy hoặc lỡ tay xóa game.</li>
+                  <li>Tự động khôi phục toàn bộ giờ chơi và thành tựu đã mở khi mở app trên PC mới.</li>
+                </ul>
+              </div>
+            </div>
+
+            <button id="btnStartGoogleLogin" onclick="loginGoogleDrive()" class="w-full pixel-btn py-3 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] flex items-center justify-center space-x-2 shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition">
+              <i data-lucide="log-in" class="w-4 h-4"></i>
+              <span>ĐĂNG NHẬP BẰNG GOOGLE DRIVE</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Tùy chọn cấu hình Google OAuth Client ID riêng -->
+        <div class="border-t border-slate-800 pt-3">
+          <button onclick="toggleOAuthSettings()" class="text-xs text-slate-400 hover:text-emerald-400 flex items-center justify-between w-full py-1 font-mono transition">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+              <span>Tùy chọn: Google Cloud Client ID riêng (Optional)</span>
+            </span>
+            <i id="oauthSettingsArrow" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
+          </button>
+
+          <div id="oauthSettingsDrawer" class="hidden mt-3 space-y-3 p-3.5 rounded-[4px] bg-[#070915] border border-slate-800 text-xs">
+            <p class="text-slate-400 text-[11px] leading-relaxed">
+              Bạn có thể sử dụng Client ID từ Google Cloud Console của chính bạn (chọn loại ứng dụng: <em>Desktop App</em>).
+            </p>
+            <div class="space-y-1">
+              <label class="block text-slate-300 font-semibold text-[11px]">Google Client ID:</label>
+              <input id="cfgGoogleClientId" type="text" placeholder="xxxx-xxxx.apps.googleusercontent.com" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+            </div>
+            <div class="space-y-1">
+              <label class="block text-slate-300 font-semibold text-[11px]">Google Client Secret (Tùy chọn cho Desktop PKCE):</label>
+              <input id="cfgGoogleClientSecret" type="password" placeholder="GOCSPX-xxxx" class="w-full px-3 py-1.5 bg-[#0e1022] border border-slate-700 rounded text-slate-200 text-xs font-mono focus:border-emerald-400 focus:outline-none" />
+            </div>
+            <button onclick="saveOAuthSettings()" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-bold transition">
+              Lưu Cấu Hình OAuth
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CLOUD SAVE 3-WAY CONFLICT RESOLUTION -->
+  <div id="cloudConflictModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-opacity">
+    <div class="relative w-full max-w-2xl pixel-modal overflow-hidden flex flex-col bg-[#090b1a] border-2 border-amber-500/70 shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.25)]">
+      <!-- Header -->
+      <div class="p-5 border-b border-amber-500/40 bg-[#1f1505] flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-[4px] bg-amber-500/20 border border-amber-500/70 flex items-center justify-center text-amber-400 animate-pulse">
+            <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="font-display text-base font-bold text-amber-300 tracking-wide">
+              Xung Đột File Save (Conflict Detected)
+            </h3>
+            <p class="text-xs text-slate-400 font-sans">Bản save trên máy và trên Google Drive đều có thay đổi mới khác nhau</p>
+          </div>
+        </div>
+        <button onclick="closeCloudConflictModal()" class="pixel-btn p-1.5 bg-[#0e1022] hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-amber-500/40 rounded-[2px]">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Comparison Content -->
+      <div class="p-6 space-y-4">
+        <p class="text-xs text-slate-300 leading-relaxed font-sans">
+          Hệ thống phát hiện tiến trình save game đã được chỉnh sửa ở cả hai nơi kể từ lần đồng bộ gần nhất. Vui lòng chọn phiên bản bạn muốn tiếp tục:
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Local Card -->
+          <div class="p-4 rounded-[6px] border border-cyan-500/50 bg-[#07131e]/90 space-y-3 flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center space-x-2 text-cyan-400 font-bold text-xs font-display">
+                <i data-lucide="hard-drive" class="w-4 h-4"></i>
+                <span>BẢN TRÊN MÁY NÀY (LOCAL)</span>
+              </div>
+              <div class="space-y-1 text-xs text-slate-400">
+                <div>Thời gian: <strong id="conflictLocalTime" class="text-white">...</strong></div>
+                <div>Kích thước: <strong id="conflictLocalSize" class="text-white">...</strong></div>
+                <div>Số lượng tệp: <strong id="conflictLocalFiles" class="text-white">...</strong></div>
+              </div>
+            </div>
+            <button onclick="resolveConflict('upload')" class="pixel-btn w-full py-2 px-3 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded flex items-center justify-center space-x-1.5 shadow-[0_2px_10px_rgba(6,182,212,0.3)] transition">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>Giữ Bản Này & Tải Lên Cloud</span>
+            </button>
+          </div>
+
+          <!-- Cloud Card -->
+          <div class="p-4 rounded-[6px] border border-emerald-500/50 bg-[#061a14]/90 space-y-3 flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center space-x-2 text-emerald-400 font-bold text-xs font-display">
+                <i data-lucide="cloud" class="w-4 h-4"></i>
+                <span>BẢN TRÊN GOOGLE DRIVE (CLOUD)</span>
+              </div>
+              <div class="space-y-1 text-xs text-slate-400">
+                <div>Thời gian: <strong id="conflictCloudTime" class="text-white">...</strong></div>
+                <div>Kích thước: <strong id="conflictCloudSize" class="text-white">...</strong></div>
+                <div>File nén: <strong id="conflictCloudName" class="text-white font-mono text-[11px]">...</strong></div>
+              </div>
+            </div>
+            <button onclick="resolveConflict('download')" class="pixel-btn w-full py-2 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center justify-center space-x-1.5 shadow-[0_2px_10px_rgba(16,185,129,0.3)] transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Lấy Bản Cloud & Ghi Đè Lên Máy</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="p-3 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 flex items-center space-x-2">
+          <i data-lucide="shield" class="w-4 h-4 text-amber-400 shrink-0"></i>
+          <span>Cơ chế bảo vệ: Bản save trên máy hiện tại sẽ được tự động lưu vào <strong>Lịch Sử Sao Lưu Cục Bộ</strong> trước khi ghi đè, đảm bảo không bao giờ mất dữ liệu.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
 
@@ -1271,6 +1691,14 @@
           if (rEl) rEl.innerText = (repoData && repoData.repo_dir) || 'Chưa thiết lập kho bản dịch';
         } catch (_) {}
         updateUI();
+        // Tự động kích hoạt polling cho bất kỳ game nào đang chạy ngầm ngoài Desktop/Steam
+        if (Array.isArray(gamesList)) {
+          gamesList.forEach(g => {
+            if (g.playtime && g.playtime.is_running) {
+              startPlaytimePolling(g.id);
+            }
+          });
+        }
       } catch (err) {
         console.error('Lỗi nạp dữ liệu:', err);
         showToast('Không thể kết nối đến máy chủ quản lý game!', 'error');
@@ -1320,6 +1748,24 @@
       document.getElementById('count-installed').innerText = installedCount;
       document.getElementById('count-uninstalled').innerText = uninstalledCount;
       document.getElementById('count-missing').innerText = missingCount;
+
+      // Tính tổng thời gian chơi toàn bộ thư viện game Cổ Ngữ
+      let totalPlaySecs = 0;
+      gamesList.forEach(g => {
+        if (g.playtime && g.playtime.total_seconds) {
+          totalPlaySecs += g.playtime.total_seconds;
+        }
+      });
+      const globalPtElem = document.getElementById('globalPlaytimeText');
+      if (globalPtElem) {
+        if (totalPlaySecs === 0) {
+          globalPtElem.innerText = 'Tổng giờ chơi: 0 giờ';
+        } else if (totalPlaySecs < 3600) {
+          globalPtElem.innerText = `Tổng giờ chơi: ${Math.max(1, Math.floor(totalPlaySecs / 60))} phút`;
+        } else {
+          globalPtElem.innerText = `Tổng giờ chơi: ${(totalPlaySecs / 3600).toFixed(1)} giờ`;
+        }
+      }
 
       // Update genre options with exact counts
       const optAll = document.querySelector('#genreFilter option[value="all"]');
@@ -1445,6 +1891,32 @@
         statusText.innerText = 'Chưa Cài Đặt Mod';
         actionBtn.className = 'pixel-btn btn-arcade-amber px-6 py-2.5 text-sm flex items-center space-x-2';
         actionBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4 text-black stroke-[3]"></i><span>Cài Đặt Việt Hóa (1-Click)</span>`;
+      }
+
+      // Hero Playtime Badge & Playing State (Luôn hiển thị rõ ràng như Steam)
+      const heroPtBadge = document.getElementById('heroPlaytimeBadge');
+      const heroPtText = document.getElementById('heroPlaytimeText');
+      if (heroPtBadge && heroPtText) {
+        const pt = game.playtime || { is_running: false, formatted_time: 'Chưa chơi', last_played_str: 'Chưa từng mở', total_seconds: 0 };
+        heroPtBadge.classList.remove('hidden');
+        if (pt.is_running) {
+          heroPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-400/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5 animate-pulse';
+          heroPtText.innerText = 'Đang Chơi...';
+        } else if (pt.total_seconds > 0) {
+          heroPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-cyan-400 border border-cyan-500/50 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5';
+          heroPtText.innerText = `Giờ chơi: ${pt.formatted_time} • Lần cuối: ${pt.last_played_str}`;
+        } else {
+          heroPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-slate-400 border border-slate-700/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5';
+          heroPtText.innerText = 'Thời gian chơi: Chưa chơi';
+        }
+      }
+
+      if (game.playtime && game.playtime.is_running) {
+        actionBtn.disabled = true;
+        actionBtn.className = 'pixel-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 px-6 py-2.5 text-sm flex items-center space-x-2 font-bold cursor-not-allowed animate-pulse';
+        actionBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-4 h-4"></i><span>ĐANG CHƠI...</span>`;
+      } else {
+        actionBtn.disabled = false;
       }
 
       lucide.createIcons();
@@ -1575,6 +2047,16 @@
           ? `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-rose-400 border border-rose-500/50 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i><span>Lưu Ý</span></span>` 
           : '';
 
+        let playtimeBadgeHtml = '';
+        const pt = game.playtime || { is_running: false, formatted_time: 'Chưa chơi', last_played_str: 'Chưa từng mở', total_seconds: 0 };
+        if (pt.is_running) {
+          playtimeBadgeHtml = `<span id="card-playtime-${game.id}" class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-amber-500/20 text-amber-300 border border-amber-400/60 flex items-center space-x-1 tracking-wide animate-pulse" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="gamepad-2" class="w-3 h-3 text-amber-300"></i><span>ĐANG CHƠI</span></span>`;
+        } else if (pt.total_seconds > 0) {
+          playtimeBadgeHtml = `<span id="card-playtime-${game.id}" class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-cyan-400 border border-cyan-500/30 flex items-center space-x-1 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);" title="Thời gian chơi: ${pt.formatted_time} • Lần cuối: ${pt.last_played_str}"><i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i><span>${pt.formatted_time}</span></span>`;
+        } else {
+          playtimeBadgeHtml = `<span id="card-playtime-${game.id}" class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-slate-400 border border-slate-700/50 flex items-center space-x-1 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);" title="Thời gian chơi: Chưa chơi"><i data-lucide="clock" class="w-2.5 h-2.5 text-slate-500"></i><span>Chưa chơi</span></span>`;
+        }
+
         card.innerHTML = `
           <!-- Poster Thumbnail Image (2:3 Standard Steam Grid, Full-Bleed Edge-to-Edge) -->
           <div class="relative aspect-[2/3] w-full overflow-hidden bg-[#070814] cursor-pointer flex items-center justify-center" onclick="openGameModal('${game.id}')" oncontextmenu="openCardContextMenu(event, '${game.id}')" title="Nhấp chuột trái: Chi tiết & Cài đặt | Chuột phải: Đổi ảnh bìa">
@@ -1604,39 +2086,51 @@
             <div class="absolute top-2.5 left-2.5 right-9 flex items-center justify-between z-10 pointer-events-none">
               <span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-slate-200 border border-white/20 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">${getPrimaryGenreTag(game)}</span>
               <div class="flex items-center space-x-1.5">
+                ${playtimeBadgeHtml}
                 ${noteBadgeHtml}
                 ${statusBadgeHtml}
               </div>
             </div>
 
-            <!-- Bottom Content on Poster (Tên game tiếng Anh duy nhất: trượt nhẹ lên khi rê chuột) -->
+            <!-- Bottom Content on Poster (Tên game & Thời gian chơi: trượt nhẹ lên khi rê chuột) -->
             <div class="absolute bottom-2.5 left-2.5 right-2.5 z-10 pointer-events-none transition-transform duration-200 group-hover:-translate-y-11">
               <h3 class="font-display text-sm font-bold text-white tracking-wide leading-snug line-clamp-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">${game.title}</h3>
+              <div id="card-playtime-sub-${game.id}" class="flex items-center space-x-1.5 text-[11px] font-sans font-medium text-cyan-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] mt-0.5">
+                <i data-lucide="clock" class="w-3 h-3 text-cyan-400"></i>
+                <span>${pt.is_running ? 'Đang chơi...' : (pt.total_seconds > 0 ? pt.formatted_time : 'Chưa chơi')}</span>
+                ${pt.total_seconds > 0 ? `<span class="text-slate-500">•</span><span class="text-slate-400 text-[10px]">${pt.last_played_str}</span>` : ''}
+              </div>
             </div>
 
             <!-- Hover-to-Reveal: Nút hành động duy nhất, trượt lên mượt mà (Bỏ nút xóa & nút i) -->
             <div class="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-[#070814] via-[#070814]/95 to-transparent pt-6 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-20 flex items-center justify-center">
-              ${game.status_code === 'INSTALLED'
-                ? `<button onclick="event.stopPropagation(); launchGame('${game.id}')" class="pixel-btn btn-neon-green w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                     <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
-                     <span>Chơi Ngay</span>
+              ${(pt && pt.is_running)
+                ? `<button id="btn-play-${game.id}" disabled class="pixel-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold cursor-not-allowed animate-pulse shadow-[2px_2px_0px_#05050a]">
+                     <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                     <span>Đang Chơi...</span>
                    </button>`
-                : (game.status_code === 'UPDATE_DETECTED'
-                  ? `<button onclick="event.stopPropagation(); toggleMod('${game.id}', true)" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                       <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
-                       <span>Cài Lại 1-Click</span>
+                : (game.status_code === 'INSTALLED'
+                  ? `<button id="btn-play-${game.id}" onclick="event.stopPropagation(); launchGame('${game.id}')" class="pixel-btn btn-neon-green w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                       <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
+                       <span>Chơi Ngay</span>
                      </button>`
-                  : (game.status_code === 'GAME_MISSING'
-                    ? `<button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                         <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
-                         <span>Chọn Thư Mục</span>
+                  : (game.status_code === 'UPDATE_DETECTED'
+                    ? `<button onclick="event.stopPropagation(); toggleMod('${game.id}', true)" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                         <span>Cài Lại 1-Click</span>
                        </button>`
-                    : `<button onclick="event.stopPropagation(); toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                         <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
-                         <span>Cài Việt Hóa</span>
-                       </button>`
+                    : (game.status_code === 'GAME_MISSING'
+                      ? `<button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                           <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
+                           <span>Chọn Thư Mục</span>
+                         </button>`
+                      : `<button onclick="event.stopPropagation(); toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                           <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                           <span>Cài Việt Hóa</span>
+                         </button>`
+                      )
                     )
-                  )
+                )
               }
             </div>
           </div>
@@ -1690,6 +2184,49 @@
       document.getElementById('modalStatLines').innerText = game.translation_stats.total_lines;
       document.getElementById('modalStatVersion').innerText = game.translation_stats.version;
       document.getElementById('modalStatFont').innerText = game.translation_stats.font;
+
+      // Playtime Tracker UI update
+      const pt = game.playtime || { is_running: false, formatted_time: 'Chưa chơi', last_played_str: 'Chưa từng mở', total_seconds: 0, sessions_count: 0 };
+      const ptVal = document.getElementById('modalPlaytimeValue');
+      const lpVal = document.getElementById('modalLastPlayedValue');
+      const sessVal = document.getElementById('modalSessionsValue');
+      const ptBtn = document.getElementById('modalPlayBtn');
+      if (ptVal) ptVal.textContent = pt.formatted_time || 'Chưa chơi';
+      if (lpVal) lpVal.textContent = pt.last_played_str || 'Chưa từng mở';
+      if (sessVal) sessVal.textContent = `${pt.sessions_count || 0} phiên`;
+
+      // Update Playtime Badge in Modal Header
+      const headerPtBadge = document.getElementById('modalHeaderPlaytimeBadge');
+      const headerPtText = document.getElementById('modalHeaderPlaytimeText');
+      if (headerPtBadge && headerPtText) {
+        if (pt.is_running) {
+          headerPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-400/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5 animate-pulse';
+          headerPtText.innerText = 'Đang Chơi...';
+        } else if (pt.total_seconds > 0) {
+          headerPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-cyan-400 border border-cyan-500/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5';
+          headerPtText.innerText = `Giờ chơi: ${pt.formatted_time}`;
+        } else {
+          headerPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-slate-400 border border-slate-700/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5';
+          headerPtText.innerText = 'Chưa chơi';
+        }
+      }
+
+      if (ptBtn) {
+        if (!game.is_game_found) {
+          ptBtn.disabled = true;
+          ptBtn.className = "flex items-center justify-center gap-2 bg-slate-800 text-slate-500 font-bold px-4 py-2.5 rounded-xl text-xs cursor-not-allowed";
+          ptBtn.innerHTML = `<i data-lucide="folder-x" class="w-4 h-4"></i><span>CHƯA CÓ GAME</span>`;
+        } else if (pt.is_running) {
+          ptBtn.disabled = true;
+          ptBtn.className = "flex items-center justify-center gap-2 bg-amber-500/20 border border-amber-500/50 text-amber-300 font-bold px-5 py-2.5 rounded-xl text-sm cursor-not-allowed animate-pulse";
+          ptBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-4 h-4"></i><span>ĐANG CHƠI...</span>`;
+          startPlaytimePolling(game.id);
+        } else {
+          ptBtn.disabled = false;
+          ptBtn.className = "flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-emerald-900/30 transition-all shrink-0";
+          ptBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i><span>CHƠI NGAY</span>`;
+        }
+      }
 
       // Status Badge (Cyber-Pixel Style)
       const statusBadge = document.getElementById('modalStatusBadge');
@@ -1781,10 +2318,16 @@
           launchBtn.classList.add('hidden');
         } else {
           launchBtn.classList.remove('hidden');
-          if (game.status_code === 'INSTALLED') {
+          if (pt.is_running) {
+            launchBtn.disabled = true;
+            launchBtn.className = 'pixel-btn modal-action-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-bold cursor-not-allowed animate-pulse flex items-center justify-center space-x-1.5';
+            launchBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-4 h-4"></i><span>Đang Chơi...</span>`;
+          } else if (game.status_code === 'INSTALLED') {
+            launchBtn.disabled = false;
             launchBtn.className = 'pixel-btn modal-action-btn btn-neon-green text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
             launchBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-black"></i><span>Chơi Ngay (Đã Việt Hóa)</span>`;
           } else {
+            launchBtn.disabled = false;
             launchBtn.className = 'pixel-btn modal-action-btn bg-[#181a2f] text-slate-300 hover:text-white border border-[#2b2f52] text-xs font-bold transition flex items-center justify-center space-x-1.5';
             launchBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span>Chơi Bản Gốc</span>`;
           }
@@ -1847,6 +2390,7 @@
 
       switchModalTab('overview');
       document.getElementById('gameModal').classList.remove('hidden');
+      loadGameAchievements(game.id);
       lucide.createIcons();
     }
 
@@ -2345,23 +2889,589 @@
       }
     }
 
-    async function launchGame(gameId) {
-      try {
-        let data;
-        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.launch_game === 'function') {
-          data = await window.pywebview.api.launch_game(gameId);
+    const activePlaytimeTimers = {};
+
+    function setGamePlayingState(gameId, isPlaying) {
+      const game = gamesList.find(g => g.id === gameId);
+      if (game) {
+        if (!game.playtime) game.playtime = {};
+        game.playtime.is_running = isPlaying;
+        if (isPlaying) {
+          game.playtime.last_played_str = 'Đang chơi';
+        }
+      }
+
+      // 1. Nút trong Playtime Widget của Modal
+      const modalPlayBtn = document.getElementById('modalPlayBtn');
+      if (modalPlayBtn && activeModalGameId === gameId) {
+        if (isPlaying) {
+          modalPlayBtn.disabled = true;
+          modalPlayBtn.className = "flex items-center justify-center gap-2 bg-amber-500/20 border border-amber-500/50 text-amber-300 font-bold px-5 py-2.5 rounded-xl text-sm cursor-not-allowed animate-pulse";
+          modalPlayBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-4 h-4"></i><span>ĐANG CHƠI...</span>`;
         } else {
-          const res = await fetch('/api/launch', {
+          modalPlayBtn.disabled = false;
+          modalPlayBtn.className = "flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-emerald-900/30 transition-all shrink-0";
+          modalPlayBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i><span>CHƠI NGAY</span>`;
+        }
+      }
+
+      // 2. Nút Modal Footer
+      const modalLaunchBtn = document.getElementById('modalLaunchBtn');
+      if (modalLaunchBtn && activeModalGameId === gameId) {
+        if (isPlaying) {
+          modalLaunchBtn.disabled = true;
+          modalLaunchBtn.className = "pixel-btn modal-action-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-bold cursor-not-allowed animate-pulse flex items-center justify-center space-x-1.5";
+          modalLaunchBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-4 h-4"></i><span>Đang Chơi...</span>`;
+        } else {
+          modalLaunchBtn.disabled = false;
+          modalLaunchBtn.className = "pixel-btn modal-action-btn btn-neon-green text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a]";
+          modalLaunchBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-black"></i><span>Chơi Ngay (Đã Việt Hóa)</span>`;
+        }
+      }
+
+      // 3. Nút trên Card
+      const cardBtn = document.getElementById(`btn-play-${gameId}`);
+      if (cardBtn) {
+        if (isPlaying) {
+          cardBtn.disabled = true;
+          cardBtn.className = "pixel-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold cursor-not-allowed animate-pulse shadow-[2px_2px_0px_#05050a]";
+          cardBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i><span>ĐANG CHƠI...</span>`;
+        } else {
+          cardBtn.disabled = false;
+          cardBtn.className = "pixel-btn btn-neon-green w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]";
+          cardBtn.innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i><span>Chơi Ngay</span>`;
+        }
+      }
+
+      // 4. Hero Action Button
+      if (heroGameId === gameId) {
+        const heroBtn = document.getElementById('heroActionBtn');
+        if (heroBtn) {
+          if (isPlaying) {
+            heroBtn.disabled = true;
+            heroBtn.className = "pixel-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 px-6 py-2.5 text-sm flex items-center space-x-2 font-bold cursor-not-allowed animate-pulse";
+            heroBtn.innerHTML = `<i data-lucide="gamepad-2" class="w-4 h-4"></i><span>ĐANG CHƠI...</span>`;
+          } else {
+            heroBtn.disabled = false;
+            heroBtn.className = "pixel-btn btn-neon-green px-6 py-2.5 text-sm flex items-center space-x-2";
+            heroBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-black"></i><span>Chơi Ngay (Launch)</span>`;
+          }
+        }
+      }
+
+      // 5. Cập nhật Badge & Subtitle trên Card
+      const cardPtBadge = document.getElementById(`card-playtime-${gameId}`);
+      if (cardPtBadge) {
+        if (isPlaying) {
+          cardPtBadge.className = 'font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-amber-500/20 text-amber-300 border border-amber-400/60 flex items-center space-x-1 tracking-wide animate-pulse';
+          cardPtBadge.innerHTML = `<i data-lucide="gamepad-2" class="w-3 h-3 text-amber-300"></i><span>ĐANG CHƠI</span>`;
+        }
+      }
+      const cardPtSub = document.getElementById(`card-playtime-sub-${gameId}`);
+      if (cardPtSub && isPlaying) {
+        cardPtSub.innerHTML = `<i data-lucide="clock" class="w-3 h-3 text-cyan-400"></i><span>Đang chơi...</span>`;
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function startPlaytimePolling(gameId) {
+      if (activePlaytimeTimers[gameId]) {
+        clearInterval(activePlaytimeTimers[gameId]);
+      }
+
+      activePlaytimeTimers[gameId] = setInterval(async () => {
+        try {
+          let stats;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_playtime_stats === 'function') {
+            stats = await window.pywebview.api.get_playtime_stats(gameId);
+          } else {
+            const resp = await fetch(`/api/playtime/${encodeURIComponent(gameId)}`);
+            stats = await resp.json();
+          }
+
+          if (stats) {
+            const game = gamesList.find(g => g.id === gameId);
+            if (game) {
+              game.playtime = stats;
+            }
+
+            // Cập nhật giá trị hiển thị trên Modal nếu đang mở đúng game này
+            if (activeModalGameId === gameId) {
+              const ptVal = document.getElementById('modalPlaytimeValue');
+              const lpVal = document.getElementById('modalLastPlayedValue');
+              const headerPtBadge = document.getElementById('modalHeaderPlaytimeBadge');
+              const headerPtText = document.getElementById('modalHeaderPlaytimeText');
+              if (ptVal) ptVal.textContent = stats.formatted_time || 'Chưa chơi';
+              if (lpVal) lpVal.textContent = stats.last_played_str || 'Chưa từng mở';
+              if (headerPtText) {
+                headerPtText.textContent = stats.is_running ? 'Đang Chơi...' : (stats.formatted_time ? `Giờ chơi: ${stats.formatted_time}` : 'Chưa chơi');
+              }
+              if (headerPtBadge) {
+                if (stats.is_running) {
+                  headerPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-400/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5 animate-pulse';
+                } else {
+                  headerPtBadge.className = 'font-pixel text-xs font-bold px-3 py-1 rounded-[2px] bg-[#070814]/90 text-cyan-400 border border-cyan-500/60 shadow-[2px_2px_0px_#05050a] tracking-wide flex items-center space-x-1.5';
+                }
+              }
+            }
+
+            // Cập nhật giá trị trên Hero nếu đang chọn game này
+            if (heroGameId === gameId) {
+              const heroPtText = document.getElementById('heroPlaytimeText');
+              if (heroPtText) heroPtText.textContent = stats.is_running ? 'Đang chơi...' : (stats.formatted_time ? `Giờ chơi: ${stats.formatted_time} • Lần cuối: ${stats.last_played_str}` : 'Thời gian chơi: Chưa chơi');
+            }
+
+            // Cập nhật Badge trên Card
+            const cardPtBadge = document.getElementById(`card-playtime-${gameId}`);
+            if (cardPtBadge) {
+              if (stats.is_running) {
+                cardPtBadge.className = 'font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-amber-500/20 text-amber-300 border border-amber-400/60 flex items-center space-x-1 tracking-wide animate-pulse';
+                cardPtBadge.innerHTML = `<i data-lucide="gamepad-2" class="w-3 h-3 text-amber-300"></i><span>ĐANG CHƠI</span>`;
+              } else if (stats.total_seconds > 0) {
+                cardPtBadge.className = 'font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-cyan-400 border border-cyan-500/30 flex items-center space-x-1 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]';
+                cardPtBadge.innerHTML = `<i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i><span>${stats.formatted_time}</span>`;
+                cardPtBadge.title = `Thời gian chơi: ${stats.formatted_time} • Lần cuối: ${stats.last_played_str}`;
+              } else {
+                cardPtBadge.className = 'font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-slate-400 border border-slate-700/50 flex items-center space-x-1 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]';
+                cardPtBadge.innerHTML = `<i data-lucide="clock" class="w-2.5 h-2.5 text-slate-500"></i><span>Chưa chơi</span>`;
+                cardPtBadge.title = `Thời gian chơi: Chưa chơi`;
+              }
+            }
+
+            // Cập nhật Subtitle trên Card
+            const cardPtSub = document.getElementById(`card-playtime-sub-${gameId}`);
+            if (cardPtSub) {
+              cardPtSub.innerHTML = `
+                <i data-lucide="clock" class="w-3 h-3 text-cyan-400"></i>
+                <span>${stats.is_running ? 'Đang chơi...' : (stats.total_seconds > 0 ? stats.formatted_time : 'Chưa chơi')}</span>
+                ${stats.total_seconds > 0 ? `<span class="text-slate-500">•</span><span class="text-slate-400 text-[10px]">${stats.last_played_str}</span>` : ''}
+              `;
+            }
+
+            if (window.lucide) lucide.createIcons();
+
+            // Nếu game đã tắt
+            if (!stats.is_running) {
+              clearInterval(activePlaytimeTimers[gameId]);
+              delete activePlaytimeTimers[gameId];
+              setGamePlayingState(gameId, false);
+              showToast(`Phiên chơi đã kết thúc! Tổng thời gian chơi: ${stats.formatted_time}`, 'info');
+              renderCounts();
+              renderGrid();
+              renderHero();
+            }
+          }
+        } catch (e) {
+          console.warn('[Playtime Polling Error]', e);
+        }
+      }, 3000);
+    }
+
+    // ========================================================
+    // HYDRA ACHIEVEMENTS TRACKER & REALTIME TOAST SYSTEM
+    // ========================================================
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    let achAudioCtx = null;
+    function playAchievementSound() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        if (!achAudioCtx) achAudioCtx = new AudioContext();
+        if (achAudioCtx.state === 'suspended') achAudioCtx.resume();
+
+        const now = achAudioCtx.currentTime;
+        // Giai điệu fanfare 4 nốt vinh danh: C5, E5, G5, C6 (Arcade Chime)
+        const chord = [
+          { freq: 523.25, start: 0, duration: 0.12 },
+          { freq: 659.25, start: 0.09, duration: 0.14 },
+          { freq: 783.99, start: 0.18, duration: 0.18 },
+          { freq: 1046.50, start: 0.28, duration: 0.45 }
+        ];
+
+        chord.forEach(n => {
+          const osc = achAudioCtx.createOscillator();
+          const gain = achAudioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(n.freq, now + n.start);
+
+          gain.gain.setValueAtTime(0, now + n.start);
+          gain.gain.linearRampToValueAtTime(0.25, now + n.start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.duration);
+
+          osc.connect(gain);
+          gain.connect(achAudioCtx.destination);
+
+          osc.start(now + n.start);
+          osc.stop(now + n.start + n.duration + 0.05);
+        });
+      } catch (e) {
+        console.warn('[Audio Chime Error]', e);
+      }
+    }
+
+    let achToastTimeout = null;
+    function showAchievementToast(ach) {
+      if (!ach) return;
+      playAchievementSound();
+
+      const toast = document.getElementById('achievementToast');
+      const icon = document.getElementById('toast-ach-icon');
+      const placeholder = document.getElementById('toast-ach-placeholder');
+      const title = document.getElementById('toast-ach-title');
+      const desc = document.getElementById('toast-ach-desc');
+      if (!toast) return;
+
+      if (title) title.textContent = ach.title || ach.id || 'Thành Tựu Mới!';
+      if (desc) desc.textContent = ach.description || 'Đã mở khóa trong quá trình chơi';
+
+      if (ach.icon) {
+        icon.src = ach.icon;
+        icon.classList.remove('hidden');
+        if (placeholder) placeholder.classList.add('hidden');
+      } else {
+        icon.classList.add('hidden');
+        if (placeholder) placeholder.classList.remove('hidden');
+      }
+
+      toast.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-12', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+      });
+
+      if (window.lucide) lucide.createIcons();
+
+      if (achToastTimeout) clearTimeout(achToastTimeout);
+      achToastTimeout = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-12', 'opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 500);
+      }, 5500);
+    }
+
+    let currentAchievementsData = null;
+    let currentAchievementFilter = 'all';
+
+    function filterAchievementsUI(filter) {
+      currentAchievementFilter = filter;
+      ['all', 'unlocked', 'locked'].forEach(f => {
+        const btn = document.getElementById(`ach-filter-${f}`);
+        if (!btn) return;
+        if (f === filter) {
+          btn.className = 'px-2.5 py-1 rounded bg-slate-800 text-white font-bold shadow-sm transition';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded bg-transparent text-slate-400 font-medium hover:text-white transition';
+        }
+      });
+      renderAchievementsList();
+    }
+
+    function revealSpoiler(achId) {
+      const real = document.getElementById(`desc-real-${achId}`);
+      const placeholder = document.getElementById(`desc-placeholder-${achId}`);
+      const btn = document.getElementById(`btn-reveal-${achId}`);
+      const title = document.getElementById(`title-${achId}`);
+      if (real) real.classList.remove('hidden');
+      if (placeholder) placeholder.classList.add('hidden');
+      if (btn) btn.classList.add('hidden');
+      if (title && title.dataset.origTitle) title.textContent = title.dataset.origTitle;
+    }
+
+    function renderAchievementsList() {
+      const listEl = document.getElementById('ach-list-container');
+      if (!listEl || !currentAchievementsData) return;
+      const data = currentAchievementsData;
+
+      const items = data.achievements || [];
+      const unlockedList = items.filter(a => a.unlocked);
+      const lockedList = items.filter(a => !a.unlocked);
+
+      let displayedItems = [];
+      if (currentAchievementFilter === 'unlocked') {
+        displayedItems = unlockedList;
+      } else if (currentAchievementFilter === 'locked') {
+        displayedItems = lockedList;
+      } else {
+        displayedItems = items;
+      }
+
+      if (displayedItems.length === 0) {
+        listEl.innerHTML = '<div class="py-6 text-center text-xs text-slate-500 italic">Không có thành tựu nào trong danh mục này.</div>';
+        return;
+      }
+
+      const renderCard = (ach) => {
+        const isUnlocked = Boolean(ach.unlocked);
+        const iconSrc = ach.icon || '';
+        const isHiddenLocked = Boolean(ach.hidden && !isUnlocked);
+        const percentStr = (ach.global_percent !== null && ach.global_percent !== undefined)
+          ? `${ach.global_percent}% người chơi có thành tựu này`
+          : '';
+
+        return `
+          <div class="flex items-start gap-3 p-3 rounded-xl border transition-all ${isUnlocked ? 'bg-slate-950/80 border-amber-500/30 hover:border-amber-400/50 shadow-md shadow-black/40' : 'bg-slate-950/40 border-slate-800/80 opacity-80 hover:opacity-100'}">
+            <!-- Icon -->
+            <div class="relative w-12 h-12 rounded-lg bg-slate-900 flex-shrink-0 overflow-hidden flex items-center justify-center border ${isUnlocked ? 'border-amber-400/50 shadow-[0_0_8px_rgba(251,191,36,0.15)]' : 'border-slate-800'}">
+              ${iconSrc 
+                ? `<img src="${iconSrc}" class="w-full h-full object-cover ${isUnlocked ? '' : 'grayscale contrast-75 brightness-75'}" onerror="this.onerror=null;this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden');" /><i data-lucide="${isUnlocked ? 'trophy' : 'lock'}" class="w-5 h-5 hidden ${isUnlocked ? 'text-amber-400' : 'text-slate-600'}"></i>`
+                : `<i data-lucide="${isUnlocked ? 'trophy' : 'lock'}" class="w-5 h-5 ${isUnlocked ? 'text-amber-400' : 'text-slate-600'}"></i>`
+              }
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <h5 id="title-${ach.id}" data-orig-title="${escapeHtml(ach.title || ach.id)}" class="text-xs font-bold ${isUnlocked ? 'text-amber-300' : 'text-slate-200'} truncate">
+                  ${isHiddenLocked ? 'Thành Tựu Ẩn' : escapeHtml(ach.title || ach.id)}
+                </h5>
+                ${isUnlocked 
+                  ? `<span class="text-[10px] font-mono text-emerald-400 font-semibold shrink-0">Đã mở: ${ach.unlock_time_str || 'Đã mở'}</span>`
+                  : `<span class="text-[10px] font-mono text-slate-500 shrink-0">Chưa mở</span>`
+                }
+              </div>
+
+              <!-- CÁCH THỰC HIỆN / HƯỚNG DẪN MỞ KHÓA -->
+              <div class="mt-1">
+                ${isHiddenLocked
+                  ? `<div class="flex items-center gap-2">
+                       <span id="desc-placeholder-${ach.id}" class="text-[11px] text-slate-500 italic">Thành tựu ẩn. Bấm để xem cách làm.</span>
+                       <span id="desc-real-${ach.id}" class="text-[11px] text-slate-300 font-sans leading-relaxed hidden">${escapeHtml(ach.description || 'Hoàn thành thử thách đặc biệt trong game')}</span>
+                       <button type="button" onclick="revealSpoiler('${ach.id}')" id="btn-reveal-${ach.id}" class="text-[10px] font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2 shrink-0">👁️ Hiện cách làm</button>
+                     </div>`
+                  : `<p class="text-[11px] text-slate-300 font-sans leading-relaxed">${escapeHtml(ach.description || 'Hoàn thành thử thách đặc biệt trong game để mở khóa.')}</p>`
+                }
+              </div>
+
+              <!-- TỶ LỆ TOÀN CẦU % -->
+              ${percentStr 
+                ? `<div class="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-400">
+                     <i data-lucide="users" class="w-3 h-3 text-cyan-400 shrink-0"></i>
+                     <span><strong class="text-slate-300 font-mono">${ach.global_percent}%</strong> người chơi toàn cầu đã đạt được</span>
+                   </div>`
+                : ''
+              }
+            </div>
+          </div>
+        `;
+      };
+
+      if (currentAchievementFilter === 'all' && unlockedList.length > 0 && lockedList.length > 0) {
+        listEl.innerHTML = `
+          <div class="space-y-2">
+            <div class="text-[11px] font-bold text-amber-400 flex items-center gap-1.5 px-1 pt-1 tracking-wider uppercase">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Thành Tựu Đã Mở Khóa (${unlockedList.length})</span>
+            </div>
+            ${unlockedList.map(renderCard).join('')}
+          </div>
+          <div class="space-y-2 pt-3">
+            <div class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5 px-1 pt-1 tracking-wider uppercase">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>Thành Tựu Chưa Mở Khóa (${lockedList.length})</span>
+            </div>
+            ${lockedList.map(renderCard).join('')}
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = displayedItems.map(renderCard).join('');
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function loadGameAchievements(gameId) {
+      const summaryEl = document.getElementById('ach-summary-text');
+      const countEl = document.getElementById('ach-count-badge');
+      const badgeEl = document.getElementById('ach-percent-badge');
+      const barEl = document.getElementById('ach-progress-bar');
+      const listEl = document.getElementById('ach-list-container');
+      if (!summaryEl || !listEl) return;
+
+      summaryEl.textContent = 'Đang quét dữ liệu thành tựu...';
+      listEl.innerHTML = '<div class="col-span-full py-5 text-center text-xs text-slate-500 flex items-center justify-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-cyan-400"></i><span>Đang nạp thành tựu và hướng dẫn mở khóa...</span></div>';
+      if (window.lucide) lucide.createIcons();
+
+      try {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_game_achievements === 'function') {
+          data = await window.pywebview.api.get_game_achievements(gameId);
+        } else {
+          const resp = await fetch(`/api/achievements/${encodeURIComponent(gameId)}`);
+          if (resp.ok) {
+            data = await resp.json();
+          }
+        }
+
+        if (!data || data.total === 0) {
+          summaryEl.textContent = 'Chưa phát hiện file thành tựu hoặc game không có thành tựu.';
+          if (countEl) countEl.textContent = '0/0';
+          if (badgeEl) badgeEl.textContent = '0%';
+          if (barEl) barEl.style.width = '0%';
+          listEl.innerHTML = '<div class="py-6 text-center text-xs text-slate-500 italic">Chưa phát hiện dữ liệu thành tựu. Hãy vào game và hoàn thành thử thách!</div>';
+          currentAchievementsData = null;
+          if (window.lucide) lucide.createIcons();
+          return;
+        }
+
+        currentAchievementsData = data;
+        summaryEl.textContent = `Đã mở khóa ${data.unlocked_count} / ${data.total} thành tựu (${data.percent}%)`;
+        if (countEl) countEl.textContent = `${data.unlocked_count}/${data.total}`;
+        if (badgeEl) badgeEl.textContent = `${data.percent}%`;
+        if (barEl) barEl.style.width = `${data.percent}%`;
+
+        renderAchievementsList();
+      } catch (err) {
+        console.warn('[Achievements Error]', err);
+        summaryEl.textContent = 'Không thể nạp dữ liệu thành tựu.';
+      }
+    }
+
+    // Global Playtime & Running Status Heartbeat (Tự động nhận diện khi mở game ngoài Desktop / Steam)
+    let globalPlaytimeSyncInterval = null;
+    function startGlobalPlaytimeWatcher() {
+      if (globalPlaytimeSyncInterval) return;
+      globalPlaytimeSyncInterval = setInterval(async () => {
+        try {
+          let allStats = null;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_all_playtime_stats === 'function') {
+            allStats = await window.pywebview.api.get_all_playtime_stats();
+          } else {
+            const resp = await fetch('/api/playtime/stats');
+            if (resp.ok) {
+              allStats = await resp.json();
+            }
+          }
+          if (!allStats || typeof allStats !== 'object') return;
+
+          let anyChange = false;
+          for (const [gid, stats] of Object.entries(allStats)) {
+            const game = gamesList.find(g => g.id === gid);
+            if (!game) continue;
+
+            const prevRunning = Boolean(game.is_playing || (game.playtime && game.playtime.is_running));
+            const currRunning = Boolean(stats.is_running);
+
+            // Đồng bộ dữ liệu mới nhất vào game model
+            game.playtime = stats;
+
+            if (prevRunning !== currRunning) {
+              anyChange = true;
+              setGamePlayingState(gid, currRunning);
+              if (currRunning) {
+                startPlaytimePolling(gid);
+              }
+            } else if (currRunning) {
+              // Cập nhật Live Time ngay lập tức trên Card
+              const cardPtBadge = document.getElementById(`card-playtime-${gid}`);
+              if (cardPtBadge) {
+                cardPtBadge.className = 'font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-amber-500/20 text-amber-300 border border-amber-400/60 flex items-center space-x-1 tracking-wide animate-pulse';
+                cardPtBadge.innerHTML = `<i data-lucide="gamepad-2" class="w-3 h-3 text-amber-300"></i><span>ĐANG CHƠI</span>`;
+              }
+              const cardPtSub = document.getElementById(`card-playtime-sub-${gid}`);
+              if (cardPtSub) {
+                cardPtSub.innerHTML = `
+                  <i data-lucide="clock" class="w-3 h-3 text-cyan-400"></i>
+                  <span>Đang chơi (${stats.formatted_time})...</span>
+                `;
+              }
+            }
+          }
+
+          if (anyChange) {
+            renderCounts();
+            renderGrid();
+            renderHero();
+            if (window.lucide) lucide.createIcons();
+          }
+
+          // Polling thành tựu mới mở khóa trong thời gian thực (Cơ chế Hydra Launcher / Achievement Watcher)
+          try {
+            let newAchs = null;
+            if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.poll_new_achievements === 'function') {
+              newAchs = await window.pywebview.api.poll_new_achievements();
+            } else {
+              const achResp = await fetch('/api/achievements/poll_new');
+              if (achResp.ok) {
+                newAchs = await achResp.json();
+              }
+            }
+            if (Array.isArray(newAchs) && newAchs.length > 0) {
+              newAchs.forEach(ach => {
+                showAchievementToast(ach);
+              });
+              if (activeModalGameId) {
+                loadGameAchievements(activeModalGameId);
+              }
+            }
+          } catch (achErr) {
+            // Im lặng bỏ qua lỗi mạng
+          }
+        } catch (e) {
+          // Im lặng bỏ qua lỗi mạng tạm thời
+        }
+      }, 4000);
+    }
+
+    async function launchGameFromHub(gameId) {
+      if (!gameId) return;
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game || !game.is_game_found) {
+        showToast('Chưa tìm thấy thư mục cài đặt game trên máy! Vui lòng chọn thư mục trước.', 'error');
+        return;
+      }
+
+      setGamePlayingState(gameId, true);
+
+      let res;
+      try {
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.launch_game === 'function') {
+          res = await window.pywebview.api.launch_game(gameId);
+        } else {
+          const resp = await fetch('/api/launch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ game_id: gameId })
           });
-          data = await res.json();
+          res = await resp.json();
         }
-        showToast(data.message, data.success ? 'success' : 'error');
       } catch (err) {
-        showToast('Không thể gửi lệnh mở game!', 'error');
+        showToast('Không thể kết nối đến máy chủ khởi chạy: ' + (err && err.message ? err.message : err), 'error');
+        setGamePlayingState(gameId, false);
+        return;
       }
+
+      if (!res || res.status === 'error' || res.success === false) {
+        if (res && res.status === 'already_running') {
+          showToast(res.message, 'info');
+          startPlaytimePolling(gameId);
+          return;
+        }
+        showToast((res && res.message) || 'Không thể khởi động game!', 'error');
+        setGamePlayingState(gameId, false);
+        return;
+      }
+
+      showToast(res.message || 'Game đang khởi chạy...', 'success');
+      startPlaytimePolling(gameId);
+
+      // Tự động thu nhỏ CỔ NGỮ xuống Taskbar để tiết kiệm ~0% CPU/RAM và người chơi tập trung vào game
+      setTimeout(() => {
+        minimizeWindow();
+      }, 1200);
+    }
+
+    async function launchGame(gameId) {
+      return launchGameFromHub(gameId);
     }
 
     
@@ -3599,6 +4709,20 @@
     });
 
     // Frameless Window Control Functions
+    async function minimizeToTray() {
+      showToast('CỔ NGỮ đã ẩn xuống Khay Hệ Thống. Bấm icon góc đồng hồ hoặc mở lại Shortcut Desktop để mở lại.', 'info');
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.minimize_to_tray === 'function') {
+        try {
+          return await window.pywebview.api.minimize_to_tray();
+        } catch (e) {}
+      }
+      try {
+        await fetch('/api/window/minimize_tray', { method: 'POST' });
+      } catch (e) {
+        console.error('Failed to minimize to tray:', e);
+      }
+    }
+
     async function minimizeWindow() {
       if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.minimize_window === 'function') {
         try {
@@ -3710,6 +4834,7 @@
 
     // Start
     fetchGames();
+    startGlobalPlaytimeWatcher();
   </script>
 
   <!-- MODAL: APP UPDATE DETAILS (CYBER-PIXEL STYLE) -->
@@ -3744,6 +4869,24 @@
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
           <span>Tải bản mới trên GitHub</span>
         </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION: MỞ KHÓA THÀNH TỰU (CYBERPUNK / STEAM TROPHY POPUP) -->
+  <div id="achievementToast" class="fixed bottom-6 right-6 z-[9999] pointer-events-none transition-all duration-500 transform translate-y-12 opacity-0 hidden">
+    <div class="flex items-center gap-3 bg-slate-950/95 border-2 border-amber-400/90 rounded-2xl p-3.5 shadow-2xl shadow-amber-500/30 backdrop-blur-md min-w-[300px] max-w-sm pointer-events-auto">
+      <div class="relative w-11 h-11 rounded-xl overflow-hidden bg-slate-900 border border-amber-400/50 flex-shrink-0 flex items-center justify-center">
+        <img id="toast-ach-icon" src="" class="w-full h-full object-cover hidden" onerror="this.classList.add('hidden');document.getElementById('toast-ach-placeholder').classList.remove('hidden');" />
+        <i id="toast-ach-placeholder" data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">
+          <i data-lucide="sparkles" class="w-3 h-3 text-amber-300"></i>
+          <span>Mở Khóa Thành Tựu!</span>
+        </div>
+        <div id="toast-ach-title" class="text-xs font-bold text-white truncate mt-0.5"></div>
+        <div id="toast-ach-desc" class="text-[10px] text-slate-300 line-clamp-1"></div>
       </div>
     </div>
   </div>
