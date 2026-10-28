@@ -147,6 +147,8 @@ from core.cloud_save import (
     configure_cloud_save_system,
 )
 
+from core.platform_win import WIN_NO_WINDOW, DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP
+
 from core.steam_client import (
     steam_direct_request,
     get_steam_official_Vertical_posters,
@@ -2132,7 +2134,7 @@ class ModManagerAPI:
             print(f"[Vault Pre-Launch Hook Warning]: {e}")
 
         # Khởi chạy tách rời (Detached) để đóng CỔ NGỮ không làm tắt game (Zero-Leak Clean Exit)
-        creation_flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        creation_flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
         launched = False
         launch_protocol = "executable"
 
@@ -2210,13 +2212,12 @@ class ModManagerAPI:
             return {"success": True, "message": "Không có tiến trình game nào đang chạy."}
 
         try:
-            no_window = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
             res = subprocess.run(
                 ["taskkill", "/F", "/IM", proc_name],
                 capture_output=True,
                 text=True,
                 check=False,
-                creationflags=no_window
+                creationflags=WIN_NO_WINDOW
             )
             time.sleep(0.5)
             is_still_running, _ = check_game_running(g, game_path)
@@ -2888,7 +2889,7 @@ class ModManagerAPI:
             return {"success": False, "message": "Không tạo được script cập nhật: %s" % e}
 
         try:
-            flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
             subprocess.Popen(["cmd", "/c", bat_path], creationflags=flags, cwd=upd_root, close_fds=True)
         except Exception as e:
             return {"success": False, "message": "Không khởi chạy được script cập nhật: %s" % e}

@@ -34,6 +34,8 @@ from core.config_manager import (
     open_appdata_directory,
 )
 
+from core.platform_win import WIN_NO_WINDOW
+
 from core.installer_pipeline import (
     INSTALL_PROGRESS,
     check_game_running,
@@ -1027,8 +1029,7 @@ def api_vault_open_folder():
     folder = os.path.dirname(vault.vault_path)
     try:
         if os.path.exists(vault.vault_path):
-            no_window = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
-            subprocess.Popen(f'explorer /select,"{vault.vault_path}"', creationflags=no_window)
+            subprocess.Popen(f'explorer /select,"{vault.vault_path}"', creationflags=WIN_NO_WINDOW)
         else:
             os.startfile(folder)
         return json.dumps({"success": True, "folder": folder})
