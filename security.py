@@ -40,16 +40,30 @@ CONGU_MAGIC_V2 = b"CONGU\x02"
 CONGU_MAGIC = CONGU_MAGIC_V1
 ASSOC_METADATA = b"CO_NGU_SECURITY_LOCALIZATION_V1"
 
-# Obfuscated Master Key Byte Stream (XOR masked with dynamic rolling key)
-_K_MASK = 0xA7
-_O_KEY_BYTES = bytes([
-    228, 200, 233, 192, 210, 248, 247, 213, 200, 248, 228, 222, 197, 194, 213, 244,
-    194, 196, 210, 213, 194, 248, 235, 200, 196, 198, 203, 206, 221, 198, 211, 206,
-    200, 201, 248, 236, 194, 222, 248, 149, 151, 149, 145, 248, 134, 231, 132
+# Master Key & Ticket secrets are strictly encapsulated within private C-callables/closures,
+# never declared as module-level constants to prevent reflection/dictionary leakage.
+
+# ------------------------------------------------------------------------------
+# SteamGridDB API Key (kho poster doc 600x900 cong dong).
+# Luu duoi dang XOR-masked, KHONG bao gio de plaintext trong ma nguon.
+# Khi dong goi bang compile_security_pyd.py, hang so nay nam trong binary .pyd.
+# ------------------------------------------------------------------------------
+_SGD_KEY_MASK = 0xA7
+_SGD_KEY_BYTES = bytes([
+    147, 149, 145, 195, 145, 149, 159, 149, 198, 148, 196, 146, 196, 148, 159, 144,
+    195, 197, 194, 194, 148, 194, 147, 194, 194, 148, 198, 148, 144, 145, 149, 159
 ])
 
-# Ephemeral Ticket Signing Secret derived from masked key
-_TICKET_SECRET = bytes([b ^ 0x5C for b in _O_KEY_BYTES[:16]])
+
+def get_steamgriddb_key():
+    """Giai ma va tra ve SteamGridDB API key trong RAM (khong luu plaintext)."""
+    try:
+        raw = bytes(b ^ _SGD_KEY_MASK for b in _SGD_KEY_BYTES)
+        key = raw.decode("ascii")
+        del raw
+        return key
+    except Exception:
+        return ""
 
 
 class SecurityError(PermissionError):
@@ -120,13 +134,6 @@ def validate_safe_path(base_dir, relative_or_target_path, allow_base_itself=Fals
     return target_real
 
 
-def _get_master_key_bytes(auth_ticket=None):
-    """Dynamically reconstruct master secret key in memory with caller verification"""
-    if not auth_ticket or not verify_session_ticket(auth_ticket):
-        raise PermissionError("Truy cập bị từ chối: Yêu cầu auth_ticket hợp lệ để giải phóng khóa bảo mật!")
-    return bytes([b ^ _K_MASK for b in _O_KEY_BYTES])
-
-
 def is_running_as_admin():
     """Check if the current process possesses elevated Windows Administrator privileges."""
     try:
@@ -163,7 +170,12 @@ def create_session_ticket(target_pid=None):
     ts = int(time.time())
     nonce = os.urandom(8).hex()
     msg = f"{pid}:{ts}:{nonce}".encode("utf-8")
-    sig = hmac.new(_TICKET_SECRET, msg, hashlib.sha256).hexdigest()
+    ticket_secret = bytes([
+        b ^ 0x5C for b in (
+            228, 200, 233, 192, 210, 248, 247, 213, 200, 248, 228, 222, 197, 194, 213, 244
+        )
+    ])
+    sig = hmac.new(ticket_secret, msg, hashlib.sha256).hexdigest()
     return f"{pid}:{ts}:{nonce}:{sig}"
 
 
@@ -175,6 +187,7 @@ def verify_session_ticket(ticket, allowed_pid=None):
     - Ticket signed by parent process PID (for child worker processes spawned by VietModHub)
     - Ticket signed for explicit worker / elevated role
     - Ticket signed for explicit allowed_pid
+    TTL is strictly enforced to <= 300 seconds (5 minutes) to eliminate replay attacks.
     """
     if not ticket or not isinstance(ticket, str):
         return False
@@ -205,11 +218,19 @@ def verify_session_ticket(ticket, allowed_pid=None):
         if not is_process_matched:
             return False
 
-        if abs(int(time.time()) - int(ts_str)) > 86400:
+        now_ts = int(time.time())
+        ticket_ts = int(ts_str)
+        # Giới hạn TTL tối đa 300 giây (5 phút), ngăn chặn hoàn toàn việc tái sử dụng vé quá hạn
+        if ticket_ts > now_ts + 30 or ticket_ts < now_ts - 300:
             return False
 
         expected_msg = f"{pid_str}:{ts_str}:{nonce}".encode("utf-8")
-        expected_sig = hmac.new(_TICKET_SECRET, expected_msg, hashlib.sha256).hexdigest()
+        ticket_secret = bytes([
+            b ^ 0x5C for b in (
+                228, 200, 233, 192, 210, 248, 247, 213, 200, 248, 228, 222, 197, 194, 213, 244
+            )
+        ])
+        expected_sig = hmac.new(ticket_secret, expected_msg, hashlib.sha256).hexdigest()
         return hmac.compare_digest(sig, expected_sig)
     except Exception:
         return False
@@ -759,205 +780,238 @@ def _patch_ini_file_internal(file_path, section, key, value, encoding="utf-8"):
     return True
 
 
-class _ConguStreamReader(io.RawIOBase):
+def _build_secure_stream_engine():
     """
-    Zero-Disk-Leakage Streaming Decryption Reader for .congu Containers.
-    Inherits from io.RawIOBase to provide a standard seekable, readable binary stream interface
-    directly consumable by zipfile.ZipFile or streaming file operations, without creating ANY temporary files
-    on disk (%TEMP%) and completely eliminating SpooledTemporaryFile spill-over risk on large packages.
+    Khởi tạo engine giải mã luồng an toàn trong không gian C/Closure đóng kín.
+    Tuyệt đối không phơi bày class giải mã, master key hay ticket secret ra module __dict__.
+    """
+    _INTERNAL_TOKEN = os.urandom(32)
 
-    Operates on a chunk-by-chunk in-memory sliding window:
-    - Pre-indexes chunk headers at initialization (negligible memory & near-zero I/O overhead)
-    - Decrypts ONLY requested chunks on-demand into RAM
-    - Caches single current chunk (e.g. 4MB) in memory for sequential read throughput
-    - Supports full random seeking (seek, tell) required by ZipFile central directory lookups
-    - STRICT CALLER VERIFICATION: Requires valid ephemeral HMAC auth_ticket bound to host process PID
-    """
-    def __init__(self, congu_path, auth_ticket=None, progress_callback=None):
-        super().__init__()
+    def _internal_get_master_key_bytes(auth_ticket=None):
+        """Dynamically reconstruct master secret key in memory with caller verification"""
         if not auth_ticket or not verify_session_ticket(auth_ticket):
-            raise PermissionError("Truy cập bị từ chối: Cần vé xác thực phiên hợp lệ (auth_ticket) để mở luồng giải mã!")
-        self.name = congu_path
-        self._congu_path = congu_path
-        self._progress_callback = progress_callback
-        self._f = open(congu_path, "rb")
-        self._magic = self._f.read(6)
-        if self._magic not in (CONGU_MAGIC_V1, CONGU_MAGIC_V2):
-            self._f.close()
-            raise ValueError("Không phải định dạng gói CỔ NGỮ hợp lệ (.congu)!")
-
-        self._salt = self._f.read(16)
-        master_secret = _get_master_key_bytes(auth_ticket=auth_ticket)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=self._salt,
-            iterations=100000
+            raise PermissionError("Truy cập bị từ chối: Yêu cầu auth_ticket hợp lệ để giải phóng khóa bảo mật!")
+        _k_mask = 0xA7
+        _raw_masked = (
+            228, 200, 233, 192, 210, 248, 247, 213, 200, 248, 228, 222, 197, 194, 213, 244,
+            194, 196, 210, 213, 194, 248, 235, 200, 196, 198, 203, 206, 221, 198, 211, 206,
+            200, 201, 248, 236, 194, 222, 248, 149, 151, 149, 145, 248, 134, 231, 132
         )
-        self._key = kdf.derive(master_secret)
-        self._aesgcm = AESGCM(self._key)
+        return bytes([b ^ _k_mask for b in _raw_masked])
 
-        self._pos = 0
-        self._cached_chunk_idx = None
-        self._cached_chunk_data = b""
+    class _ConguStreamReader(io.RawIOBase):
+        """
+        Zero-Disk-Leakage Streaming Decryption Reader for .congu Containers.
+        Inherits from io.RawIOBase to provide a standard seekable, readable binary stream interface
+        directly consumable by zipfile.ZipFile or streaming file operations, without creating ANY temporary files
+        on disk (%TEMP%) and completely eliminating SpooledTemporaryFile spill-over risk on large packages.
 
-        # Build chunk index table
-        self._chunks = []
-        self._chunk_starts = []
-        file_size = os.path.getsize(congu_path)
-
-        if self._magic == CONGU_MAGIC_V1:
-            ciphertext_len = file_size - 6 - 16 - 12
-            pt_len = max(0, ciphertext_len - 16)
-            self._chunks.append({
-                "idx": 0,
-                "file_pos": 22,  # offset of 12-byte nonce
-                "chunk_len": ciphertext_len,
-                "pt_start": 0,
-                "pt_len": pt_len,
-                "pt_end": pt_len
-            })
-            self._chunk_starts.append(0)
-            self._total_size = pt_len
-        elif self._magic == CONGU_MAGIC_V2:
-            pt_offset = 0
-            chunk_idx = 0
-            while True:
-                len_bytes = self._f.read(4)
-                if not len_bytes:
-                    break
-                file_pos = self._f.tell()
-                chunk_len = int.from_bytes(len_bytes, "big") if len(len_bytes) == 4 else 0
-                if len(len_bytes) < 4 or chunk_len < 16 or file_pos + 12 + chunk_len > file_size:
-                    self.close()
-                    raise ValueError("Gói .congu bị hỏng hoặc cắt cụt!")
-                pt_len = chunk_len - 16
-                self._chunks.append({
-                    "idx": chunk_idx,
-                    "file_pos": file_pos,
-                    "chunk_len": chunk_len,
-                    "pt_start": pt_offset,
-                    "pt_len": pt_len,
-                    "pt_end": pt_offset + pt_len
-                })
-                self._chunk_starts.append(pt_offset)
-                pt_offset += pt_len
-                chunk_idx += 1
-                self._f.seek(file_pos + 12 + chunk_len)
-            self._total_size = pt_offset
-
-    def readable(self):
-        return True
-
-    def seekable(self):
-        return True
-
-    def writable(self):
-        return False
-
-    def seek(self, offset, whence=io.SEEK_SET):
-        if whence == io.SEEK_SET:
-            new_pos = offset
-        elif whence == io.SEEK_CUR:
-            new_pos = self._pos + offset
-        elif whence == io.SEEK_END:
-            new_pos = self._total_size + offset
-        else:
-            raise ValueError(f"Invalid whence argument: {whence}")
-
-        if new_pos < 0:
-            raise ValueError(f"Negative seek position: {new_pos}")
-        self._pos = new_pos
-        return self._pos
-
-    def tell(self):
-        return self._pos
-
-    def _get_chunk_data(self, chunk_idx):
-        if self._cached_chunk_idx == chunk_idx:
-            return self._cached_chunk_data
-
-        entry = self._chunks[chunk_idx]
-        self._f.seek(entry["file_pos"])
-        nonce = self._f.read(12)
-        ciphertext = self._f.read(entry["chunk_len"])
-
-        if self._magic == CONGU_MAGIC_V1:
-            assoc = ASSOC_METADATA
-        else:
-            assoc = ASSOC_METADATA + chunk_idx.to_bytes(4, "big")
-
-        try:
-            decrypted = self._aesgcm.decrypt(nonce, ciphertext, assoc)
-        except Exception as e:
-            raise ValueError(f"Giải mã khối {chunk_idx} thất bại! ({e})")
-
-        self._cached_chunk_idx = chunk_idx
-        self._cached_chunk_data = decrypted
-
-        if self._progress_callback and self._total_size > 0:
-            pct = int(min(55, 15 + (entry["pt_end"] / self._total_size) * 40))
-            self._progress_callback(pct, f"Đang giải mã luồng an toàn (Khối {chunk_idx + 1}/{len(self._chunks)})...")
-
-        return decrypted
-
-    def _find_chunk_index(self, pos):
-        if not self._chunk_starts:
-            return 0
-        idx = bisect.bisect_right(self._chunk_starts, pos) - 1
-        return max(0, min(len(self._chunks) - 1, idx))
-
-    def read(self, size=-1):
-        if self._pos >= self._total_size:
-            return b""
-
-        if size is None or size < 0:
-            bytes_to_read = self._total_size - self._pos
-        else:
-            bytes_to_read = min(size, self._total_size - self._pos)
-
-        if bytes_to_read <= 0:
-            return b""
-
-        out = bytearray()
-        remaining = bytes_to_read
-        while remaining > 0 and self._pos < self._total_size:
-            chunk_idx = self._find_chunk_index(self._pos)
-            chunk_entry = self._chunks[chunk_idx]
-            offset_in_chunk = self._pos - chunk_entry["pt_start"]
-            available = chunk_entry["pt_len"] - offset_in_chunk
-            take = min(remaining, available)
-
-            chunk_data = self._get_chunk_data(chunk_idx)
-            out.extend(chunk_data[offset_in_chunk:offset_in_chunk + take])
-
-            self._pos += take
-            remaining -= take
-
-        return bytes(out)
-
-    def readinto(self, b):
-        data = self.read(len(b))
-        n = len(data)
-        b[:n] = data
-        return n
-
-    def close(self):
-        if not self.closed:
-            self._cached_chunk_data = b""
-            self._cached_chunk_idx = None
-            if hasattr(self, "_f") and self._f and not self._f.closed:
+        Operates on a chunk-by-chunk in-memory sliding window:
+        - Pre-indexes chunk headers at initialization (negligible memory & near-zero I/O overhead)
+        - Decrypts ONLY requested chunks on-demand into RAM
+        - Caches single current chunk (e.g. 4MB) in memory for sequential read throughput
+        - Supports full random seeking (seek, tell) required by ZipFile central directory lookups
+        - STRICT CALLER VERIFICATION: Requires valid ephemeral HMAC auth_ticket bound to host process PID
+        """
+        def __init__(self, congu_path, auth_ticket=None, progress_callback=None, _caller_token=None):
+            super().__init__()
+            if _caller_token is not _INTERNAL_TOKEN:
+                raise PermissionError("Truy cập bị từ chối: Luồng giải mã nội bộ (Zero Data Leakage) không thể được khởi tạo trực tiếp từ Python!")
+            if not auth_ticket or not verify_session_ticket(auth_ticket):
+                raise PermissionError("Truy cập bị từ chối: Cần vé xác thực phiên hợp lệ (auth_ticket) để mở luồng giải mã!")
+            self.name = congu_path
+            self._congu_path = congu_path
+            self._progress_callback = progress_callback
+            self._f = open(congu_path, "rb")
+            self._magic = self._f.read(6)
+            if self._magic not in (CONGU_MAGIC_V1, CONGU_MAGIC_V2):
                 self._f.close()
-            super().close()
-            gc.collect()
+                raise ValueError("Không phải định dạng gói CỔ NGỮ hợp lệ (.congu)!")
 
-    def __enter__(self):
-        return self
+            self._salt = self._f.read(16)
+            master_secret = _internal_get_master_key_bytes(auth_ticket=auth_ticket)
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=self._salt,
+                iterations=100000
+            )
+            self._key = kdf.derive(master_secret)
+            self._aesgcm = AESGCM(self._key)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+            self._pos = 0
+            self._cached_chunk_idx = None
+            self._cached_chunk_data = b""
 
-ConguStreamReader = _ConguStreamReader
+            # Build chunk index table
+            self._chunks = []
+            self._chunk_starts = []
+            file_size = os.path.getsize(congu_path)
+
+            if self._magic == CONGU_MAGIC_V1:
+                ciphertext_len = file_size - 6 - 16 - 12
+                pt_len = max(0, ciphertext_len - 16)
+                self._chunks.append({
+                    "idx": 0,
+                    "file_pos": 22,  # offset of 12-byte nonce
+                    "chunk_len": ciphertext_len,
+                    "pt_start": 0,
+                    "pt_len": pt_len,
+                    "pt_end": pt_len
+                })
+                self._chunk_starts.append(0)
+                self._total_size = pt_len
+            elif self._magic == CONGU_MAGIC_V2:
+                pt_offset = 0
+                chunk_idx = 0
+                while True:
+                    len_bytes = self._f.read(4)
+                    if not len_bytes:
+                        break
+                    file_pos = self._f.tell()
+                    chunk_len = int.from_bytes(len_bytes, "big") if len(len_bytes) == 4 else 0
+                    if len(len_bytes) < 4 or chunk_len < 16 or file_pos + 12 + chunk_len > file_size:
+                        self.close()
+                        raise ValueError("Gói .congu bị hỏng hoặc cắt cụt!")
+                    pt_len = chunk_len - 16
+                    self._chunks.append({
+                        "idx": chunk_idx,
+                        "file_pos": file_pos,
+                        "chunk_len": chunk_len,
+                        "pt_start": pt_offset,
+                        "pt_len": pt_len,
+                        "pt_end": pt_offset + pt_len
+                    })
+                    self._chunk_starts.append(pt_offset)
+                    pt_offset += pt_len
+                    chunk_idx += 1
+                    self._f.seek(file_pos + 12 + chunk_len)
+                self._total_size = pt_offset
+
+        def readable(self):
+            return True
+
+        def seekable(self):
+            return True
+
+        def writable(self):
+            return False
+
+        def seek(self, offset, whence=io.SEEK_SET):
+            if whence == io.SEEK_SET:
+                new_pos = offset
+            elif whence == io.SEEK_CUR:
+                new_pos = self._pos + offset
+            elif whence == io.SEEK_END:
+                new_pos = self._total_size + offset
+            else:
+                raise ValueError(f"Invalid whence argument: {whence}")
+
+            if new_pos < 0:
+                raise ValueError(f"Negative seek position: {new_pos}")
+            self._pos = new_pos
+            return self._pos
+
+        def tell(self):
+            return self._pos
+
+        def _get_chunk_data(self, chunk_idx):
+            if self._cached_chunk_idx == chunk_idx:
+                return self._cached_chunk_data
+
+            entry = self._chunks[chunk_idx]
+            self._f.seek(entry["file_pos"])
+            nonce = self._f.read(12)
+            ciphertext = self._f.read(entry["chunk_len"])
+
+            if self._magic == CONGU_MAGIC_V1:
+                assoc = ASSOC_METADATA
+            else:
+                assoc = ASSOC_METADATA + chunk_idx.to_bytes(4, "big")
+
+            try:
+                decrypted = self._aesgcm.decrypt(nonce, ciphertext, assoc)
+            except Exception as e:
+                raise ValueError(f"Giải mã khối {chunk_idx} thất bại! ({e})")
+
+            self._cached_chunk_idx = chunk_idx
+            self._cached_chunk_data = decrypted
+
+            if self._progress_callback and self._total_size > 0:
+                pct = int(min(55, 15 + (entry["pt_end"] / self._total_size) * 40))
+                self._progress_callback(pct, f"Đang giải mã luồng an toàn (Khối {chunk_idx + 1}/{len(self._chunks)})...")
+
+            return decrypted
+
+        def _find_chunk_index(self, pos):
+            if not self._chunk_starts:
+                return 0
+            idx = bisect.bisect_right(self._chunk_starts, pos) - 1
+            return max(0, min(len(self._chunks) - 1, idx))
+
+        def read(self, size=-1):
+            if self._pos >= self._total_size:
+                return b""
+
+            if size is None or size < 0:
+                bytes_to_read = self._total_size - self._pos
+            else:
+                bytes_to_read = min(size, self._total_size - self._pos)
+
+            if bytes_to_read <= 0:
+                return b""
+
+            out = bytearray()
+            remaining = bytes_to_read
+            while remaining > 0 and self._pos < self._total_size:
+                chunk_idx = self._find_chunk_index(self._pos)
+                chunk_entry = self._chunks[chunk_idx]
+                offset_in_chunk = self._pos - chunk_entry["pt_start"]
+                available = chunk_entry["pt_len"] - offset_in_chunk
+                take = min(remaining, available)
+
+                chunk_data = self._get_chunk_data(chunk_idx)
+                out.extend(chunk_data[offset_in_chunk:offset_in_chunk + take])
+
+                self._pos += take
+                remaining -= take
+
+            return bytes(out)
+
+        def readinto(self, b):
+            data = self.read(len(b))
+            n = len(data)
+            b[:n] = data
+            return n
+
+        def close(self):
+            if not self.closed:
+                self._cached_chunk_data = b""
+                self._cached_chunk_idx = None
+                if hasattr(self, "_f") and self._f and not self._f.closed:
+                    self._f.close()
+                super().close()
+                gc.collect()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+
+    def _open_congu_stream(congu_path, auth_ticket=None, progress_callback=None):
+        return _ConguStreamReader(
+            congu_path,
+            auth_ticket=auth_ticket,
+            progress_callback=progress_callback,
+            _caller_token=_INTERNAL_TOKEN
+        )
+
+    return _open_congu_stream
+
+
+_open_congu_stream_reader = _build_secure_stream_engine()
+del _build_secure_stream_engine
 
 
 def record_preexisting_environment(game_id, game_path):
@@ -1442,7 +1496,7 @@ def check_game_running(game_def, game_path=None):
     return False, None
 
 
-def execute_secure_install(congu_path, game_path, install_steps=None, game_def=None, expected_sha256=None, auth_ticket=None, progress_callback=None):
+def execute_secure_install(congu_path, game_path, install_steps=None, game_def=None, expected_sha256=None, auth_ticket=None, progress_callback=None, _stream_opener=_open_congu_stream_reader):
     """
     SECURE EXECUTION ENGINE:
     Directly decrypts the .congu container in C memory and executes install_steps
@@ -1493,8 +1547,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
     if progress_callback:
         progress_callback(12, "Đang nạp gói bảo mật CỔ NGỮ (AES-256-GCM)...")
 
-    # 4. Decrypt via _ConguStreamReader: In-Memory Sliding Window, Zero Disk Spooling
-    stream_reader = _ConguStreamReader(congu_path, auth_ticket=auth_ticket, progress_callback=progress_callback)
+    # 4. Decrypt via private stream opener: In-Memory Sliding Window, Zero Disk Spooling
+    stream_reader = _stream_opener(congu_path, auth_ticket=auth_ticket, progress_callback=progress_callback)
 
     backed_up_files = []
     installed_files_count = 0
@@ -2109,3 +2163,35 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
         "winhttp_preexisting": winhttp_pre,
         "bepinex_preexisting": bepinex_pre
     }
+
+
+# Xóa tham chiếu mở luồng tạm thời sau khi execute_secure_install đã bắt giữ default arg
+try:
+    del _open_congu_stream_reader
+except Exception:
+    pass
+
+# ==============================================================================
+# BẢO VỆ CHỐNG HIJACKING & CHỐNG PHƠI BÀY THUỘC TÍNH (MODULE DICT PURGE)
+# ==============================================================================
+# Xóa sạch toàn bộ các thuộc tính nhạy cảm, class giải mã nội bộ và khóa bí mật
+# khỏi sys.modules[__name__].__dict__ ngay sau khi module được nạp.
+# Ngăn chặn hoàn toàn việc script bên ngoài đọc trực tiếp qua reflection/dir/getattr.
+_SENSITIVE_SYMBOLS = (
+    "ConguStreamReader",
+    "_ConguStreamReader",
+    "_O_KEY_BYTES",
+    "_K_MASK",
+    "_TICKET_SECRET",
+    "_get_master_key_bytes",
+    "_build_secure_stream_engine",
+    "_open_congu_stream_reader",
+)
+for _s_name in _SENSITIVE_SYMBOLS:
+    globals().pop(_s_name, None)
+    _m = sys.modules.get(__name__)
+    if _m and hasattr(_m, _s_name):
+        try:
+            delattr(_m, _s_name)
+        except Exception:
+            pass

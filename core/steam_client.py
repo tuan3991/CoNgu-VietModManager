@@ -20,7 +20,33 @@ import ssl
 import urllib.request
 import urllib.parse
 
-STEAMGRIDDB_API_KEY = "426d6282a3c5c387dbee3e4ee3a37628"
+# SteamGridDB API key: uu tien nap tu module bao mat (duoc Cython bien dich thanh .pyd khi phat hanh).
+# Fallback XOR-masked de khong luu plaintext trong ma nguon (an toan khi .pyd cu chua rebuild).
+_SGD_KEY_MASK = 0xA7
+_SGD_KEY_FALLBACK_BYTES = bytes([
+    147, 149, 145, 195, 145, 149, 159, 149, 198, 148, 196, 146, 196, 148, 159, 144,
+    195, 197, 194, 194, 148, 194, 147, 194, 194, 148, 198, 148, 144, 145, 149, 159
+])
+
+
+def _load_steamgriddb_key() -> str:
+    """Nap SteamGridDB API key tu security (.pyd) hoac giai ma fallback trong RAM."""
+    try:
+        import security
+        getter = getattr(security, "get_steamgriddb_key", None)
+        if callable(getter):
+            key = getter()
+            if key:
+                return key
+    except Exception:
+        pass
+    try:
+        return bytes(b ^ _SGD_KEY_MASK for b in _SGD_KEY_FALLBACK_BYTES).decode("ascii")
+    except Exception:
+        return ""
+
+
+STEAMGRIDDB_API_KEY = _load_steamgriddb_key()
 
 
 def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
