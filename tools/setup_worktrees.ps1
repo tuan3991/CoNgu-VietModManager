@@ -36,6 +36,20 @@ function Test-GitRepo {
     }
 }
 
+# Cho phep nhap "scanner,ui,cloud" du chay bang -File hay -Command deu dung
+function Split-TaskNames {
+    param([string[]]$Values)
+    $out = @()
+    foreach ($v in $Values) {
+        if ([string]::IsNullOrWhiteSpace($v)) { continue }
+        foreach ($piece in ($v -split ",")) {
+            $p = $piece.Trim()
+            if ($p) { $out += $p }
+        }
+    }
+    return $out
+}
+
 function Show-WorktreeStatus {
     Write-Host ""
     Write-Host "=== TRANG THAI CAC BAN LAM VIEC (WORKTREE) ===" -ForegroundColor Cyan
@@ -63,6 +77,8 @@ function Show-WorktreeStatus {
 
 function New-TaskWorktree {
     param([string[]]$Names)
+
+    $Names = Split-TaskNames $Names
 
     if (-not $Names -or $Names.Count -eq 0) {
         Write-Host "[!] Ban chua nhap ten task. Vi du: -Create scanner,ui,cloud" -ForegroundColor Red
@@ -117,6 +133,8 @@ function New-TaskWorktree {
 
 function Remove-TaskWorktree {
     param([string[]]$Names)
+
+    $Names = Split-TaskNames $Names
 
     if (-not $Names -or $Names.Count -eq 0) {
         Write-Host "[!] Ban chua nhap ten task. Vi du: -Cleanup scanner,ui" -ForegroundColor Red
