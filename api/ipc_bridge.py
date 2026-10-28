@@ -854,6 +854,18 @@ def get_steam_games():
     return STEAM_GAMES_CACHE
 
 
+def _get_app_module():
+    """
+    Lấy module app.py đang thực sự chạy (kể cả khi khởi chạy trực tiếp dưới tên `__main__`).
+    Tránh `import app` vô tình nạp lại toàn bộ entry point thành module thứ hai rỗng trạng thái.
+    """
+    for name in ("app", "__main__"):
+        mod = sys.modules.get(name)
+        if mod is not None and hasattr(mod, "SYSTEM_TRAY"):
+            return mod
+    return None
+
+
 class ModManagerAPI:
     def __init__(self):
         self.window = None
@@ -2777,6 +2789,123 @@ class ModManagerAPI:
         """Check for application updates"""
         return check_app_update()
 
+    def apply_app_update(self):
+        """
+        Tự động cập nhật ứng dụng (In-App Self-Updater) cho bản Portable:
+        1. Kiểm tra version.json lấy gói .zip mới nhất
+        2. Tải về %APPDATA%/VietModHub/update/package.zip
+        3. Giải nén an toàn (chống Zip Slip) vào thư mục tạm
+        4. Sinh script apply_update.bat: chờ app thoát -> chép đè (robocopy /E) -> khởi động lại
+        5. Thoát ứng dụng để script tiếp quản
+        """
+        import zipfile
+
+        if INSTALL_PROGRESS.get("status") == "running":
+            return {"success": False, "message": "Không thể cập nhật khi đang cài đặt/gỡ bỏ bản mod! Vui lòng chờ hoàn tất."}
+
+        if not getattr(sys, "frozen", False):
+            return {"success": False, "message": "Tính năng tự cập nhật chỉ hoạt động trên bản Portable (.exe). Bản chạy mã nguồn vui lòng dùng git pull."}
+
+        info = check_app_update()
+        if not info.get("success"):
+            return {"success": False, "message": info.get("message") or "Không thể kiểm tra phiên bản mới."}
+        if not info.get("has_update"):
+            return {"success": False, "message": "Bạn đang sử dụng phiên bản mới nhất (v%s)." % info.get("current_version")}
+
+        url = (info.get("portable_zip_url") or "").strip()
+        if not url.lower().endswith(".zip"):
+            url = (info.get("download_url") or "").strip()
+        if not url.lower().endswith(".zip"):
+            return {"success": False, "message": "Bản phát hành không kèm gói .zip tự động cập nhật. Vui lòng tải thủ công trên GitHub Releases."}
+
+        upd_root = os.path.join(APPDATA_DIR, "update")
+        new_dir = os.path.join(upd_root, "new")
+        pkg_path = os.path.join(upd_root, "package.zip")
+        try:
+            os.makedirs(upd_root, exist_ok=True)
+            if os.path.isdir(new_dir):
+                shutil.rmtree(new_dir, ignore_errors=True)
+            os.makedirs(new_dir, exist_ok=True)
+        except Exception as e:
+            return {"success": False, "message": "Không tạo được thư mục cập nhật: %s" % e}
+
+        log_startup("[Updater] Bat dau tai ban cap nhat: %s" % url)
+        try:
+            from core.downloader import download_file_with_progress
+            download_file_with_progress(url, pkg_path, timeout=30.0)
+        except Exception as e:
+            return {"success": False, "message": "Tải bản cập nhật thất bại: %s" % e}
+
+        try:
+            with zipfile.ZipFile(pkg_path, "r") as zf:
+                for member in zf.namelist():
+                    if member.endswith("/") or member.endswith("\\"):
+                        continue
+                    dest = validate_safe_path(new_dir, member, allow_base_itself=False)
+                    parent = os.path.dirname(dest)
+                    if parent:
+                        os.makedirs(parent, exist_ok=True)
+                    with zf.open(member, "r") as src_f, open(dest, "wb") as out_f:
+                        shutil.copyfileobj(src_f, out_f, length=65536)
+        except Exception as e:
+            return {"success": False, "message": "Giải nén bản cập nhật thất bại: %s" % e}
+
+        src_dir = ""
+        for cand in (os.path.join(new_dir, "VietModHub"), new_dir):
+            if os.path.isfile(os.path.join(cand, "VietModHub.exe")):
+                src_dir = cand
+                break
+        if not src_dir:
+            for root_dir, _dirs, files in os.walk(new_dir):
+                if "VietModHub.exe" in files:
+                    src_dir = root_dir
+                    break
+        if not src_dir:
+            return {"success": False, "message": "Gói cập nhật không hợp lệ (không tìm thấy VietModHub.exe bên trong)."}
+
+        dst_dir = APP_DIR
+        bat_path = os.path.join(upd_root, "apply_update.bat")
+        pid = os.getpid()
+        try:
+            bat_lines = [
+                "@echo off",
+                "chcp 65001 >nul",
+                "title CO NGU - Dang cap nhat...",
+                "timeout /t 2 /nobreak >nul",
+                ":waitloop",
+                'tasklist /FI "PID eq %d" 2>nul | find "%d" >nul' % (pid, pid),
+                "if not errorlevel 1 (",
+                "    timeout /t 1 /nobreak >nul",
+                "    goto waitloop",
+                ")",
+                'robocopy "%s" "%s" /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP >nul' % (src_dir, dst_dir),
+                'start "" "%s"' % os.path.join(dst_dir, "VietModHub.exe"),
+                'del "%~f0"',
+            ]
+            with open(bat_path, "w", encoding="utf-8", newline="\r\n") as f:
+                f.write("\n".join(bat_lines) + "\n")
+        except Exception as e:
+            return {"success": False, "message": "Không tạo được script cập nhật: %s" % e}
+
+        try:
+            flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            subprocess.Popen(["cmd", "/c", bat_path], creationflags=flags, cwd=upd_root, close_fds=True)
+        except Exception as e:
+            return {"success": False, "message": "Không khởi chạy được script cập nhật: %s" % e}
+
+        log_startup("[Updater] Da khoi chay script cap nhat. Ung dung se khoi dong lai sau it giay.")
+        try:
+            PLAYTIME_MGR.flush_all_active()
+        except Exception:
+            pass
+        threading.Timer(1.2, lambda: os._exit(0)).start()
+        return {
+            "success": True,
+            "message": "Đang tải & áp dụng bản cập nhật v%s. Ứng dụng sẽ tự khởi động lại..." % info.get("latest_version"),
+            "new_version": info.get("latest_version"),
+            "restarting": True,
+        }
+
     def browse_custom_game_exe(self):
         """Mở hộp thoại cho người dùng chọn file .exe của game ngoài."""
         chosen_file = None
@@ -3163,12 +3292,13 @@ class ModManagerAPI:
             }
 
         # 1. Hủy icon khay hệ thống nếu có
-        global SYSTEM_TRAY
         try:
-            if SYSTEM_TRAY:
-                SYSTEM_TRAY.Visible = False
-                SYSTEM_TRAY.Dispose()
-                SYSTEM_TRAY = None
+            _app_mod = _get_app_module()
+            tray = getattr(_app_mod, "SYSTEM_TRAY", None) if _app_mod else None
+            if tray:
+                tray.Visible = False
+                tray.Dispose()
+                _app_mod.SYSTEM_TRAY = None
         except Exception:
             pass
 
@@ -3220,7 +3350,10 @@ class ModManagerAPI:
         """Minimize CỔ NGỮ window to Windows System Tray (notification area)"""
         if self.window:
             try:
-                return minimize_to_tray(self.window)
+                _app_mod = _get_app_module()
+                if _app_mod is None:
+                    return {"success": False, "error": "App module unavailable"}
+                return _app_mod.minimize_to_tray(self.window)
             except Exception as e:
                 return {"success": False, "error": str(e)}
         return {"success": False, "error": "No window instance"}
@@ -3229,10 +3362,37 @@ class ModManagerAPI:
         """Restore CỔ NGỮ window from Windows System Tray"""
         if self.window:
             try:
-                return restore_from_tray(self.window)
+                _app_mod = _get_app_module()
+                if _app_mod is None:
+                    return {"success": False, "error": "App module unavailable"}
+                return _app_mod.restore_from_tray(self.window)
             except Exception as e:
                 return {"success": False, "error": str(e)}
         return {"success": False, "error": "No window instance"}
+
+    def has_active_play_session(self):
+        """Kiểm tra có phiên chơi game đang được theo dõi trực tiếp hay không."""
+        try:
+            return {"success": True, "has_active_session": bool(PLAYTIME_MGR.has_active_session())}
+        except Exception as e:
+            return {"success": False, "has_active_session": False, "error": str(e)}
+
+    def request_close(self):
+        """
+        Nút X thông minh:
+        - Đang có phiên chơi game -> ẩn xuống Khay Hệ Thống, giữ tiến trình để đếm giờ
+          và kích hoạt hook đóng gói .congu_save + đẩy Google Drive sau khi tắt game.
+        - Không có game nào chạy -> thoát hẳn (Zero-Leak Clean Exit).
+        """
+        if not self.window:
+            return {"success": False, "error": "No window instance"}
+        try:
+            _app_mod = _get_app_module()
+            if _app_mod is None:
+                return {"success": False, "error": "App module unavailable"}
+            return _app_mod.request_close(self.window)
+        except Exception as e:
+            return {"success": False, "hidden_to_tray": False, "error": str(e)}
 
     def get_all_playtime_stats(self):
         """Lấy toàn bộ thống kê giờ chơi thời gian thực của các game."""

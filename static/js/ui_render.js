@@ -389,8 +389,10 @@
       // 1. Chuyển đổi View: Hiện kho lưới, ẩn trang chi tiết
       const viewGrid = document.getElementById('viewBrowseGrid');
       const viewDetail = document.getElementById('viewGameDetail');
+      const viewDiscovery = document.getElementById('viewDiscovery');
       if (viewGrid) viewGrid.classList.remove('hidden');
       if (viewDetail) viewDetail.classList.add('hidden');
+      if (viewDiscovery) viewDiscovery.classList.add('hidden');
 
       // 2. Ngắt âm thanh video nếu đang phát trailer
       const player = document.getElementById('modalVideoPlayer');
@@ -810,7 +812,15 @@
           statusBadgeHtml = `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-amber-400 border border-amber-500/40 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="arrow-down-circle" class="w-3.5 h-3.5 text-amber-400"></i><span>Chưa Cài Mod</span></span>`;
         }
 
-        const noteBadgeHtml = game.important_note 
+        // Game lẻ (Non-Steam): hiển thị rõ đây là game tự thêm + trạng thái Yêu cầu Việt hóa
+        const myLocReq = game.is_custom_game ? getMyLocRequest(game) : null;
+        if (game.is_custom_game) {
+          statusBadgeHtml = myLocReq
+            ? `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/85 text-amber-300 border border-[#FFB800]/60 flex items-center space-x-1 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);" title="Đã lưu yêu cầu Việt hóa trong Hồ Sơ .congu_save • ${(myLocReq.status_label || 'Đang chờ duyệt')}"><i data-lucide="megaphone" class="w-3 h-3 text-[#FFB800]"></i><span>Đã YC Việt Hóa</span></span>`
+            : `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/85 text-purple-300 border border-purple-500/50 flex items-center space-x-1 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="gamepad" class="w-3 h-3 text-purple-300"></i><span>Game Tự Thêm</span></span>`;
+        }
+
+        const noteBadgeHtml = game.important_note
           ? `<span class="font-pixel text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#070814]/80 text-rose-400 border border-rose-500/50 flex items-center space-x-1.5 tracking-wide shadow-[0_2px_8px_rgba(0,0,0,0.5)]" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"><i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i><span>Lưu Ý</span></span>` 
           : '';
 
@@ -874,34 +884,7 @@
 
             <!-- Hover-to-Reveal: Nút hành động duy nhất, trượt lên mượt mà (Bỏ nút xóa & nút i) -->
             <div class="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-[#070814] via-[#070814]/95 to-transparent pt-6 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-20 flex items-center justify-center">
-              ${(pt && pt.is_running)
-                ? `<button id="btn-play-${game.id}" disabled class="pixel-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold cursor-not-allowed animate-pulse shadow-[2px_2px_0px_#05050a]">
-                     <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
-                     <span>Đang Chơi...</span>
-                   </button>`
-                : (game.status_code === 'INSTALLED'
-                  ? `<button id="btn-play-${game.id}" onclick="event.stopPropagation(); launchGame('${game.id}')" class="pixel-btn btn-neon-green w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                       <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
-                       <span>Chơi Ngay</span>
-                     </button>`
-                  : (game.status_code === 'UPDATE_DETECTED'
-                    ? `<button onclick="event.stopPropagation(); toggleMod('${game.id}', true)" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
-                         <span>Cài Lại 1-Click</span>
-                       </button>`
-                    : (game.status_code === 'GAME_MISSING'
-                      ? `<button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                           <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
-                           <span>Chọn Thư Mục</span>
-                         </button>`
-                      : `<button onclick="event.stopPropagation(); toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
-                           <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
-                           <span>Cài Việt Hóa</span>
-                         </button>`
-                      )
-                    )
-                )
-              }
+              ${gridHoverActionsHtml(game, pt)}
             </div>
           </div>
         `;
@@ -910,6 +893,60 @@
       });
 
       lucide.createIcons();
+    }
+
+    // Nút hành động hiện ra khi rê chuột lên thẻ game (Arcade micro-switch)
+    function gridHoverActionsHtml(game, pt) {
+      const runningBtn = `<button id="btn-play-${game.id}" disabled class="pixel-btn bg-amber-500/20 border border-amber-500/50 text-amber-300 w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold cursor-not-allowed animate-pulse shadow-[2px_2px_0px_#05050a]">
+                     <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                     <span>Đang Chơi...</span>
+                   </button>`;
+
+      // Game lẻ (Non-Steam): [Chơi Ngay] + [Yêu Cầu Việt Hóa]
+      if (game.is_custom_game) {
+        const rec = getMyLocRequest(game);
+        const launchBtn = (pt && pt.is_running)
+          ? runningBtn
+          : `<button id="btn-play-${game.id}" onclick="event.stopPropagation(); launchGame('${game.id}')" class="pixel-btn btn-neon-green w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                       <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
+                       <span>Chơi Ngay</span>
+                     </button>`;
+        const reqBtn = rec
+          ? `<button onclick="event.stopPropagation(); onCustomGameRequestLoc('${game.id}')" class="pixel-btn w-full py-1.5 px-2 text-[11px] flex items-center justify-center space-x-1.5 font-bold shadow-[2px_2px_0px_#05050a] bg-[#06241a] border border-[#00FF9D]/60 text-[#00FF9D] hover:bg-[#083023] transition-all" title="Đã yêu cầu Việt hóa (${rec.status_label || 'Đang chờ duyệt'}) — bấm để xem tiến độ">
+                       <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                       <span>Đã Yêu Cầu Việt Hóa</span>
+                     </button>`
+          : `<button onclick="event.stopPropagation(); onCustomGameRequestLoc('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-1.5 px-2 text-[11px] flex items-center justify-center space-x-1.5 font-bold shadow-[2px_2px_0px_#05050a]" title="Gửi yêu cầu Việt hóa lên hệ thống CỔ NGỮ (tự động quét Engine và lưu vào Hồ Sơ .congu_save)">
+                       <i data-lucide="megaphone" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                       <span>Yêu Cầu Việt Hóa</span>
+                     </button>`;
+        return `<div class="w-full flex flex-col gap-1.5">${launchBtn}${reqBtn}</div>`;
+      }
+
+      if (pt && pt.is_running) return runningBtn;
+
+      if (game.status_code === 'INSTALLED') {
+        return `<button id="btn-play-${game.id}" onclick="event.stopPropagation(); launchGame('${game.id}')" class="pixel-btn btn-neon-green w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                       <i data-lucide="play" class="w-3.5 h-3.5 fill-black"></i>
+                       <span>Chơi Ngay</span>
+                     </button>`;
+      }
+      if (game.status_code === 'UPDATE_DETECTED') {
+        return `<button onclick="event.stopPropagation(); toggleMod('${game.id}', true)" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                         <span>Cài Lại 1-Click</span>
+                       </button>`;
+      }
+      if (game.status_code === 'GAME_MISSING') {
+        return `<button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn btn-neon-cyan w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                           <i data-lucide="folder-search" class="w-3.5 h-3.5 text-black"></i>
+                           <span>Chọn Thư Mục</span>
+                         </button>`;
+      }
+      return `<button onclick="event.stopPropagation(); toggleMod('${game.id}')" class="pixel-btn btn-arcade-amber w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[2px_2px_0px_#05050a]">
+                           <i data-lucide="download" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+                           <span>Cài Việt Hóa</span>
+                         </button>`;
     }
 
     function selectGameSpotlight(gameId) {
@@ -931,8 +968,10 @@
       // Chuyển đổi View: Hiện trang chi tiết phủ kín bên phải, ẩn kho lưới (Steam Library Experience)
       const viewGrid = document.getElementById('viewBrowseGrid');
       const viewDetail = document.getElementById('viewGameDetail');
+      const viewDiscovery = document.getElementById('viewDiscovery');
       if (viewGrid) viewGrid.classList.add('hidden');
       if (viewDetail) viewDetail.classList.remove('hidden');
+      if (viewDiscovery) viewDiscovery.classList.add('hidden');
 
       const breadcrumbTitle = document.getElementById('detailBreadcrumbTitle');
       if (breadcrumbTitle) {
@@ -1066,8 +1105,24 @@
           if (updateText && game.health_reason) {
             updateText.innerHTML = `${game.health_reason}. Bản dịch đã bị đè về tiếng Anh gốc. Bạn có thể bấm <strong>"Cài Lại 1-Click"</strong> bên dưới để khôi phục lại ngay lập tức từ bộ nhớ đệm Cache mà không cần tải lại!`;
           }
+          const updateRestoreBtn = document.getElementById('modalUpdateRestoreBtn');
+          if (updateRestoreBtn) {
+            if (game.has_cached_congu) {
+              updateRestoreBtn.classList.remove('hidden');
+              updateRestoreBtn.classList.add('flex');
+              updateRestoreBtn.disabled = false;
+            } else {
+              updateRestoreBtn.classList.add('hidden');
+              updateRestoreBtn.classList.remove('flex');
+            }
+          }
         } else {
           updateWarning.classList.add('hidden');
+          const updateRestoreBtnHidden = document.getElementById('modalUpdateRestoreBtn');
+          if (updateRestoreBtnHidden) {
+            updateRestoreBtnHidden.classList.add('hidden');
+            updateRestoreBtnHidden.classList.remove('flex');
+          }
         }
       }
 
@@ -1166,6 +1221,9 @@
           }
         }
       }
+
+      // Nút [Yêu Cầu Việt Hóa] chỉ hiện với game lẻ (Non-Steam)
+      syncModalRequestLocButton();
 
       // Populate Versions Tab
       renderVersionsTab(game);
@@ -1649,6 +1707,9 @@
     let achAudioCtx = null;
     function playAchievementSound() {
       try {
+        if (window.currentSettings && window.currentSettings.general && window.currentSettings.general.achievement_sound === false) {
+          return;
+        }
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         if (!achAudioCtx) achAudioCtx = new AudioContext();
@@ -2105,13 +2166,153 @@
     // COMMUNITY LOCALIZATION WISHLIST & VOTING LOGIC
     // ==============================================================================
     let communityWishlistItems = [];
-    let activeWishlistTab = 'top'; // 'top' | 'recent' | 'voted'
+    let activeWishlistTab = 'top'; // 'top' | 'recent' | 'voted' | 'mine'
     let wishlistFilterQuery = '';
     let selectedGameRequest = null;
     let reqSearchDebounceTimer = null;
     let reqDropdownItems = [];
     let reqActiveIndex = -1;
     let steamGamesDb = null;
+
+    // -------------------------------------------------------------------------
+    // YÊU CẦU VIỆT HÓA GAME LẺ (lưu trong Hồ Sơ Di Động .congu_save)
+    // -------------------------------------------------------------------------
+    let myLocalizationRequests = [];   // Danh sách yêu cầu đọc từ profile_manifest.json
+    let myLocRequestMap = {};          // Tra cứu nhanh theo steam_appid / game_id
+    let locNewsNotifications = [];     // Thông báo "Tin vui! Game đã có bản Việt Hóa"
+
+    function rebuildMyLocRequestMap() {
+      myLocRequestMap = {};
+      (myLocalizationRequests || []).forEach(it => {
+        if (!it) return;
+        if (it.request_key) myLocRequestMap[String(it.request_key)] = it;
+        if (it.steam_appid) myLocRequestMap[String(it.steam_appid)] = it;
+        if (it.game_id) myLocRequestMap[String(it.game_id)] = it;
+      });
+    }
+
+    function getMyLocRequest(game) {
+      if (!game) return null;
+      const keys = [game.steam_appid, game.id, game.request_key]
+        .filter(k => k !== undefined && k !== null && String(k).trim() !== '')
+        .map(k => String(k));
+      for (const k of keys) {
+        if (myLocRequestMap[k]) return myLocRequestMap[k];
+      }
+      return null;
+    }
+
+    function locRequestStatusBadge(rec) {
+      const st = (rec && rec.status) || 'pending';
+      if (st === 'completed') {
+        return `<span class="px-2 py-0.5 text-[9px] font-pixel text-[#00FF9D] bg-[#00FF9D]/15 border border-[#00FF9D]/40 rounded">Đã Hoàn Thành</span>`;
+      }
+      if (st === 'in_progress') {
+        return `<span class="px-2 py-0.5 text-[9px] font-pixel text-[#FF2A85] bg-[#FF2A85]/15 border border-[#FF2A85]/40 rounded animate-pulse">Đang Dịch</span>`;
+      }
+      if (st === 'reviewing') {
+        return `<span class="px-2 py-0.5 text-[9px] font-pixel text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded">Tiếp Nhận</span>`;
+      }
+      if (st === 'rejected') {
+        return `<span class="px-2 py-0.5 text-[9px] font-pixel text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded">Đã Từ Chối</span>`;
+      }
+      return `<span class="px-2 py-0.5 text-[9px] font-pixel text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 rounded">Đang Chờ Duyệt</span>`;
+    }
+
+    // Xử lý khi bấm nút [Yêu Cầu Việt Hóa] trên thẻ game lẻ
+    async function onCustomGameRequestLoc(gameId) {
+      const game = (typeof gamesList !== 'undefined' ? gamesList : []).find(g => String(g.id) === String(gameId));
+      const rec = getMyLocRequest(game);
+      if (rec) {
+        openMyRequestsTab();
+        return;
+      }
+      if (typeof requestCustomGameLocalization === 'function') {
+        await requestCustomGameLocalization(gameId);
+      }
+    }
+
+    function onModalRequestLocClick() {
+      if (!activeModalGameId) return;
+      return onCustomGameRequestLoc(activeModalGameId);
+    }
+
+    // Cập nhật nút [Yêu Cầu Việt Hóa] trong modal chi tiết theo trạng thái hồ sơ
+    function syncModalRequestLocButton() {
+      const btn = document.getElementById('modalRequestLocBtn');
+      if (!btn) return;
+      const game = (typeof gamesList !== 'undefined' ? gamesList : []).find(g => String(g.id) === String(activeModalGameId));
+      if (!game || !game.is_custom_game) {
+        btn.classList.add('hidden');
+        return;
+      }
+      btn.classList.remove('hidden');
+      const rec = getMyLocRequest(game);
+      const txt = document.getElementById('modalRequestLocBtnText');
+      if (rec) {
+        btn.className = 'pixel-btn px-3 py-2 bg-[#06241a] text-[#00FF9D] hover:text-emerald-300 text-xs border border-[#00FF9D]/50 hover:border-[#00FF9D] font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
+        if (txt) txt.textContent = rec.status === 'completed' ? 'Đã Có Việt Hóa (Cài Ngay)' : 'Đã Yêu Cầu (Xem Tiến Độ)';
+        btn.title = `Yêu cầu đã lưu trong Hồ Sơ .congu_save • Trạng thái: ${rec.status_label || 'Đang chờ duyệt'} • ${rec.community_votes || 0} lượt bình chọn`;
+      } else {
+        btn.className = 'pixel-btn px-3 py-2 btn-arcade-amber text-black text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a]';
+        if (txt) txt.textContent = 'Yêu Cầu Việt Hóa';
+        btn.title = 'Gửi yêu cầu Việt hóa tựa game ngoài này lên hệ thống CỔ NGỮ (tự động quét Engine)';
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function openMyRequestsTab() {
+      const modal = document.getElementById('requestModal');
+      if (modal) modal.classList.remove('hidden');
+      closeProposalDrawer();
+      setWishlistTab('mine');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Banner "Tin vui!" trong Bảng Nguyện Vọng
+    function renderLocNewsBanner() {
+      const banner = document.getElementById('locNewsBanner');
+      if (!banner) return;
+      const list = locNewsNotifications || [];
+      if (!list.length) {
+        banner.classList.add('hidden');
+        banner.innerHTML = '';
+        return;
+      }
+      banner.classList.remove('hidden');
+      banner.innerHTML = list.map((n, idx) => `
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center space-x-2 min-w-0">
+            <i data-lucide="party-popper" class="w-4 h-4 text-[#00FF9D] shrink-0"></i>
+            <span class="text-xs font-sans text-emerald-200 truncate" title="${(n.message || '').replace(/"/g, '&quot;')}">
+              Tin vui! <strong class="text-white">${n.vietnamese_title || n.title}</strong> bạn yêu cầu đã có bản Việt Hóa chính thức!
+            </span>
+          </div>
+          <div class="flex items-center space-x-1.5 shrink-0">
+            <button onclick="installRequestedGame(${idx})" class="pixel-btn btn-neon-green px-2.5 py-1 text-[10px] font-bold flex items-center space-x-1">
+              <i data-lucide="download" class="w-3 h-3 fill-black"></i><span>Cài Ngay</span>
+            </button>
+            <button onclick="dismissLocNews(${idx})" class="text-slate-400 hover:text-white px-1.5" title="Bỏ qua thông báo">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function dismissLocNews(idx) {
+      locNewsNotifications.splice(idx, 1);
+      renderLocNewsBanner();
+    }
+
+    function installRequestedGame(idx) {
+      const n = (locNewsNotifications || [])[idx];
+      if (!n || !n.official_game_id) return;
+      closeGameRequestModal();
+      openGameModal(n.official_game_id);
+    }
+
 
 
     if (typeof requestIdleCallback !== 'undefined') {
@@ -2125,7 +2326,12 @@
       document.getElementById('requestModal').classList.remove('hidden');
       closeProposalDrawer();
       if (window.lucide) lucide.createIcons();
+      renderLocNewsBanner();
+      if (typeof loadMyLocalizationRequests === 'function') {
+        await loadMyLocalizationRequests(true);
+      }
       await loadCommunityRequests();
+      if (activeWishlistTab === 'mine') renderMyLocalizationRequests();
     }
 
     function closeGameRequestModal() {
@@ -2186,8 +2392,9 @@
       const tabTop = document.getElementById('tabTopVoted');
       const tabRecent = document.getElementById('tabRecent');
       const tabMyVoted = document.getElementById('tabMyVoted');
+      const tabMyRequests = document.getElementById('tabMyRequests');
 
-      [tabTop, tabRecent, tabMyVoted].forEach(btn => {
+      [tabTop, tabRecent, tabMyVoted, tabMyRequests].forEach(btn => {
         if (!btn) return;
         btn.classList.remove('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
         btn.classList.add('text-slate-400');
@@ -2199,9 +2406,106 @@
         tabRecent.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
       } else if (tab === 'voted' && tabMyVoted) {
         tabMyVoted.classList.add('bg-[#00F0FF]/20', 'text-[#00F0FF]', 'border', 'border-[#00F0FF]/40', 'font-bold');
+      } else if (tab === 'mine' && tabMyRequests) {
+        tabMyRequests.classList.add('bg-[#FFB800]/20', 'text-[#FFB800]', 'border', 'border-[#FFB800]/40', 'font-bold');
       }
 
-      renderCommunityRequests();
+      if (tab === 'mine') {
+        renderMyLocalizationRequests();
+      } else {
+        renderCommunityRequests();
+      }
+    }
+
+    // Bảng "Yêu cầu Việt hóa của tôi" (đọc từ Hồ Sơ .congu_save, ghép trạng thái Server)
+    function renderMyLocalizationRequests() {
+      const container = document.getElementById('communityRequestList');
+      const statsText = document.getElementById('wishlistStatsText');
+      if (!container) return;
+
+      // Cập nhật số lượng trên tab
+      const countBadge = document.getElementById('tabMyRequestsCount');
+      if (countBadge) {
+        const n = (myLocalizationRequests || []).length;
+        if (n > 0) {
+          countBadge.textContent = n;
+          countBadge.classList.remove('hidden');
+        } else {
+          countBadge.classList.add('hidden');
+        }
+      }
+
+      let items = [...(myLocalizationRequests || [])];
+      if (wishlistFilterQuery) {
+        const q = wishlistFilterQuery.toLowerCase();
+        items = items.filter(it =>
+          (it.title && it.title.toLowerCase().includes(q)) ||
+          (it.steam_appid && String(it.steam_appid).includes(q)) ||
+          (it.game_id && String(it.game_id).includes(q))
+        );
+      }
+
+      if (statsText) {
+        const totalVotes = (myLocalizationRequests || []).reduce((acc, it) => acc + (it.community_votes || 0), 0);
+        statsText.innerHTML = `
+          <span>📌 <strong class="text-white">${(myLocalizationRequests || []).length}</strong> yêu cầu trong Hồ Sơ .congu_save &bull; <strong class="text-[#00F0FF]">${totalVotes}</strong> lượt cộng đồng đã đồng tình</span>
+        `;
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 flex flex-col items-center justify-center space-y-3 text-slate-400 font-sans">
+            <i data-lucide="inbox" class="w-8 h-8 text-slate-600"></i>
+            <span class="text-xs text-slate-300">Bạn chưa yêu cầu Việt hóa tựa game nào.</span>
+            <span class="text-[11px] text-slate-500 text-center max-w-sm leading-relaxed">Thêm game lẻ từ ổ cứng, sau đó bấm nút <strong class="text-[#FFB800]">Yêu Cầu Việt Hóa</strong> trên thẻ game để gửi đề xuất. Yêu cầu được lưu vào Hồ Sơ .congu_save nên sẽ đi theo bạn sang mọi PC khác!</span>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = items.map(it => {
+        const title = it.vietnamese_title || it.title || it.game_id || '';
+        const capsule = it.capsule || (it.steam_appid
+          ? `https://cdn.akamai.steamstatic.com/steam/apps/${it.steam_appid}/capsule_sm_120.jpg`
+          : '/static/icons/game_placeholder.png');
+        const isDone = (it.status === 'completed') && it.official_game_id;
+        const actionBtn = isDone
+          ? `<button onclick="installRequestedGameById('${it.official_game_id}')" class="pixel-btn btn-neon-green px-3 py-2 text-[11px] font-bold flex items-center space-x-1.5 shrink-0">
+               <i data-lucide="download" class="w-3.5 h-3.5 fill-black"></i><span>Cài Ngay</span>
+             </button>`
+          : `<div class="flex flex-col items-end shrink-0">
+               <span class="text-[10px] font-pixel text-[#FFB800]">${it.community_votes || 0} 🔥</span>
+               <span class="text-[9px] text-slate-500 font-sans">${it.request_ticket_id || ''}</span>
+             </div>`;
+
+        return `
+          <div class="pixel-panel p-2.5 sm:p-3 bg-[#0a0c1b] border border-white/10 hover:border-[#00F0FF]/40 flex items-center justify-between gap-3 transition-all rounded-[2px]">
+            <div class="flex items-center space-x-2.5 sm:space-x-3.5 min-w-0">
+              <img src="${capsule}" class="w-[88px] sm:w-[104px] h-[38px] sm:h-[44px] object-cover rounded-[2px] border border-white/10 shrink-0 bg-[#121424]" alt="" onerror="this.src='/static/icons/game_placeholder.png'" />
+              <div class="min-w-0">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                  <h4 class="text-xs sm:text-sm font-bold text-white truncate font-display">${title}</h4>
+                  ${locRequestStatusBadge(it)}
+                </div>
+                <div class="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5 truncate">
+                  <span class="text-[#00FF9D]/90 font-mono text-[10px]">${it.steam_appid ? 'AppID: ' + it.steam_appid : (it.game_id || '')}</span>
+                  <span class="text-slate-600">&bull;</span>
+                  <span class="text-slate-300 font-sans truncate" title="Engine phát hiện tự động">⚙️ ${it.detected_engine || 'Chưa quét'}</span>
+                </div>
+              </div>
+            </div>
+            ${actionBtn}
+          </div>
+        `;
+      }).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function installRequestedGameById(officialGameId) {
+      if (!officialGameId) return;
+      closeGameRequestModal();
+      openGameModal(officialGameId);
     }
 
     function renderCommunityRequests() {
@@ -2445,7 +2749,8 @@
       if (wishlistFilterInput) {
         wishlistFilterInput.addEventListener('input', (e) => {
           wishlistFilterQuery = e.target.value.trim();
-          renderCommunityRequests();
+          if (activeWishlistTab === 'mine') renderMyLocalizationRequests();
+          else renderCommunityRequests();
         });
       }
 
@@ -2808,7 +3113,9 @@
       if (brandIcon) brandIcon.setAttribute('data-lucide', 'panel-left-close');
       if (brandBtn) brandBtn.title = 'Thu gọn danh sách game bên trái (Ctrl+B)';
     }
+    if (typeof initSettingsOnStartup === 'function') initSettingsOnStartup();
     if (typeof fetchGames === 'function') fetchGames();
+    if (typeof syncLocalizationRequestsOnStartup === 'function') syncLocalizationRequestsOnStartup();
     if (typeof startGlobalPlaytimeWatcher === 'function') startGlobalPlaytimeWatcher();
     if (typeof checkCommunityCloudStatus === 'function') checkCommunityCloudStatus();
     if (typeof checkGdriveStatus === 'function') checkGdriveStatus();

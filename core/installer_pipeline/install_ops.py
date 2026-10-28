@@ -17,7 +17,8 @@ except ImportError:
     pass
 
 from core.config_manager import (
-    load_user_config, save_user_config, BACKUP_ROOT, get_games
+    load_user_config, save_user_config, BACKUP_ROOT, APPDATA_DIR,
+    get_games, get_active_games_json_path
 )
 from core.scanner import check_directory_writable, is_running_as_admin
 from core.downloader import download_file_with_progress
@@ -33,6 +34,59 @@ from .pipeline_runner import (
     INSTALL_PROGRESS, set_progress, get_install_progress,
     _MOD_OP_LOCK, execute_action_pipeline
 )
+
+
+def cleanup_cache_after_install(game_id: str, cfg: dict = None) -> int:
+    """
+    Xóa các gói nén (.congu / .zip / .7z) trong cache của game sau khi cài đặt thành công,
+    áp dụng khi người dùng TẮT tùy chọn 'downloader.keep_congu_cache' trong Menu Cài Đặt.
+    Trả về số tệp đã xóa.
+    """
+    removed = 0
+    try:
+        if cfg is None:
+            cfg = load_user_config()
+        if cfg.get("downloader", {}).get("keep_congu_cache", False):
+            return 0
+        cache_dir = os.path.join(APPDATA_DIR, "cache", game_id)
+        if not os.path.isdir(cache_dir):
+            return 0
+        for fn in os.listdir(cache_dir):
+            if fn.lower().endswith((".congu", ".zip", ".rar", ".7z")):
+                try:
+                    os.remove(os.path.join(cache_dir, fn))
+                    removed += 1
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[Installer] Lỗi dọn cache sau cài đặt: {e}")
+    return removed
+
+
+def find_reusable_cached_package(cache_dir: str, g: dict) -> str:
+    """
+    Tim goi .congu/.zip da tai truoc do trong cache va con hop le (SHA-256 khop ban phat hanh).
+    Dung cho tinh nang "Cai lai 1-Click 0 giay" khi game bi Steam/Epic cap nhat de len ban Viet hoa.
+    """
+    if not cache_dir or not os.path.isdir(cache_dir):
+        return ""
+    expected = str(g.get("congu_sha256") or g.get("sha256") or "").strip().lower()
+    for fn in ("mod_package.congu", "mod_package.zip"):
+        p = os.path.join(cache_dir, fn)
+        try:
+            if not os.path.exists(p) or os.path.getsize(p) < 1024:
+                continue
+            if fn.endswith(".congu") and not security.is_congu_package(p):
+                continue
+            if expected:
+                sha = (calculate_sha256(p) or "").lower()
+                if sha != expected:
+                    print(f"[Cache Reuse] Bo qua {fn}: SHA-256 khong khop ban phat hanh.")
+                    continue
+            return p
+        except Exception as e:
+            print(f"[Cache Reuse] Loi kiem tra {fn}: {e}")
+    return ""
 
 
 def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional[Callable] = None) -> dict:
@@ -236,12 +290,20 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
             source_mod_dir = cached_source
             set_progress(15, "Đã tìm thấy gói Việt Hóa trong bộ nhớ tạm (Cache)...", status="running", game_id=game_id)
         else:
+            pref_source = cfg.get("downloader", {}).get("preferred_source", "github_cdn")
             download_candidates = []
-            if g.get("download_url"):
-                download_candidates.append(("GitHub Cloud CDN (Siêu tốc)", g["download_url"]))
-            if g.get("mirror_url"):
+            
+            # Thứ tự ứng viên dựa trên nguồn ưu tiên trong Cài Đặt
+            if pref_source == "gdrive" and g.get("drive_url"):
+                download_candidates.append(("Google Drive Mirror", g["drive_url"]))
+            elif pref_source == "mirror" and g.get("mirror_url"):
                 download_candidates.append(("Mirror Dự Phòng", g["mirror_url"]))
-            if g.get("drive_url") and g.get("drive_url") != g.get("mirror_url"):
+
+            if g.get("download_url") and ("GitHub Cloud CDN (Siêu tốc)", g["download_url"]) not in download_candidates:
+                download_candidates.append(("GitHub Cloud CDN (Siêu tốc)", g["download_url"]))
+            if g.get("mirror_url") and ("Mirror Dự Phòng", g["mirror_url"]) not in download_candidates:
+                download_candidates.append(("Mirror Dự Phòng", g["mirror_url"]))
+            if g.get("drive_url") and g.get("drive_url") != g.get("mirror_url") and ("Google Drive Mirror", g["drive_url"]) not in download_candidates:
                 download_candidates.append(("Google Drive Mirror", g["drive_url"]))
             custom_url = cfg.get(f"{game_id}_download_url")
             if custom_url and custom_url not in [c[1] for c in download_candidates]:
@@ -253,14 +315,23 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
 
             os.makedirs(cache_dir, exist_ok=True)
 
+            # === TAI SU DUNG GOI DA TAI TRUOC DO (Cai lai 1-Click 0 giay, khong can mang) ===
+            reused_archive = find_reusable_cached_package(cache_dir, g)
+            if reused_archive:
+                print(f"[Cache Reuse] Dung lai goi da tai: {reused_archive}")
+                download_candidates = [("Bộ nhớ đệm (Cache) - Không cần mạng", None)]
+
             download_success = False
             last_err = ""
 
             for source_name, dl_url in download_candidates:
-                ext = ".congu" if dl_url.lower().endswith(".congu") else ".zip"
-                cache_archive = os.path.join(cache_dir, f"mod_package{ext}")
-
-                set_progress(15, f"Đang kết nối Cloud: {source_name}...", status="running", game_id=game_id)
+                if dl_url:
+                    ext = ".congu" if dl_url.lower().endswith(".congu") else ".zip"
+                    cache_archive = os.path.join(cache_dir, f"mod_package{ext}")
+                    set_progress(15, f"Đang kết nối Cloud: {source_name}...", status="running", game_id=game_id)
+                else:
+                    cache_archive = reused_archive
+                    set_progress(30, f"Đang cài lại từ {source_name} (0 giây)...", status="running", game_id=game_id)
 
                 def on_dl_progress(d, t, pct, spd):
                     mb_d = d / (1024 * 1024)
@@ -270,7 +341,8 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
                     set_progress(15 + int(pct * 0.40), msg, status="running", game_id=game_id)
 
                 try:
-                    download_file_with_progress(dl_url, cache_archive, on_dl_progress)
+                    if dl_url:
+                        download_file_with_progress(dl_url, cache_archive, on_dl_progress)
 
                     if security.is_congu_package(cache_archive):
                         expected_sha = g.get("congu_sha256") or g.get("sha256")
@@ -355,6 +427,7 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
                 uninstall_steps=g.get("uninstall_steps")
             )
             set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
+            cleanup_cache_after_install(game_id, cfg)
             return {
                 "success": True,
                 "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Data-Driven Pipeline)",
@@ -510,6 +583,7 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
                 shutil.copy2(source_bundle, target_bundle)
 
         set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
+        cleanup_cache_after_install(game_id, cfg)
         return {
             "success": True,
             "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Đã sao lưu gốc tại chỗ .congu_bak)",

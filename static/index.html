@@ -160,10 +160,22 @@
           <span id="hydraActiveDownloadsBadge" class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-pixel border border-cyan-500/40 hidden">0</span>
         </button>
 
+        <!-- Nút Tab Khám Phá (Discovery Hub: Steam Trending + Link tải Hydra + Việt hóa) -->
+        <button id="btnDiscoveryHub" onclick="openDiscoveryHub()" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-[#FF2A85]/50 bg-[#190a1c]/90 text-pink-300 hover:bg-[#2a0d24] hover:border-[#FF2A85] transition shadow-[2px_2px_0px_#05050a]" title="Khám Phá: Game đang hot trên Steam — tự động gắn nhãn CÓ BẢN TẢI (FitGirl / DODI / GOG / OnlineFix) và ĐÃ CÓ VIỆT HÓA">
+          <i data-lucide="compass" class="w-3.5 h-3.5 text-[#FF2A85]"></i>
+          <span class="hidden md:inline font-bold">Khám Phá</span>
+        </button>
+
         <!-- Nút Tùy Chỉnh Giao Diện / Theme Studio (icon-only ở cửa sổ 1340px để không ép header) -->
         <button id="themeStudioBtn" onclick="openThemeManager()" aria-label="Giao Diện" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-[#FF2A85]/50 bg-[#190a1c]/90 text-pink-300 hover:bg-[#2a0d24] hover:border-[#FF2A85] transition shadow-[2px_2px_0px_#05050a]" title="Tùy Chỉnh Giao Diện (Theme Studio)">
           <i data-lucide="palette" class="w-3.5 h-3.5 text-[#FF2A85]"></i>
           <span class="hidden 2xl:inline font-bold">Giao Diện</span>
+        </button>
+
+        <!-- Nút Menu Cài Đặt Trung Tâm (Unified Settings Modal) -->
+        <button id="btnHeaderSettings" onclick="openSettingsModal()" aria-label="Cài Đặt" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-[#00F0FF]/50 bg-[#0e1022] text-[#00F0FF] hover:bg-[#1a2245] hover:border-[#00F0FF] transition shadow-[2px_2px_0px_#05050a]" title="Menu Cài Đặt Hệ Thống (⚙️)">
+          <i data-lucide="settings" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+          <span class="hidden xl:inline font-bold">Cài Đặt</span>
         </button>
       </div>
 
@@ -749,6 +761,14 @@
               <div class="text-xs">
                 <span class="font-bold text-amber-300 block mb-0.5 font-display text-[13px]">⚠️ Phát hiện cập nhật game trên Steam/Epic:</span>
                 <span class="text-amber-200/90 leading-relaxed font-sans" id="modalUpdateWarningText">Tệp game vừa bị ghi đè về bản gốc tiếng Anh. Bạn có thể bấm <strong>"Cài Lại 1-Click"</strong> bên dưới để khôi phục ngay lập tức từ bộ nhớ đệm Cache mà không cần tải lại!</span>
+                <button
+                  id="modalUpdateRestoreBtn"
+                  onclick="startInstall(activeModalGameId, true)"
+                  class="hidden mt-2 px-3 py-1.5 rounded-[2px] bg-amber-400 hover:bg-amber-300 text-black font-bold text-[11px] items-center space-x-1.5 shadow-[2px_2px_0px_#05050a] transition cursor-pointer"
+                  title="Cài lại tức thì từ gói .congu đã tải trong bộ nhớ đệm (0 giây, không cần mạng)">
+                  <i data-lucide="zap" class="w-3.5 h-3.5 inline"></i>
+                  <span>Khôi Phục Việt Hóa Ngay (0 giây)</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1171,6 +1191,10 @@
             <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
             <span>Khôi Phục Gốc Khẩn Cấp</span>
           </button>
+          <button id="modalRequestLocBtn" onclick="onModalRequestLocClick()" class="pixel-btn px-3 py-2 btn-arcade-amber text-black text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-[2px_2px_0px_#05050a] hidden" title="Gửi yêu cầu Việt hóa tựa game ngoài này lên hệ thống CỔ NGỮ (tự động quét Engine)">
+            <i data-lucide="megaphone" class="w-3.5 h-3.5 text-black stroke-[3]"></i>
+            <span id="modalRequestLocBtnText">Yêu Cầu Việt Hóa</span>
+          </button>
           <button id="modalInstallBtn" onclick="toggleMod(activeModalGameId)" class="pixel-btn modal-action-btn btn-arcade-amber text-xs font-bold transition flex items-center justify-center space-x-2">
             <!-- Dynamic button -->
           </button>
@@ -1182,6 +1206,108 @@
       </div>
           </div> <!-- End #gameModal -->
         </div> <!-- End #viewGameDetail -->
+
+        <!-- ================================================================= -->
+        <!-- VIEW 3: DISCOVERY HUB (TAB KHÁM PHÁ - STEAM + HYDRA + VIỆT HÓA)   -->
+        <!-- ================================================================= -->
+        <div id="viewDiscovery" class="hidden space-y-6 w-full">
+
+          <!-- TOOLBAR -->
+          <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[2px] bg-[#0c0e22]/95 border border-[#FF2A85]/30 backdrop-blur-md shadow-[3px_3px_0px_#05050a]">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button onclick="closeDiscoveryHub()" class="pixel-btn px-3 py-1.5 bg-[#17192e] text-slate-300 hover:text-white text-xs border border-[#2b2f52] hover:border-[#00F0FF] flex items-center space-x-1.5" title="Quay lại Thư viện CỔ NGỮ">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                <span class="font-display font-bold">Thư Viện</span>
+              </button>
+              <div class="flex flex-col">
+                <span class="font-pixel text-[10px] text-[#FF2A85] font-bold tracking-widest">// KHÁM PHÁ</span>
+                <span id="discoveryStatsLine" class="text-[11px] text-slate-400 font-mono-tech">Đang tổng hợp dữ liệu...</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span id="discoveryUpdatedAt" class="text-[10px] text-slate-500 font-mono-tech hidden sm:inline"></span>
+              <button id="discoveryRefreshBtn" onclick="loadDiscoveryFeed(true)" class="pixel-btn btn-neon-cyan px-3 py-1.5 text-xs flex items-center space-x-1.5" title="Quét lại Steam Trending + toàn bộ nguồn .json của Hydra">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span class="font-bold">Làm Mới Dữ Liệu</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- BỘ LỌC NHANH THEO NHU CẦU THỰC TẾ -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button data-discovery-chip="all" onclick="discoverySetChip('all')" class="pixel-tab active-filter-tab px-3 py-1.5 text-[11px] font-bold">Tất cả</button>
+            <button data-discovery-chip="light" onclick="discoverySetChip('light')" class="pixel-tab px-3 py-1.5 text-[11px] font-bold" title="Game nhẹ dưới 5GB (từ tinyrepacks / GOG)">Nhẹ &lt; 5GB</button>
+            <button data-discovery-chip="portable" onclick="discoverySetChip('portable')" class="pixel-tab px-3 py-1.5 text-[11px] font-bold" title="Giải nén chơi ngay (GOG / Portable / DRM-Free)">Giải Nén Chơi Ngay</button>
+            <button data-discovery-chip="viet" onclick="discoverySetChip('viet')" class="pixel-tab px-3 py-1.5 text-[11px] font-bold" title="Chỉ hiện game đã có Việt hóa trong CỔ NGỮ">🇻🇳 Đã Việt Hóa</button>
+            <button data-discovery-chip="download" onclick="discoverySetChip('download')" class="pixel-tab px-3 py-1.5 text-[11px] font-bold" title="Chỉ hiện game đã có link tải trong nguồn Hydra">⚡ Có Bản Tải</button>
+            <button data-discovery-chip="coop" onclick="discoverySetChip('coop')" class="pixel-tab px-3 py-1.5 text-[11px] font-bold" title="Game chơi chung Co-op / OnlineFix">Co-op</button>
+
+            <div class="flex items-center space-x-2 bg-[#111326] px-2.5 py-1.5 rounded-[2px] border border-[#00F0FF]/40 ml-auto">
+              <i data-lucide="gamepad-2" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+              <select id="discoveryGenreSelect" onchange="discoverySetGenre(this.value)" class="bg-transparent text-[#00F0FF] font-semibold text-[11px] focus:outline-none cursor-pointer">
+                <option value="all" class="bg-[#0b0c1a] text-slate-200">Tất cả thể loại</option>
+                <option value="hành động" class="bg-[#0b0c1a] text-slate-200">💥 Hành động</option>
+                <option value="kinh dị" class="bg-[#0b0c1a] text-slate-200">🩸 Kinh dị</option>
+                <option value="nhập vai" class="bg-[#0b0c1a] text-slate-200">⚔️ Nhập vai</option>
+                <option value="phiêu lưu" class="bg-[#0b0c1a] text-slate-200">🧭 Phiêu lưu</option>
+                <option value="chiến thuật" class="bg-[#0b0c1a] text-slate-200">🃏 Chiến thuật</option>
+                <option value="co-op" class="bg-[#0b0c1a] text-slate-200">👥 Co-op</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- TẦNG 1: HERO BANNER - TÂM ĐIỂM TUẦN NÀY -->
+          <div id="discoveryHeroWrap" class="space-y-3"></div>
+
+          <!-- TẦNG 2: MỚI LÊN KỆ TẢI VỀ (uploadDate mới nhất từ nguồn Hydra) -->
+          <section class="space-y-3">
+            <div class="flex items-center justify-between border-b border-[#00F0FF]/20 pb-2">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="package-plus" class="w-4 h-4 text-[#00FF9D]"></i>
+                <h3 class="font-display text-base font-extrabold text-white tracking-wide">MỚI LÊN KỆ TẢI VỀ</h3>
+                <span class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40">UPLOADDATE</span>
+              </div>
+              <span class="text-[10px] text-slate-500 font-mono-tech hidden sm:inline">FitGirl · DODI · GOG · tinyrepacks · OnlineFix</span>
+            </div>
+            <div id="discoveryRecentGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3"></div>
+          </section>
+
+          <!-- TẦNG 3: ĐANG THỊNH HÀNH TRÊN THẾ GIỚI (Steam Trending + Auto-Match) -->
+          <section class="space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#00F0FF]/20 pb-2">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="flame" class="w-4 h-4 text-[#00F0FF]"></i>
+                <h3 class="font-display text-base font-extrabold text-white tracking-wide">ĐANG THỊNH HÀNH TRÊN THẾ GIỚI</h3>
+                <span class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/40">STEAM</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button data-discovery-trending="all" onclick="discoverySetTrendingTab('all')" class="pixel-tab active-filter-tab px-2.5 py-1 text-[10px] font-bold">Tất cả</button>
+                <button data-discovery-trending="top" onclick="discoverySetTrendingTab('top')" class="pixel-tab px-2.5 py-1 text-[10px] font-bold">Bán chạy nhất</button>
+                <button data-discovery-trending="new" onclick="discoverySetTrendingTab('new')" class="pixel-tab px-2.5 py-1 text-[10px] font-bold">Mới phát hành</button>
+                <button data-discovery-trending="download" onclick="discoverySetTrendingTab('download')" class="pixel-tab px-2.5 py-1 text-[10px] font-bold">⚡ Có bản tải</button>
+                <button data-discovery-trending="viet" onclick="discoverySetTrendingTab('viet')" class="pixel-tab px-2.5 py-1 text-[10px] font-bold">🇻🇳 Việt hóa</button>
+              </div>
+            </div>
+            <div id="discoveryTrendingGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3"></div>
+          </section>
+
+          <!-- TẦNG 4: GÓC CHƠI CHUNG (CO-OP / ONLINE FIX) -->
+          <section class="space-y-3">
+            <div class="flex items-center justify-between border-b border-[#00F0FF]/20 pb-2">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="users" class="w-4 h-4 text-[#FF2A85]"></i>
+                <h3 class="font-display text-base font-extrabold text-white tracking-wide">GÓC CHƠI CHUNG (CO-OP / ONLINE FIX)</h3>
+                <span class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#FF2A85]/15 text-[#FF6AAE] border border-[#FF2A85]/40">ONLINEFIX</span>
+              </div>
+              <span class="text-[10px] text-slate-500 font-mono-tech hidden sm:inline">Rủ bạn bè tải về chiến chung</span>
+            </div>
+            <div id="discoveryCoopGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3"></div>
+          </section>
+
+          <p class="text-[10px] text-slate-600 text-center font-sans pt-1">
+            Dữ liệu được tổng hợp tự động từ Steam Store API (vi) + kho cache .json của Hydra Launcher + kho Việt hóa CỔ NGỮ · Cache 6 giờ.
+          </p>
+        </div> <!-- End #viewDiscovery -->
 
       </div> <!-- End max-w-7xl mx-auto space-y-6 -->
     </main>
@@ -1246,6 +1372,9 @@
         </button>
       </div>
 
+      <!-- TIN VUI: GAME BẠN TỪNG YÊU CẦU ĐÃ CÓ BẢN VIỆT HÓA CHÍNH THỨC -->
+      <div id="locNewsBanner" class="hidden p-3 bg-gradient-to-r from-[#062a1d] via-[#08251b] to-[#0a0c1b] border-b border-[#00FF9D]/40 space-y-2"></div>
+
       <!-- ACTION & FILTER TOOLBAR -->
       <div class="p-3 bg-[#0d0f22] border-b border-white/5 flex flex-wrap items-center justify-between gap-2.5">
         <!-- Wishlist live search input -->
@@ -1265,6 +1394,9 @@
           </button>
           <button id="tabMyVoted" onclick="setWishlistTab('voted')" class="px-2.5 py-1 text-[11px] font-pixel text-slate-400 hover:text-white transition-all">
             ✓ Đã Vote
+          </button>
+          <button id="tabMyRequests" onclick="setWishlistTab('mine')" class="px-2.5 py-1 text-[11px] font-pixel text-slate-400 hover:text-white transition-all" title="Các tựa game bạn đã yêu cầu Việt hóa (lưu trong Hồ Sơ .congu_save)">
+            📌 Yêu Cầu Của Tôi <span id="tabMyRequestsCount" class="hidden ml-0.5 px-1 rounded bg-[#FFB800]/30 text-[#FFB800] text-[9px]"></span>
           </button>
         </div>
 
@@ -1944,7 +2076,30 @@
         </div>
 
         <!-- 1-Click Operations Grid (Import / Export / Pack All / Unpack All) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <!-- Export standard, user-readable ZIP -->
+          <button id="btnExportStandardZip" onclick="exportStandardSaveZip()" class="p-3.5 rounded-[6px] border border-lime-500/40 bg-[#101709] hover:bg-[#19240d] text-left transition space-y-1.5 group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-lime-400 font-bold text-xs font-display">
+                <i data-lucide="file-archive" class="w-4 h-4"></i>
+                <span>ZIP MỞ TỰ DO</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug mt-1">Xuất ZIP chuẩn, có hướng dẫn; giải nén bằng Explorer/7-Zip không cần App.</p>
+            </div>
+            <div class="text-[10px] text-lime-300 font-mono pt-1">Không mã hóa · không khóa dữ liệu</div>
+          </button>
+
+          <!-- Import standard ZIP -->
+          <button id="btnImportStandardZip" onclick="importStandardSaveZip()" class="p-3.5 rounded-[6px] border border-teal-500/40 bg-[#07161a] hover:bg-[#0d2429] text-left transition space-y-1.5 group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-teal-400 font-bold text-xs font-display">
+                <i data-lucide="folder-input" class="w-4 h-4"></i>
+                <span>NẠP TỪ ZIP CHUẨN</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug mt-1">Chọn gói ZIP đã xuất trước đó; App đọc manifest và chép save về đúng chỗ.</p>
+            </div>
+            <div class="text-[10px] text-teal-300 font-mono pt-1">Tự sao lưu save cũ &rarr;</div>
+          </button>
           <!-- Action 1: Export Vault to USB -->
           <button id="btnExportVault" onclick="exportVault()" class="p-3.5 rounded-[6px] border border-amber-500/40 bg-[#161208] hover:bg-[#241d0b] text-left transition space-y-1.5 group flex flex-col justify-between">
             <div>
@@ -2690,6 +2845,516 @@
     </div>
   </div>
 
+  <!-- ========================================================================= -->
+  <!-- MODAL: MENU CÀI ĐẶT TRUNG TÂM (UNIFIED SETTINGS MODAL) -->
+  <!-- ========================================================================= -->
+  <div id="settingsModal" class="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md hidden" onclick="if (event.target === this) closeSettingsModal()">
+    <div class="pixel-modal relative w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden bg-[#0a0c1e] border-2 border-[#00F0FF]/50 shadow-[0_12px_45px_rgba(0,0,0,0.9),0_0_30px_rgba(0,240,255,0.2)] rounded-[6px]" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-white/10 bg-[#070817] shrink-0">
+        <div class="flex items-center space-x-3 min-w-0">
+          <div class="w-9 h-9 rounded-[4px] bg-[#00F0FF]/15 border border-[#00F0FF]/60 text-[#00F0FF] flex items-center justify-center shrink-0 shadow-[2px_2px_0px_#05050a]">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <h2 id="settingsModalTitle" class="font-display text-base sm:text-lg font-bold text-white tracking-wide flex items-center gap-2">
+              CÀI ĐẶT HỆ THỐNG
+              <span class="font-pixel text-[9px] px-2 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50">UNIFIED</span>
+            </h2>
+            <p class="text-xs text-slate-400 font-sans truncate">Quản lý toàn bộ thiết lập toàn cục của CỔ NGỮ tại một nơi duy nhất</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSettingsModal()" class="pixel-btn p-1.5 bg-[#0e1022] hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/40 rounded-[2px] cursor-pointer" title="Đóng (Esc)">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body: Left Vertical Sidebar + Right Content Area -->
+      <div class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-[460px]">
+        
+        <!-- Left Vertical Tabs -->
+        <aside class="w-full md:w-60 bg-[#070817]/95 border-b md:border-b-0 md:border-r border-white/10 p-3 flex md:flex-col gap-1.5 shrink-0 select-none overflow-x-auto md:overflow-x-visible">
+          <button type="button" id="settingsTabBtn-general" onclick="switchSettingsTab('general')" class="settings-nav-btn is-active w-full px-3.5 py-3 rounded-[4px] text-xs font-bold font-display tracking-wide flex items-center space-x-2.5 transition text-left cursor-pointer">
+            <i data-lucide="sliders" class="w-4 h-4 text-[#00F0FF] shrink-0"></i>
+            <span class="truncate">1. Giao diện & Hệ thống</span>
+          </button>
+
+          <button type="button" id="settingsTabBtn-scanner" onclick="switchSettingsTab('scanner')" class="settings-nav-btn w-full px-3.5 py-3 rounded-[4px] text-xs font-bold font-display tracking-wide flex items-center space-x-2.5 transition text-left cursor-pointer">
+            <i data-lucide="folder-search" class="w-4 h-4 text-purple-400 shrink-0"></i>
+            <span class="truncate">2. Thư viện & Quét Game</span>
+          </button>
+
+          <button type="button" id="settingsTabBtn-downloader" onclick="switchSettingsTab('downloader')" class="settings-nav-btn w-full px-3.5 py-3 rounded-[4px] text-xs font-bold font-display tracking-wide flex items-center space-x-2.5 transition text-left cursor-pointer">
+            <i data-lucide="download-cloud" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+            <span class="truncate">3. Tải xuống & Bộ nhớ đệm</span>
+          </button>
+
+          <button type="button" id="settingsTabBtn-cloud_save" onclick="switchSettingsTab('cloud_save')" class="settings-nav-btn w-full px-3.5 py-3 rounded-[4px] text-xs font-bold font-display tracking-wide flex items-center space-x-2.5 transition text-left cursor-pointer">
+            <i data-lucide="cloud" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+            <span class="truncate">4. Cloud Save & Tài khoản</span>
+          </button>
+        </aside>
+
+        <!-- Right Scrollable Content Panels -->
+        <main class="flex-1 p-5 md:p-6 overflow-y-auto custom-sidebar-scroll bg-[#0a0c20]/80">
+          
+          <!-- ======================================================== -->
+          <!-- TAB 1: GIAO DIỆN & HỆ THỐNG -->
+          <!-- ======================================================== -->
+          <div id="settingsPanel-general" class="space-y-5">
+            <div>
+              <h3 class="text-sm font-bold text-white font-display uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="sliders" class="w-4 h-4 text-[#00F0FF]"></i>
+                <span>Giao Diện & Hệ Thống</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Tùy biến diện mạo Cyberpunk, âm thanh thông báo và cấu hình nền</p>
+            </div>
+
+            <!-- Theme Card -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <label class="text-xs font-bold text-slate-200">Theme / Màu Chủ Đạo Cyberpunk</label>
+                  <p class="text-[11px] text-slate-400">Chọn phong cách đồ họa Cyberpunk yêu thích cho toàn bộ giao diện</p>
+                </div>
+                <button type="button" onclick="openThemeManager()" class="pixel-btn px-2.5 py-1 text-[11px] font-bold border border-[#FF2A85]/50 bg-[#1f0d22] text-pink-300 hover:bg-[#301235] rounded-[3px] flex items-center space-x-1">
+                  <i data-lucide="palette" class="w-3 h-3 text-[#FF2A85]"></i>
+                  <span>Theme Studio</span>
+                </button>
+              </div>
+              <select id="settingInput-theme" class="w-full bg-[#070817] border border-white/20 rounded-[4px] px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-[#00F0FF] transition">
+                <!-- Rendered via JS -->
+              </select>
+            </div>
+
+            <!-- Sound & Feedback Card -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5 pr-4">
+                  <label class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>Âm Thanh Thông Báo Thành Tựu</span>
+                  </label>
+                  <p class="text-[11px] text-slate-400">Phát âm thanh fanfare arcade khi đạt danh hiệu / cúp thành tựu mới trong game</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" id="settingInput-achievement_sound" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Updates & Version Card -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5 pr-4">
+                  <label class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Tự Động Kiểm Tra Bản Cập Nhật</span>
+                  </label>
+                  <p class="text-[11px] text-slate-400">Tự động đối chiếu version.json trên GitHub khi khởi động phần mềm</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" id="settingInput-auto_check_update" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                </label>
+              </div>
+
+              <div class="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
+                <span class="text-slate-400 font-sans">Phiên bản hiện tại: <strong id="settingsCurrentVersionDisplay" class="font-mono text-[#00F0FF]">v2.0.3</strong></span>
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="checkAppUpdateFromSettings()" id="btnSettingsCheckUpdate" class="pixel-btn px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-[3px] border border-slate-600 flex items-center space-x-1.5 transition">
+                    <i data-lucide="cloud-download" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Kiểm Tra Bản Mới</span>
+                  </button>
+                  <button type="button" onclick="applyAppUpdateFromSettings()" id="btnSettingsApplyUpdate" class="pixel-btn px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-[3px] border border-emerald-400 flex items-center space-x-1.5 transition" title="Tự động tải bản cập nhật, chép đè và khởi động lại ứng dụng (chỉ hỗ trợ bản Portable .exe)">
+                    <i data-lucide="arrow-up-circle" class="w-3.5 h-3.5"></i>
+                    <span>Cập Nhật Ngay</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- AppData Quick Access Card -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] flex items-center justify-between gap-3">
+              <div class="space-y-0.5">
+                <label class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <i data-lucide="folder-code" class="w-3.5 h-3.5 text-purple-400"></i>
+                  <span>Thư Mục Dữ Liệu Ứng Dụng (%APPDATA%)</span>
+                </label>
+                <p class="text-[11px] text-slate-400">Mở nhanh %APPDATA%/VietModHub/ lưu trữ cấu hình, backup và save game</p>
+              </div>
+              <button type="button" onclick="openAppDataFolderFromSettings()" class="pixel-btn px-3 py-1.5 text-xs bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-500/50 rounded-[3px] flex items-center space-x-1.5 shrink-0 transition">
+                <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+                <span>Mở Thư Mục</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ======================================================== -->
+          <!-- TAB 2: THƯ VIỆN & QUÉT GAME -->
+          <!-- ======================================================== -->
+          <div id="settingsPanel-scanner" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-sm font-bold text-white font-display uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="folder-search" class="w-4 h-4 text-purple-400"></i>
+                <span>Thư Viện & Quét Game</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Quản lý các nguồn phát hiện game tự động trên máy tính</p>
+            </div>
+
+            <!-- Auto Scan on Startup -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026]">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5 pr-4">
+                  <label class="text-xs font-bold text-slate-200">Tự Động Quét Lại Game Khi Khởi Động</label>
+                  <p class="text-[11px] text-slate-400">Tự động nhận diện game mới cài hoặc vừa di chuyển thư mục mỗi lần mở ứng dụng</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" id="settingInput-auto_scan_on_startup" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Default Platforms Scanning -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div>
+                <label class="text-xs font-bold text-slate-200">Các Nền Tảng Quét Mặc Định</label>
+                <p class="text-[11px] text-slate-400">Bật/tắt quét thư viện các launcher phổ biến trên toàn bộ các ổ đĩa</p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <!-- Steam -->
+                <label class="flex items-center space-x-2.5 p-2.5 rounded-[4px] bg-[#070817] border border-white/10 hover:border-cyan-500/50 cursor-pointer transition">
+                  <input type="checkbox" id="settingInput-scan_steam" class="rounded bg-slate-800 border-slate-600 text-[#00F0FF] focus:ring-0" checked>
+                  <span class="text-xs font-bold text-slate-200">Steam Library</span>
+                </label>
+
+                <!-- Epic Games -->
+                <label class="flex items-center space-x-2.5 p-2.5 rounded-[4px] bg-[#070817] border border-white/10 hover:border-purple-500/50 cursor-pointer transition">
+                  <input type="checkbox" id="settingInput-scan_epic" class="rounded bg-slate-800 border-slate-600 text-purple-400 focus:ring-0" checked>
+                  <span class="text-xs font-bold text-slate-200">Epic Games</span>
+                </label>
+
+                <!-- GOG Galaxy -->
+                <label class="flex items-center space-x-2.5 p-2.5 rounded-[4px] bg-[#070817] border border-white/10 hover:border-pink-500/50 cursor-pointer transition">
+                  <input type="checkbox" id="settingInput-scan_gog" class="rounded bg-slate-800 border-slate-600 text-pink-400 focus:ring-0" checked>
+                  <span class="text-xs font-bold text-slate-200">GOG Galaxy</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Custom Library Paths -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <label class="text-xs font-bold text-slate-200">Thư Mục Chứa Game Ngoài (Custom Games)</label>
+                  <p class="text-[11px] text-slate-400">Thêm các phân vùng hoặc folder cài game không thuộc Steam (VD: D:\Games, E:\OfflineGames)</p>
+                </div>
+                <button type="button" onclick="addCustomLibraryPath()" class="pixel-btn px-2.5 py-1 text-xs bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-500/50 rounded-[3px] flex items-center space-x-1 transition">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                  <span>Thêm Thư Mục</span>
+                </button>
+              </div>
+
+              <!-- List of paths -->
+              <div id="settingsCustomPathsList" class="space-y-1.5 max-h-48 overflow-y-auto">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ======================================================== -->
+          <!-- TAB 3: TẢI XUỐNG & BỘ NHỚ ĐỆM -->
+          <!-- ======================================================== -->
+          <div id="settingsPanel-downloader" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-sm font-bold text-white font-display uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="download-cloud" class="w-4 h-4 text-cyan-400"></i>
+                <span>Tải Xuống & Bộ Nhớ Đệm</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Tùy biến tốc độ aria2c, thứ tự máy chủ tải và dung lượng ổ cứng</p>
+            </div>
+
+            <!-- Preferred Download Source -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div>
+                <label class="text-xs font-bold text-slate-200">Nguồn Tải Ưu Tiên Cho Bản Dịch</label>
+                <p class="text-[11px] text-slate-400">Khi tựa game có nhiều liên kết tải, hệ thống sẽ ưu tiên kết nối nguồn này trước</p>
+              </div>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <label class="flex items-center space-x-2.5 p-3 rounded-[4px] bg-[#070817] border border-white/10 hover:border-cyan-500/50 cursor-pointer transition">
+                  <input type="radio" name="preferred_source" value="github_cdn" class="text-cyan-400 focus:ring-0">
+                  <div>
+                    <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                      <i data-lucide="zap" class="w-3.5 h-3.5 text-cyan-400"></i>
+                      <span>GitHub CDN (Khuyên dùng)</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Tải trực tiếp từ GitHub Releases CDN, tốc độ cao</p>
+                  </div>
+                </label>
+
+                <label class="flex items-center space-x-2.5 p-3 rounded-[4px] bg-[#070817] border border-white/10 hover:border-emerald-500/50 cursor-pointer transition">
+                  <input type="radio" name="preferred_source" value="gdrive" class="text-emerald-400 focus:ring-0">
+                  <div>
+                    <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                      <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
+                      <span>Google Drive Mirror</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Kho Google Drive, tự động bypass token file lớn</p>
+                  </div>
+                </label>
+
+                <label class="flex items-center space-x-2.5 p-3 rounded-[4px] bg-[#070817] border border-white/10 hover:border-purple-500/50 cursor-pointer transition">
+                  <input type="radio" name="preferred_source" value="hydra" class="text-purple-400 focus:ring-0">
+                  <div>
+                    <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                      <i data-lucide="database" class="w-3.5 h-3.5 text-purple-400"></i>
+                      <span>Hydra Repack Sources</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Ưu tiên các nguồn Repack cộng đồng (FitGirl, DODI...)</p>
+                  </div>
+                </label>
+
+                <label class="flex items-center space-x-2.5 p-3 rounded-[4px] bg-[#070817] border border-white/10 hover:border-amber-500/50 cursor-pointer transition">
+                  <input type="radio" name="preferred_source" value="torrent" class="text-amber-400 focus:ring-0">
+                  <div>
+                    <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                      <i data-lucide="share-2" class="w-3.5 h-3.5 text-amber-400"></i>
+                      <span>Torrent Swarm / P2P</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Tải qua giao thức BitTorrent P2P đa luồng aria2c</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- aria2c Bandwidth & Concurrency -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-4">
+              <div>
+                <label class="text-xs font-bold text-slate-200">Giới Hạn Băng Thông & Tải Đồng Thời (aria2c)</label>
+                <p class="text-[11px] text-slate-400">Tối ưu băng thông mạng khi bạn vừa chơi game online vừa tải</p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Speed limit -->
+                <div class="space-y-1.5">
+                  <label class="text-xs text-slate-300 font-sans">Băng thông tối đa (KB/s):</label>
+                  <select id="settingInput-max_download_limit_kb" class="w-full bg-[#070817] border border-white/20 rounded-[4px] px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition">
+                    <option value="0">Không giới hạn (Tối đa đường truyền)</option>
+                    <option value="1024">1 MB/s (1024 KB/s)</option>
+                    <option value="2048">2 MB/s (2048 KB/s)</option>
+                    <option value="5120">5 MB/s (5120 KB/s)</option>
+                    <option value="10240">10 MB/s (10240 KB/s)</option>
+                    <option value="20480">20 MB/s (20480 KB/s)</option>
+                  </select>
+                </div>
+
+                <!-- Concurrent downloads -->
+                <div class="space-y-1.5">
+                  <label class="text-xs text-slate-300 font-sans">Số tác vụ tải đồng thời:</label>
+                  <select id="settingInput-max_concurrent_downloads" class="w-full bg-[#070817] border border-white/20 rounded-[4px] px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition">
+                    <option value="1">1 tác vụ</option>
+                    <option value="2">2 tác vụ</option>
+                    <option value="3">3 tác vụ (Khuyên dùng)</option>
+                    <option value="5">5 tác vụ</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cache Management -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5">
+                  <label class="text-xs font-bold text-slate-200">Dung Lượng Bộ Nhớ Đệm Cache (.congu)</label>
+                  <p class="text-[11px] text-slate-400">Các gói bản dịch đã tải về và tệp tạm trong quá trình giải nén</p>
+                </div>
+                <span id="settingsCacheSizeDisplay" class="font-pixel text-xs text-cyan-300 font-bold px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30">
+                  Đang tính...
+                </span>
+              </div>
+
+              <div class="flex items-center justify-between pt-2 border-t border-white/5">
+                <div class="flex items-center space-x-2">
+                  <input type="checkbox" id="settingInput-keep_congu_cache" class="rounded bg-slate-800 border-slate-600 text-cyan-400 focus:ring-0">
+                  <label for="settingInput-keep_congu_cache" class="text-xs text-slate-300 cursor-pointer">Giữ lại file .congu sau khi cài xong</label>
+                </div>
+                <button type="button" onclick="clearAppCacheFromSettings()" id="btnSettingsClearCache" class="pixel-btn px-3 py-1.5 text-xs bg-red-950 hover:bg-red-900 text-red-200 border border-red-500/50 rounded-[3px] flex items-center space-x-1.5 transition">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <span>Dọn Dẹp Cache</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ======================================================== -->
+          <!-- TAB 4: CLOUD SAVE & TÀI KHOẢN -->
+          <!-- ======================================================== -->
+          <div id="settingsPanel-cloud_save" class="space-y-5 hidden">
+            <div>
+              <h3 class="text-sm font-bold text-white font-display uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="cloud" class="w-4 h-4 text-emerald-400"></i>
+                <span>Cloud Save & Tài Khoản</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Cấu hình đồng bộ hóa file save, tài khoản Google Drive và thống kê</p>
+            </div>
+
+            <!-- Cloud Account Credentials -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <label class="text-xs font-bold text-slate-200">Tài Khoản Đám Mây Cổ Ngữ (Cloud ID)</label>
+                  <p class="text-[11px] text-slate-400">Đăng nhập tài khoản Cloud để đồng bộ Save Game đa thiết bị miễn phí</p>
+                </div>
+                <button type="button" onclick="openCloudModal()" class="pixel-btn px-2.5 py-1 text-[11px] font-bold border border-emerald-500/50 bg-[#061e16] text-emerald-300 hover:bg-[#0b3326] rounded-[3px] flex items-center space-x-1">
+                  <i data-lucide="external-link" class="w-3 h-3 text-emerald-400"></i>
+                  <span>Mở Trình Quản Lý Cloud</span>
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div class="space-y-1">
+                  <label class="text-[11px] text-slate-300">Mã Cloud ID:</label>
+                  <input type="text" id="settingInput-cloud_id" placeholder="VD: tuan3991" class="w-full bg-[#070817] border border-white/20 rounded-[4px] px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-400 font-mono transition">
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[11px] text-slate-300">Mật khẩu đồng bộ:</label>
+                  <input type="password" id="settingInput-cloud_password" placeholder="••••••••" class="w-full bg-[#070817] border border-white/20 rounded-[4px] px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-400 font-mono transition">
+                </div>
+              </div>
+            </div>
+
+            <!-- Auto Sync on Game Exit -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026]">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5 pr-4">
+                  <label class="text-xs font-bold text-slate-200">Tự Động Đồng Bộ Save Game (.congu_save) Khi Thoát Game</label>
+                  <p class="text-[11px] text-slate-400">Post-Exit Hook: Tự động gom save mới nhất vào PlayerProfile và đẩy lên Cloud an toàn</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" id="settingInput-auto_sync_on_exit" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Playtime & Offline Achievements -->
+            <div class="p-4 rounded-[6px] border border-white/10 bg-[#0d1026] space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5 pr-4">
+                  <label class="text-xs font-bold text-slate-200">Theo Dõi Giờ Chơi (Heartbeat Daemon 60s)</label>
+                  <p class="text-[11px] text-slate-400">Đếm giờ chơi chuẩn xác từng phiên, hiển thị thống kê tổng giờ chơi trên giao diện</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" id="settingInput-track_playtime" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+
+              <div class="flex items-center justify-between pt-3 border-t border-white/5">
+                <div class="space-y-0.5 pr-4">
+                  <label class="text-xs font-bold text-slate-200">Quét Thành Tựu Offline Khi Đóng Game</label>
+                  <p class="text-[11px] text-slate-400">Kiểm tra các cúp thành tựu đã mở khóa trong thư mục save ngay khi tắt game</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" id="settingInput-offline_achievements_scan" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </main>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 border-t border-[#00F0FF]/30 bg-[#070817] flex items-center justify-between gap-3 shrink-0">
+        <button type="button" onclick="resetSettingsToDefault()" class="pixel-btn px-3 py-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-700 rounded-[3px] transition cursor-pointer" title="Khôi phục về thiết lập mặc định của ứng dụng">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline mr-1"></i>
+          <span>Mặc Định</span>
+        </button>
+
+        <div class="flex items-center space-x-2.5">
+          <button type="button" onclick="closeSettingsModal()" class="pixel-btn px-4 py-1.5 text-xs text-slate-300 bg-[#17192e] border border-slate-700 hover:bg-[#202340] rounded-[3px] transition cursor-pointer">
+            Hủy
+          </button>
+          <button type="button" onclick="saveAllSettings()" id="btnSaveAllSettings" class="pixel-btn btn-neon-cyan px-5 py-1.5 text-xs font-bold rounded-[3px] flex items-center space-x-1.5 transition cursor-pointer">
+            <i data-lucide="check" class="w-4 h-4 stroke-[2.5]"></i>
+            <span>LƯU CÀI ĐẶT</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DISCOVERY HUB: MODAL CHỌN NGUỒN TẢI (FitGirl / DODI / GOG / OnlineFix) -->
+  <div id="discoveryDownloadModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
+    <div class="w-full max-w-2xl pixel-modal p-5 space-y-3 max-h-[88vh] flex flex-col">
+      <div class="flex items-start justify-between gap-3 shrink-0">
+        <div class="min-w-0">
+          <div class="flex items-center space-x-2">
+            <span class="font-pixel text-[10px] text-[#00FF9D] tracking-widest">// NGUỒN TẢI VỀ</span>
+            <span id="discoveryDownloadVietFlag" class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[2px] bg-amber-500/15 text-amber-300 border border-amber-400/40 hidden">🇻🇳 VIỆT HÓA</span>
+          </div>
+          <h3 id="discoveryDownloadTitle" class="font-display text-lg font-extrabold text-white truncate">Chọn nguồn tải</h3>
+          <p id="discoveryDownloadSubtitle" class="text-[11px] text-slate-400 font-mono-tech"></p>
+        </div>
+        <button onclick="discoveryCloseDownloadModal()" class="pixel-btn px-2.5 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#FF3344] shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div id="discoveryDownloadVietBox" class="hidden shrink-0"></div>
+
+      <div id="discoveryDownloadList" class="flex-1 overflow-y-auto custom-sidebar-scroll space-y-2 pr-1"></div>
+
+      <div id="discoveryPcCheckBox" class="shrink-0"></div>
+
+      <div class="pt-2 border-t border-[#00F0FF]/20 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <span class="text-[10px] text-slate-500 font-sans">
+          Tải xong, giải nén và trỏ thư mục game trong Thư viện để cài Việt hóa 1-click.
+        </span>
+        <button onclick="openHydraModal('downloads')" class="pixel-btn px-3 py-1.5 text-[11px] bg-[#0e1022] text-[#00F0FF] border border-[#00F0FF]/40 hover:border-[#00F0FF] flex items-center space-x-1">
+          <i data-lucide="list-checks" class="w-3.5 h-3.5"></i><span>Hàng Đợi Tải</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCOVERY HUB: MODAL XEM TRAILER -->
+  <div id="discoveryTrailerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md hidden">
+    <div class="w-full max-w-3xl pixel-modal p-4 space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <span class="font-pixel text-[10px] text-[#00F0FF] tracking-widest">// TRAILER</span>
+          <h3 id="discoveryTrailerTitle" class="font-display text-base font-extrabold text-white truncate">Trailer</h3>
+        </div>
+        <button onclick="discoveryCloseTrailerModal()" class="pixel-btn px-2.5 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#FF3344] shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <video id="discoveryTrailerVideo" controls playsinline preload="metadata"
+             class="w-full aspect-video rounded-[2px] bg-black border border-[#00F0FF]/30"></video>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p id="discoveryTrailerStatus" class="text-[11px] text-slate-400 font-sans line-clamp-1"></p>
+        <div class="flex items-center space-x-2">
+          <button onclick="discoveryRequestViet(discoveryActiveGameTitle, discoveryActiveGameAppid)" class="pixel-btn px-3 py-1.5 text-[11px] bg-[#190a1c] text-pink-300 border border-[#FF2A85]/50 hover:border-[#FF2A85] flex items-center space-x-1">
+            <i data-lucide="flame" class="w-3.5 h-3.5"></i><span>Yêu cầu Việt hóa</span>
+          </button>
+          <button id="discoveryTrailerYoutubeBtn" onclick="openExternalUrl('https://www.youtube.com')" class="pixel-btn px-3 py-1.5 text-[11px] bg-[#17192e] text-cyan-300 border border-cyan-500/40 hover:border-cyan-300 flex items-center space-x-1">
+            <i data-lucide="youtube" class="w-3.5 h-3.5"></i><span>Trailer đầy đủ</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
 
@@ -2723,6 +3388,7 @@
   <script src="/static/js/ui_render.js"></script>
   <script src="/static/js/cloud_save_ui.js"></script>
   <script src="/static/js/torrent_ui.js"></script>
+  <script src="/static/js/discovery.js"></script>
   <script src="/static/js/theme_manager.js"></script>
 </body>
 </html>

@@ -1640,6 +1640,23 @@ def api_window_restore_tray():
         response.status = 500
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/window/close", method="POST")
+def api_window_close():
+    """
+    Nút X thông minh: ẩn xuống Khay Hệ Thống nếu đang theo dõi phiên chơi game,
+    ngược lại thoát hẳn ứng dụng (Zero-Leak Clean Exit).
+    """
+    if not api_instance.window:
+        response.status = 404
+        response.content_type = "application/json"
+        return json.dumps({"success": False, "error": "No window instance"})
+    res = api_instance.request_close()
+    response.content_type = "application/json"
+    if not res.get("success"):
+        response.status = 500
+    return json.dumps(res, ensure_ascii=False)
+
+
 @server_app.route("/api/window/maximize", method="POST")
 def api_window_maximize():
     """Toggle maximize / restore the desktop window"""
@@ -1672,6 +1689,15 @@ def api_catalog_sync():
 @server_app.route("/api/version/check", method="GET")
 def api_version_check():
     res = api_instance.check_app_version()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/app/update", method="POST")
+def api_app_update():
+    """Tự động tải và cài bản cập nhật mới nhất (In-App Self-Updater), sau đó tự khởi động lại."""
+    res = api_instance.apply_app_update()
+    if not res.get("success"):
+        response.status = 400
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 

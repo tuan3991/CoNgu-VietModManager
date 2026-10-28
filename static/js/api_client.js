@@ -1190,6 +1190,97 @@
         showToast('Lỗi khi gửi đề cử lên Cloud!', 'error');
       }
     }
+
+    // =========================================================================
+    // YÊU CẦU VIỆT HÓA GAME LẺ (Lưu vào Hồ Sơ .congu_save + Cộng dồn Vote Server)
+    // =========================================================================
+    async function loadMyLocalizationRequests(silent = true) {
+      try {
+        const res = await fetch('/api/localization/my_requests');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success) return;
+
+        myLocalizationRequests = data.items || [];
+        if (typeof rebuildMyLocRequestMap === 'function') rebuildMyLocRequestMap();
+
+        // Cập nhật lại nhãn "Đã Yêu Cầu Việt Hóa" trên lưới thẻ game
+        if (typeof renderGrid === 'function' && Array.isArray(gamesList) && gamesList.length > 0) {
+          const grid = document.getElementById('viewBrowseGrid');
+          if (!grid || !grid.classList.contains('hidden')) renderGrid();
+        }
+        if (typeof syncModalRequestLocButton === 'function' && activeModalGameId) {
+          syncModalRequestLocButton();
+        }
+        if (typeof renderMyLocalizationRequests === 'function' && activeWishlistTab === 'mine') {
+          renderMyLocalizationRequests();
+        }
+      } catch (err) {
+        if (!silent) console.warn('[LocalizationRequest] Không tải được danh sách yêu cầu:', err);
+      }
+    }
+
+    async function requestCustomGameLocalization(gameId) {
+      const game = (Array.isArray(gamesList) ? gamesList : []).find(g => String(g.id) === String(gameId)) || {};
+      const existing = (typeof getMyLocRequest === 'function') ? getMyLocRequest(game) : null;
+      if (existing) {
+        if (typeof openMyRequestsTab === 'function') openMyRequestsTab();
+        return;
+      }
+
+      showToast('Đang quét Engine game và gửi yêu cầu Việt hóa...', 'info');
+      try {
+        const res = await fetch('/api/localization/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId, user_note: '' })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast(data.message || 'Đã gửi yêu cầu Việt hóa!', 'success');
+          const eng = data.engine_info && data.engine_info.engine;
+          if (eng) {
+            setTimeout(() => showToast(`Engine phát hiện: ${eng}`, 'info'), 700);
+          }
+          await loadMyLocalizationRequests();
+          await loadCommunityRequests();
+        } else if (data.already_requested) {
+          showToast(data.message || 'Bạn đã yêu cầu tựa game này rồi!', 'info');
+          await loadMyLocalizationRequests();
+        } else {
+          showToast(data.message || 'Không gửi được yêu cầu Việt hóa!', 'error');
+        }
+      } catch (err) {
+        console.error('[LocalizationRequest] request failed:', err);
+        showToast('Lỗi kết nối máy chủ khi gửi yêu cầu Việt hóa!', 'error');
+      }
+    }
+
+    async function syncLocalizationRequestsOnStartup() {
+      try {
+        const res = await fetch('/api/localization/sync', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) return;
+
+        locNewsNotifications = data.notifications || [];
+        if (typeof renderLocNewsBanner === 'function') renderLocNewsBanner();
+
+        // "Tin vui! Tựa game bạn yêu cầu đã có bản Việt Hóa chính thức!"
+        locNewsNotifications.forEach((n, idx) => {
+          setTimeout(() => {
+            showToast(n.message || `Tin vui! '${n.vietnamese_title || n.title}' đã có bản Việt Hóa chính thức!`, 'success');
+          }, 1200 + idx * 1100);
+        });
+
+        myLocalizationRequests = data.items || [];
+        if (typeof rebuildMyLocRequestMap === 'function') rebuildMyLocRequestMap();
+        if (typeof renderGrid === 'function' && Array.isArray(gamesList) && gamesList.length > 0) renderGrid();
+      } catch (err) {
+        console.warn('[LocalizationRequest] Startup sync bỏ qua (offline):', err);
+      }
+    }
+
     // Frameless Window Control Functions
     async function minimizeToTray() {
       showToast('CỔ NGỮ đã ẩn xuống Khay Hệ Thống. Bấm icon góc đồng hồ hoặc mở lại Shortcut Desktop để mở lại.', 'info');
@@ -1231,23 +1322,46 @@
       }
     }
     // Thoat hoan toan ung dung ngay lap tuc (Instant Zero-Latency Exit)
-    function quitApp() {
+    async function quitApp() {
       if (typeof progressInterval !== 'undefined' && progressInterval) {
         showToast('Đang trong quá trình cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ hoàn tất để không làm hỏng tệp game.', 'error');
         return;
       }
 
-      // 1. An toan bo giao dien ngay lap tuc (0ms Visual Feedback)
+      // 1. Hoi Backend: dang theo doi phien choi game thi AN XUONG KHAY thay vi thoat han
+      try {
+        let closeRes = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.request_close === 'function') {
+          closeRes = await window.pywebview.api.request_close();
+        } else {
+          const r = await fetch('/api/window/close', { method: 'POST' });
+          closeRes = await r.json();
+        }
+        if (closeRes && closeRes.hidden_to_tray) {
+          if (typeof showToast === 'function') {
+            showToast(
+              closeRes.message ||
+                'CỔ NGỮ đang đếm giờ chơi game nên được thu nhỏ xuống Khay Hệ Thống. Nháy đúp icon góc đồng hồ để mở lại.',
+              'info'
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        console.warn('[quitApp] request_close fallback:', e);
+      }
+
+      // 2. An toan bo giao dien ngay lap tuc (0ms Visual Feedback)
       document.body.style.display = 'none';
 
-      // 2. Gui lenh tat toi PyWebView native window
+      // 3. Gui lenh tat toi PyWebView native window
       if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.quit_app === 'function') {
         try {
           window.pywebview.api.quit_app();
         } catch (e) {}
       }
 
-      // 3. Gui lenh tat backend qua sendBeacon / fetch khong block
+      // 4. Gui lenh tat backend qua sendBeacon / fetch khong block
       const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
       try {
         if (navigator.sendBeacon) {
@@ -1257,7 +1371,7 @@
         }
       } catch (e) {}
 
-      // 4. Dong cua so ngay lap tuc
+      // 5. Dong cua so ngay lap tuc
       window.close();
     }
 
@@ -1625,3 +1739,561 @@
         showToast('Lỗi kết nối: ' + err.message, 'error');
       }
     }
+
+    // =============================================================================
+    // CÀI ĐẶT TRUNG TÂM (UNIFIED SETTINGS MODAL)
+    // =============================================================================
+    window.currentSettings = null;
+    let settingsCustomPathsList = [];
+
+    let latestAppUpdateInfo = null;
+
+    async function checkAppVersionSilent() {
+      try {
+        const resp = await fetch('/api/version/check');
+        const data = await resp.json();
+        latestAppUpdateInfo = data || null;
+        if (data && data.success && data.has_update) {
+          const banner = document.getElementById('updateNotificationBanner');
+          const version = document.getElementById('updateBannerVersion');
+          const title = document.getElementById('updateBannerTitle');
+          if (version) version.textContent = `// BẢN CẬP NHẬT v${data.latest_version}:`;
+          if (title) title.textContent = data.title || 'Đã có phiên bản phần mềm mới';
+          if (banner) banner.classList.remove('hidden');
+          if (window.lucide) lucide.createIcons();
+        }
+        return data;
+      } catch (err) {
+        console.warn('[Update] Không thể kiểm tra phiên bản:', err);
+        return null;
+      }
+    }
+
+    function closeUpdateBanner() {
+      const banner = document.getElementById('updateNotificationBanner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    async function openUpdateModal() {
+      const info = latestAppUpdateInfo || await checkAppVersionSilent();
+      if (!info || !info.has_update) {
+        showToast('Bạn đang sử dụng phiên bản CỔ NGỮ mới nhất!', 'success');
+        return;
+      }
+      const url = info.download_url || info.portable_zip_url;
+      if (url) {
+        if (typeof openExternalUrl === 'function') {
+          openExternalUrl(url);
+        } else if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.open_url === 'function') {
+          await window.pywebview.api.open_url(url);
+        } else {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      } else {
+        showToast(`Đã có bản cập nhật v${info.latest_version}.`, 'info');
+      }
+    }
+
+    async function initSettingsOnStartup() {
+      try {
+        const data = await getSettings();
+        if (data && data.settings) {
+          window.currentSettings = data.settings;
+          if (window.currentSettings?.general?.auto_check_update) {
+            setTimeout(() => {
+              if (typeof checkAppVersionSilent === 'function') checkAppVersionSilent();
+            }, 3000);
+          }
+        }
+      } catch (e) {
+        console.warn('[Settings] Error loading settings on startup:', e);
+      }
+    }
+
+    async function getSettings() {
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_settings === 'function') {
+        return await window.pywebview.api.get_settings();
+      }
+      const res = await fetch('/api/settings');
+      return await res.json();
+    }
+
+    async function loadSettings() {
+      try {
+        const data = await getSettings();
+        if (!data || !data.settings) return;
+        const s = data.settings;
+        window.currentSettings = s;
+
+        // TAB 1: General
+        const general = s.general || {};
+        window.__settingsLoadedTheme = general.theme || 'cyberpunk_default';
+        const themeSelect = document.getElementById('settingInput-theme');
+        if (themeSelect && general.theme) themeSelect.value = general.theme;
+        
+        const achSound = document.getElementById('settingInput-achievement_sound');
+        if (achSound) achSound.checked = general.achievement_sound !== false;
+
+        const autoUpdate = document.getElementById('settingInput-auto_check_update');
+        if (autoUpdate) autoUpdate.checked = general.auto_check_update !== false;
+
+        // TAB 2: Scanner
+        const scanner = s.scanner || {};
+        const autoScan = document.getElementById('settingInput-auto_scan_on_startup');
+        if (autoScan) autoScan.checked = scanner.auto_scan_on_startup !== false;
+
+        const scanSteam = document.getElementById('settingInput-scan_steam');
+        if (scanSteam) scanSteam.checked = scanner.scan_steam !== false;
+
+        const scanEpic = document.getElementById('settingInput-scan_epic');
+        if (scanEpic) scanEpic.checked = scanner.scan_epic !== false;
+
+        const scanGog = document.getElementById('settingInput-scan_gog');
+        if (scanGog) scanGog.checked = scanner.scan_gog !== false;
+
+        settingsCustomPathsList = Array.isArray(scanner.custom_library_paths) ? [...scanner.custom_library_paths] : [];
+        renderSettingsCustomPaths(settingsCustomPathsList);
+
+        // TAB 3: Downloader
+        const dl = s.downloader || {};
+        const prefSource = dl.preferred_source || 'github_cdn';
+        const radio = document.querySelector(`input[name="preferred_source"][value="${prefSource}"]`);
+        if (radio) radio.checked = true;
+
+        const limitSelect = document.getElementById('settingInput-max_download_limit_kb');
+        if (limitSelect) limitSelect.value = String(dl.max_download_limit_kb || 0);
+
+        const concurSelect = document.getElementById('settingInput-max_concurrent_downloads');
+        if (concurSelect) concurSelect.value = String(dl.max_concurrent_downloads || 3);
+
+        const keepCache = document.getElementById('settingInput-keep_congu_cache');
+        if (keepCache) keepCache.checked = !!dl.keep_congu_cache;
+
+        // TAB 4: Cloud Save
+        const cs = s.cloud_save || {};
+        const cloudId = document.getElementById('settingInput-cloud_id');
+        if (cloudId) cloudId.value = cs.cloud_id || '';
+
+        const cloudPass = document.getElementById('settingInput-cloud_password');
+        if (cloudPass) cloudPass.value = cs.password || '';
+
+        const autoSync = document.getElementById('settingInput-auto_sync_on_exit');
+        if (autoSync) autoSync.checked = cs.auto_sync_on_exit !== false;
+
+        const trackPt = document.getElementById('settingInput-track_playtime');
+        if (trackPt) trackPt.checked = cs.track_playtime !== false;
+
+        const offAch = document.getElementById('settingInput-offline_achievements_scan');
+        if (offAch) offAch.checked = cs.offline_achievements_scan !== false;
+
+      } catch (e) {
+        console.warn('[Settings] Lỗi nạp dữ liệu cài đặt:', e);
+      }
+    }
+
+    async function loadSettingsThemes() {
+      const themeSelect = document.getElementById('settingInput-theme');
+      if (!themeSelect) return;
+      try {
+        let themesData = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_themes === 'function') {
+          themesData = await window.pywebview.api.get_themes();
+        } else {
+          const res = await fetch('/api/themes');
+          themesData = await res.json();
+        }
+        if (themesData && Array.isArray(themesData.themes)) {
+          themeSelect.innerHTML = '';
+          themesData.themes.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = `${t.name || t.id} (${t.author || 'Cổ Ngữ'})`;
+            themeSelect.appendChild(opt);
+          });
+          if (themesData.active) {
+            themeSelect.value = themesData.active;
+          }
+        }
+      } catch (e) {
+        console.warn('[Settings] Lỗi nạp danh sách theme:', e);
+      }
+    }
+
+    function renderSettingsCustomPaths(paths) {
+      const container = document.getElementById('settingsCustomPathsList');
+      if (!container) return;
+      if (!paths || paths.length === 0) {
+        container.innerHTML = `
+          <div class="p-3 text-center border border-dashed border-white/10 rounded-[4px] text-slate-500 text-xs">
+            <i data-lucide="folder" class="w-4 h-4 mx-auto mb-1 text-slate-600"></i>
+            <span>Chưa thêm thư mục game ngoài nào. Bấm "+ Thêm Thư Mục" để bổ sung nơi lưu game của bạn.</span>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = paths.map((p, idx) => `
+        <div class="flex items-center justify-between p-2 rounded-[4px] bg-[#070817] border border-white/10 text-xs gap-2">
+          <div class="flex items-center space-x-2 min-w-0">
+            <i data-lucide="folder" class="w-3.5 h-3.5 text-purple-400 shrink-0"></i>
+            <span class="font-mono text-slate-300 truncate" title="${p}">${p}</span>
+          </div>
+          <button type="button" onclick="removeCustomLibraryPath(${idx})" class="p-1 text-slate-400 hover:text-red-400 rounded shrink-0 transition" title="Xóa thư mục khỏi danh sách quét">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      `).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function addCustomLibraryPath() {
+      try {
+        let res = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.select_custom_library_folder === 'function') {
+          res = await window.pywebview.api.select_custom_library_folder();
+        } else {
+          const resp = await fetch('/api/settings/browse_folder', { method: 'POST' });
+          res = await resp.json();
+        }
+        if (res && res.success && res.path) {
+          const p = res.path;
+          if (!settingsCustomPathsList.includes(p)) {
+            settingsCustomPathsList.push(p);
+            renderSettingsCustomPaths(settingsCustomPathsList);
+            showToast(`Đã thêm thư mục quét: ${p}`, 'info');
+          } else {
+            showToast('Thư mục này đã có trong danh sách quét!', 'info');
+          }
+        }
+      } catch (e) {
+        showToast('Lỗi chọn thư mục: ' + e.message, 'error');
+      }
+    }
+
+    function removeCustomLibraryPath(index) {
+      if (index >= 0 && index < settingsCustomPathsList.length) {
+        const removed = settingsCustomPathsList.splice(index, 1);
+        renderSettingsCustomPaths(settingsCustomPathsList);
+        showToast(`Đã xóa thư mục: ${removed[0]}`, 'info');
+      }
+    }
+
+    async function refreshSettingsCacheInfo() {
+      const display = document.getElementById('settingsCacheSizeDisplay');
+      if (!display) return;
+      display.textContent = 'Đang tính...';
+      try {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_cache_info === 'function') {
+          data = await window.pywebview.api.get_cache_info();
+        } else {
+          const resp = await fetch('/api/cache/info');
+          data = await resp.json();
+        }
+        if (data && data.success) {
+          display.textContent = `${data.formatted_size || '0 B'} (${data.file_count || 0} tệp)`;
+        } else {
+          display.textContent = '0 B';
+        }
+      } catch (e) {
+        display.textContent = 'Không rõ';
+      }
+    }
+
+    async function clearAppCacheFromSettings() {
+      if (!confirm('Bạn có chắc chắn muốn dọn dẹp sạch toàn bộ cache và tệp nén tạm thời không?\n(Dung lượng ổ cứng sẽ được giải phóng, các game đã cài vẫn hoạt động bình thường).')) {
+        return;
+      }
+      const btn = document.getElementById('btnSettingsClearCache');
+      if (btn) btn.disabled = true;
+      try {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.clear_cache === 'function') {
+          data = await window.pywebview.api.clear_cache();
+        } else {
+          const resp = await fetch('/api/cache/clear', { method: 'POST' });
+          data = await resp.json();
+        }
+        if (data && data.success) {
+          showToast(data.message || 'Đã dọn dẹp cache thành công!', 'success');
+          await refreshSettingsCacheInfo();
+        } else {
+          showToast(data ? data.message : 'Không thể dọn dẹp cache.', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi dọn dẹp: ' + e.message, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function openAppDataFolderFromSettings() {
+      try {
+        let res = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.open_appdata_folder === 'function') {
+          res = await window.pywebview.api.open_appdata_folder();
+        } else {
+          const resp = await fetch('/api/settings/open_appdata', { method: 'POST' });
+          res = await resp.json();
+        }
+        if (res && res.success) {
+          showToast(res.message || 'Đã mở thư mục AppData', 'info');
+        } else {
+          showToast(res ? res.message : 'Lỗi mở thư mục', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi: ' + e.message, 'error');
+      }
+    }
+
+    async function checkAppUpdateFromSettings() {
+      const btn = document.getElementById('btnSettingsCheckUpdate');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Đang kiểm tra...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+      try {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.check_app_version === 'function') {
+          data = await window.pywebview.api.check_app_version();
+        } else {
+          const resp = await fetch('/api/version/check');
+          data = await resp.json();
+        }
+        if (data && data.has_update) {
+          showToast(`Đã có bản cập nhật mới v${data.latest_version}!`, 'success');
+          if (typeof openUpdateModal === 'function') {
+            openUpdateModal();
+          }
+        } else {
+          showToast('Bạn đang sử dụng phiên bản CỔ NGỮ mới nhất!', 'success');
+        }
+      } catch (e) {
+        showToast('Không thể kiểm tra cập nhật: ' + e.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i data-lucide="cloud-download" class="w-3.5 h-3.5 text-cyan-400"></i><span>Kiểm Tra Bản Mới</span>`;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function applyAppUpdateFromSettings() {
+      if (!confirm('Ứng dụng sẽ tải bản cập nhật mới, tự đóng, chép đè và khởi động lại.\n\nBạn có chắc chắn muốn cập nhật ngay? (Không nên cập nhật khi đang cài đặt bản mod)')) {
+        return;
+      }
+      const btn = document.getElementById('btnSettingsApplyUpdate');
+      const restoreBtnLabel = () => {
+        if (!btn) return;
+        btn.innerHTML = '<i data-lucide="arrow-up-circle" class="w-3.5 h-3.5"></i><span>Cập Nhật Ngay</span>';
+        if (window.lucide) lucide.createIcons();
+      };
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Đang cập nhật...</span>';
+        if (window.lucide) lucide.createIcons();
+      }
+      try {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.apply_app_update === 'function') {
+          data = await window.pywebview.api.apply_app_update();
+        } else {
+          const resp = await fetch('/api/app/update', { method: 'POST' });
+          data = await resp.json();
+        }
+        if (data && data.success) {
+          showToast(data.message || 'Đang cập nhật ứng dụng...', 'success');
+        } else {
+          showToast((data && data.message) || 'Không thể cập nhật ứng dụng.', 'error');
+          if (btn) btn.disabled = false;
+          restoreBtnLabel();
+        }
+      } catch (e) {
+        showToast('Lỗi cập nhật: ' + (e && e.message ? e.message : e), 'error');
+        if (btn) btn.disabled = false;
+        restoreBtnLabel();
+      }
+    }
+
+    function switchSettingsTab(tabName) {
+      const tabs = ['general', 'scanner', 'downloader', 'cloud_save'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`settingsTabBtn-${t}`);
+        const panel = document.getElementById(`settingsPanel-${t}`);
+        if (t === tabName) {
+          if (btn) btn.classList.add('is-active');
+          if (panel) panel.classList.remove('hidden');
+        } else {
+          if (btn) btn.classList.remove('is-active');
+          if (panel) panel.classList.add('hidden');
+        }
+      });
+      if (tabName === 'downloader') {
+        refreshSettingsCacheInfo();
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function openSettingsModal(defaultTab = 'general') {
+      const modal = document.getElementById('settingsModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      switchSettingsTab(defaultTab);
+      loadSettingsThemes();
+      loadSettings();
+      refreshSettingsCacheInfo();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function saveAllSettings() {
+      const btn = document.getElementById('btnSaveAllSettings');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>ĐANG LƯU...</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        const new_config = {
+          general: {
+            theme: document.getElementById('settingInput-theme')?.value || 'cyberpunk_default',
+            achievement_sound: !!document.getElementById('settingInput-achievement_sound')?.checked,
+            auto_check_update: !!document.getElementById('settingInput-auto_check_update')?.checked,
+          },
+          scanner: {
+            auto_scan_on_startup: !!document.getElementById('settingInput-auto_scan_on_startup')?.checked,
+            scan_steam: !!document.getElementById('settingInput-scan_steam')?.checked,
+            scan_epic: !!document.getElementById('settingInput-scan_epic')?.checked,
+            scan_gog: !!document.getElementById('settingInput-scan_gog')?.checked,
+            custom_library_paths: settingsCustomPathsList,
+          },
+          downloader: {
+            preferred_source: document.querySelector('input[name="preferred_source"]:checked')?.value || 'github_cdn',
+            keep_congu_cache: !!document.getElementById('settingInput-keep_congu_cache')?.checked,
+            max_concurrent_downloads: parseInt(document.getElementById('settingInput-max_concurrent_downloads')?.value || '3', 10),
+            max_download_limit_kb: parseInt(document.getElementById('settingInput-max_download_limit_kb')?.value || '0', 10),
+          },
+          cloud_save: {
+            cloud_id: (document.getElementById('settingInput-cloud_id')?.value || '').trim(),
+            password: document.getElementById('settingInput-cloud_password')?.value || '',
+            auto_sync_on_exit: !!document.getElementById('settingInput-auto_sync_on_exit')?.checked,
+            track_playtime: !!document.getElementById('settingInput-track_playtime')?.checked,
+            offline_achievements_scan: !!document.getElementById('settingInput-offline_achievements_scan')?.checked,
+          }
+        };
+
+        let res = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.update_settings === 'function') {
+          res = await window.pywebview.api.update_settings(new_config);
+        } else {
+          const resp = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(new_config)
+          });
+          res = await resp.json();
+        }
+
+        if (res && res.success) {
+          window.currentSettings = res.settings || new_config;
+
+          // Áp dụng Theme ngay lập tức nếu người dùng đã đổi theme trong modal
+          const prevTheme = window.__settingsLoadedTheme || '';
+          const newTheme = new_config.general.theme;
+          if (newTheme && newTheme !== prevTheme && typeof switchTheme === 'function') {
+            try { await switchTheme(newTheme); } catch (_) {}
+          }
+          window.__settingsLoadedTheme = newTheme || prevTheme;
+
+          showToast('Đã lưu toàn bộ cài đặt thành công!', 'success');
+          closeSettingsModal();
+        } else {
+          showToast(res ? res.message : 'Lỗi khi lưu cài đặt!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi lưu cài đặt: ' + e.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 stroke-[2.5]"></i><span>LƯU CÀI ĐẶT</span>`;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function resetSettingsToDefault() {
+      if (!confirm('Bạn có chắc chắn muốn đặt lại tất cả cài đặt về giá trị mặc định ban đầu không?')) {
+        return;
+      }
+      const default_config = {
+        general: {
+          theme: 'cyberpunk_default',
+          achievement_sound: true,
+          auto_check_update: true,
+        },
+        scanner: {
+          auto_scan_on_startup: true,
+          scan_steam: true,
+          scan_epic: true,
+          scan_gog: true,
+          custom_library_paths: [],
+        },
+        downloader: {
+          preferred_source: 'github_cdn',
+          keep_congu_cache: false,
+          max_concurrent_downloads: 3,
+          max_download_limit_kb: 0,
+        },
+        cloud_save: {
+          cloud_id: '',
+          password: '',
+          auto_sync_on_exit: true,
+          track_playtime: true,
+          offline_achievements_scan: true,
+        }
+      };
+
+      let res = null;
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.update_settings === 'function') {
+        res = await window.pywebview.api.update_settings(default_config);
+      } else {
+        const resp = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(default_config)
+        });
+        res = await resp.json();
+      }
+
+      if (res && res.success) {
+        window.currentSettings = res.settings || default_config;
+        if (typeof switchTheme === 'function') {
+          try { await switchTheme('cyberpunk_default'); } catch (_) {}
+        }
+        await loadSettings();
+        showToast('Đã khôi phục cài đặt mặc định!', 'success');
+      } else {
+        showToast('Lỗi khi khôi phục mặc định.', 'error');
+      }
+    }
+
+    // Keyboard shortcuts for Settings: Ctrl+, / Esc
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        openSettingsModal();
+      } else if (e.key === 'Escape') {
+        const modal = document.getElementById('settingsModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          closeSettingsModal();
+        }
+      }
+    });
