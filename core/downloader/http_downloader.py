@@ -32,15 +32,20 @@ from hydra_source_manager import HydraSourceManager, DEFAULT_HYDRA_SOURCES
 def download_file_with_progress(
     url: str,
     dest_path: str,
-    progress_callback: Optional[Callable[[int, int, int, float], None]] = None
+    progress_callback: Optional[Callable[[int, int, int, float], None]] = None,
+    timeout: float = 15.0,
+    cancel_check: Optional[Callable[[], bool]] = None
 ) -> bool:
     """
     Download file from HTTP/HTTPS URL or Google Drive with progress tracking.
     Handles Google Drive large file confirmation tokens automatically.
+    Includes connection and read timeout protection (prevents hanging indefinitely).
 
     :param url: URL nguồn tải (HTTP/HTTPS/Google Drive share URL).
     :param dest_path: Đường dẫn lưu file trên ổ cứng.
     :param progress_callback: Callback(downloaded_bytes, total_bytes, percent, speed_kb_s).
+    :param timeout: Giới hạn thời gian kết nối và đọc socket (mặc định 15s).
+    :param cancel_check: Hàm kiểm tra xem người dùng có yêu cầu hủy tải hay không.
     :return: True nếu tải thành công, ngược lại False hoặc ném lỗi.
     """
     dest_dir = os.path.dirname(dest_path)
@@ -58,7 +63,7 @@ def download_file_with_progress(
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
     req = urllib.request.Request(url, headers=headers)
-    resp = opener.open(req)
+    resp = opener.open(req, timeout=timeout)
 
     # Check for Google Drive virus scan confirmation
     content_type = resp.headers.get("Content-Type", "")
@@ -71,26 +76,49 @@ def download_file_with_progress(
             token = confirm_token.group(1)
             confirm_url = f"{url}&confirm={token}"
             req2 = urllib.request.Request(confirm_url, headers=headers)
-            resp = opener.open(req2)
+            resp = opener.open(req2, timeout=timeout)
 
     total_size = int(resp.headers.get("Content-Length", 0))
     downloaded = 0
     chunk_size = 65536
     start_time = time.time()
 
-    with open(dest_path, "wb") as f:
-        while True:
-            chunk = resp.read(chunk_size)
-            if not chunk:
-                break
-            f.write(chunk)
-            downloaded += len(chunk)
-            if progress_callback:
-                percent = int(downloaded * 100 / total_size) if total_size > 0 else 50
-                elapsed = time.time() - start_time
-                speed_kb = (downloaded / 1024) / elapsed if elapsed > 0 else 0
-                progress_callback(downloaded, total_size, percent, speed_kb)
+    # Sử dụng file tạm .downloading để tránh hỏng file đích nếu mạng bị rớt giữa chừng
+    tmp_path = dest_path + f".downloading_{os.getpid()}"
 
-    return True
+    try:
+        with open(tmp_path, "wb") as f:
+            while True:
+                if cancel_check and cancel_check():
+                    raise InterruptedError("Tiến trình tải xuống đã bị hủy.")
+
+                chunk = resp.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+                downloaded += len(chunk)
+                if progress_callback:
+                    percent = int(downloaded * 100 / total_size) if total_size > 0 else 50
+                    elapsed = time.time() - start_time
+                    speed_kb = (downloaded / 1024) / elapsed if elapsed > 0 else 0
+                    progress_callback(downloaded, total_size, percent, speed_kb)
+
+        # Hoàn tất thành công: thay thế nguyên tử sang file đích
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+            except Exception:
+                pass
+        os.replace(tmp_path, dest_path)
+        return True
+
+    except Exception as e:
+        # Tự động dọn dẹp file tạm không hoàn chỉnh khi gặp lỗi hoặc timeout
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        raise e
 
 

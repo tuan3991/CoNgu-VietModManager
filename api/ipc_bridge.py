@@ -63,6 +63,12 @@ from core.config_manager import (
     save_covers_cache,
     get_favorite_games,
     set_api_instance_ref,
+    DEFAULT_USER_CONFIG,
+    get_unified_settings,
+    update_unified_settings,
+    get_cache_stats,
+    clear_app_cache,
+    open_appdata_directory,
 )
 
 from core.scanner import (
@@ -155,6 +161,7 @@ from community_cloud import CommunityCloudManager
 from vault_manager import ConguSaveVault
 from torrent_downloader import TorrentDownloadManager, TorrentDownloader
 from hydra_source_manager import HydraSourceManager
+from discovery_manager import DiscoveryManager, get_discovery_manager
 
 import security
 try:
@@ -167,6 +174,9 @@ MAIN_HWND = None
 _is_dragging_window = False
 is_window_maximized = False
 STEAM_GAMES_CACHE = None
+
+# Bộ tổng hợp dữ liệu tab Khám Phá (Steam Trending + Nguồn Hydra .json + Kho Việt hóa games.json)
+DISCOVERY_MGR = get_discovery_manager(HYDRA_MGR)
 
 def _norm_rel(rel_path: str) -> str:
     return norm_rel_path(rel_path)
@@ -428,6 +438,66 @@ configure_cloud_save_system(
 PLAYTIME_MGR.start_background_scanner(get_all_configured_game_paths)
 
 
+# =============================================================================
+# TRUNG TÂM YÊU CẦU VIỆT HÓA GAME LẺ (Localization Requests -> .congu_save)
+# =============================================================================
+from localization_requests import LocalizationRequestManager
+
+LOCALIZATION_REQ_MGR = LocalizationRequestManager(
+    vault_getter=get_vault_instance,
+    games_getter=get_games,
+    create_community_request=lambda *a, **kw: api_instance.create_community_request(*a, **kw),
+    get_community_requests=lambda: api_instance.get_community_requests(),
+    cloud_sync=CLOUD_SYNC_MGR,
+    logger=log_startup
+)
+
+
+def merge_vault_custom_games() -> int:
+    """
+    Khôi phục danh sách game lẻ (custom_games) từ Hồ Sơ .congu_save sang PC mới.
+    Nhờ vậy, khi người chơi nạp lại Hồ Sơ ở máy khác, thẻ game + trạng thái
+    "Đã Yêu Cầu Việt Hóa" vẫn hiển thị dù chưa trỏ lại đường dẫn .exe trên máy này.
+    """
+    try:
+        vault = get_vault_instance()
+        manifest = vault.read_manifest() or {}
+        stored = manifest.get("custom_games") or {}
+        if not isinstance(stored, dict) or not stored:
+            return 0
+
+        c_games = load_custom_games()
+        existing_ids = {str(g.get("id")) for g in c_games if isinstance(g, dict)}
+        added = 0
+        for cg_id, info in stored.items():
+            if not isinstance(info, dict) or str(cg_id) in existing_ids:
+                continue
+            c_games.append({
+                "id": cg_id,
+                "title": info.get("title") or cg_id,
+                "steam_appid": str(info.get("steam_appid") or ""),
+                "executable_name": info.get("executable_name", ""),
+                "engine": info.get("engine") or "PC Game",
+                "game_root": "",
+                "last_known_root": info.get("last_known_root", ""),
+                "vault_config": info.get("vault_config", {}),
+                "restored_from_vault": True
+            })
+            added += 1
+
+        if added:
+            save_custom_games(c_games)
+            log_startup(f"[LocalizationRequest] Đã khôi phục {added} game lẻ từ Hồ Sơ (.congu_save) sang PC này.")
+        return added
+    except Exception as e:
+        print(f"[LocalizationRequest] merge_vault_custom_games warning: {e}")
+        return 0
+
+
+# Máy chủ Bảng Nguyện Vọng Cộng Đồng mặc định (Firebase Realtime Database)
+DEFAULT_FIREBASE_RTDB_URL = "https://congu-hub-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+
 def get_firebase_url():
     global FIREBASE_RTDB_URL
     if FIREBASE_RTDB_URL:
@@ -435,7 +505,7 @@ def get_firebase_url():
     env_url = os.environ.get("FIREBASE_RTDB_URL")
     if env_url:
         return env_url.rstrip("/")
-    return ""
+    return DEFAULT_FIREBASE_RTDB_URL
 
 def fetch_community_requests_from_cloud():
     fb_url = get_firebase_url()
@@ -771,10 +841,20 @@ class ModManagerAPI:
             games = json.load(f)
 
         user_cfg = load_user_config()
-        libraries = detect_steam_libraries()
-        epic_games = detect_epic_games()
-        gog_games = detect_gog_games()
-        standalone_dirs = detect_standalone_game_dirs()
+        scanner_cfg = user_cfg.get("scanner", {})
+        scan_steam = scanner_cfg.get("scan_steam", True)
+        scan_epic = scanner_cfg.get("scan_epic", True)
+        scan_gog = scanner_cfg.get("scan_gog", True)
+        auto_scan = scanner_cfg.get("auto_scan_on_startup", True)
+        custom_libs = scanner_cfg.get("custom_library_paths", [])
+
+        libraries = detect_steam_libraries() if scan_steam else []
+        epic_games = detect_epic_games() if scan_epic else []
+        gog_games = detect_gog_games() if scan_gog else []
+        standalone_dirs = list(detect_standalone_game_dirs())
+        for cl in custom_libs:
+            if cl and os.path.isdir(cl) and cl not in standalone_dirs:
+                standalone_dirs.append(cl)
         user_data = load_user_data()
         covers_cache = load_covers_cache()
         favorites = set(get_favorite_games())
@@ -795,7 +875,7 @@ class ModManagerAPI:
                 else:
                     game_path = ""
             
-            if not game_path:
+            if not game_path and auto_scan:
                 detected = find_game_install_path(g, libraries, epic_games=epic_games, gog_games=gog_games, standalone_dirs=standalone_dirs)
                 if detected:
                     is_valid, resolved, _ = verify_and_resolve_game_path(g, detected)
@@ -1378,7 +1458,62 @@ class ModManagerAPI:
 
         return {"success": False, "message": "Chưa chọn ảnh nào."}
 
-    def select_vault_file_dialog(self):
+    def select_standard_zip_dialog(self):
+        """Mở hộp thoại chọn gói ZIP save tiêu chuẩn."""
+        chosen_file = None
+        if self.window:
+            try:
+                res = self.window.create_file_dialog(
+                    webview.OPEN_DIALOG, allow_multiple=False,
+                    file_types=('ZIP Save tiêu chuẩn (*.zip)', 'All files (*.*)')
+                )
+                if res:
+                    chosen_file = res[0]
+            except Exception as e:
+                print(f"[!] PyWebView ZIP dialog error: {e}")
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
+                chosen_file = filedialog.askopenfilename(
+                    title="Chọn gói ZIP Save tiêu chuẩn",
+                    filetypes=[("ZIP Save tiêu chuẩn", "*.zip"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+        return chosen_file or ""
+
+    def export_standard_zip_dialog(self):
+        """Mở hộp thoại lưu gói ZIP save tiêu chuẩn."""
+        chosen_file = None
+        if self.window:
+            try:
+                res = self.window.create_file_dialog(
+                    webview.SAVE_DIALOG, save_filename="CoNgu_SaveGame_Backup.zip",
+                    file_types=('ZIP Save tiêu chuẩn (*.zip)', 'All files (*.*)')
+                )
+                if res:
+                    chosen_file = res if isinstance(res, str) else res[0]
+            except Exception as e:
+                print(f"[!] PyWebView ZIP save dialog error: {e}")
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk(); root.withdraw(); root.attributes("-topmost", True)
+                chosen_file = filedialog.asksaveasfilename(
+                    title="Xuất Save Game ra ZIP chuẩn",
+                    initialfile="CoNgu_SaveGame_Backup.zip",
+                    defaultextension=".zip",
+                    filetypes=[("ZIP Save tiêu chuẩn", "*.zip"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+        return chosen_file or ""
+
         """Mở hộp thoại chọn tệp .congu_save từ USB/ổ cứng ngoài."""
         chosen_file = None
         if self.window:
@@ -2307,8 +2442,19 @@ class ModManagerAPI:
 
         if gid_str in data:
             if gid_str not in voted_ids:
-                return self.vote_community_request(game_id)
+                vote_res = self.vote_community_request(game_id)
+                self._persist_localization_request(
+                    gid_str, name, capsule, note,
+                    status=(data.get(gid_str) or {}).get("status", "voting"),
+                    votes=(data.get(gid_str) or {}).get("votes", 1)
+                )
+                return vote_res
             else:
+                self._persist_localization_request(
+                    gid_str, name, capsule, note,
+                    status=(data[gid_str] or {}).get("status", "voting"),
+                    votes=(data[gid_str] or {}).get("votes", 1)
+                )
                 return {
                     "success": True,
                     "action": "already_exists",
@@ -2335,6 +2481,10 @@ class ModManagerAPI:
         if get_firebase_url():
             push_community_request_to_cloud(gid_str, new_item)
 
+        self._persist_localization_request(
+            gid_str, name, capsule, note, status="voting", votes=1
+        )
+
         return {
             "success": True,
             "action": "created",
@@ -2354,7 +2504,124 @@ class ModManagerAPI:
         }
         data["game_requests"].append(req)
         save_user_data(data)
+
+        # Lưu kèm vào Hồ Sơ Cổ Ngữ (.congu_save) để yêu cầu đi theo người chơi sang PC khác
+        if steam_id:
+            self._persist_localization_request(
+                str(steam_id), game_name, capsule or "", note, status="voting", votes=1
+            )
+
         return {"success": True, "message": f"Đã ghi nhận yêu cầu Việt hóa tựa game '{game_name}' thành công!"}
+
+    # =========================================================================
+    # YÊU CẦU VIỆT HÓA GAME LẺ (LOCALIZATION REQUESTS -> FILE .CONGU_SAVE)
+    # =========================================================================
+    def _persist_localization_request(self, game_id, name, capsule="", note="",
+                                      status="voting", votes=1, synced=True):
+        """
+        Ghi yêu cầu Việt hóa vào localization_requests bên trong tệp .congu_save
+        (kèm player_id) để mang sang bất kỳ PC nào khác.
+        """
+        try:
+            gid_str = str(game_id)
+            is_appid = gid_str.isdigit()
+            res = LOCALIZATION_REQ_MGR.register_request(
+                game_key=gid_str,
+                title=name,
+                steam_appid=gid_str if is_appid else "",
+                game_id=gid_str,
+                detected_engine="",
+                user_note=note,
+                status=status,
+                community_votes=votes,
+                synced_to_server=synced,
+                extra={"capsule": capsule or ""}
+            )
+            return bool(res.get("success"))
+        except Exception as e:
+            print(f"[LocalizationRequest] Persist warning: {e}")
+            return False
+
+    def inspect_custom_game_engine(self, game_id: str):
+        """Quét nhanh Engine & file ngôn ngữ của game ngoài (Unity/Unreal/GameMaker...)."""
+        cfg = load_user_config()
+        target = next((g for g in load_custom_games() if g.get("id") == game_id), None)
+        if not target:
+            return {"success": False, "message": "Không tìm thấy game tự thêm này trong thư viện!"}
+
+        game_root = cfg.get(f"{game_id}_path") or target.get("game_root", "")
+        info = LOCALIZATION_REQ_MGR.inspect_game_engine(game_root)
+        info["success"] = True
+        info["game_id"] = game_id
+        info["title"] = target.get("title", "")
+        return info
+
+    def request_custom_game_localization(self, game_id: str, user_note: str = ""):
+        """
+        Gửi yêu cầu Việt hóa cho 1 game lẻ:
+        Quét Engine -> Đề cử/cộng dồn Vote trên Server -> Lưu vĩnh viễn vào .congu_save.
+        """
+        cfg = load_user_config()
+        target = next((g for g in load_custom_games() if g.get("id") == game_id), None)
+        if not target:
+            return {"success": False, "message": "Không tìm thấy game tự thêm này trong thư viện!"}
+
+        game_root = cfg.get(f"{game_id}_path") or target.get("game_root", "")
+        game_config = dict(target)
+        game_config["game_root"] = game_root
+
+        # Ảnh bìa cục bộ (nếu có) để hiển thị trên bảng nguyện vọng cộng đồng
+        safe_gid = re.sub(r"[^\w\-]", "_", str(game_id))
+        for ext in ("jpg", "png"):
+            cover_path = os.path.join(COVERS_DIR, f"{safe_gid}.{ext}")
+            if os.path.exists(cover_path) and os.path.getsize(cover_path) > 500:
+                game_config["cover_url"] = f"/api/covers/{safe_gid}.{ext}"
+                break
+
+        return LOCALIZATION_REQ_MGR.submit_game_request(game_config, game_root, user_note)
+
+    def get_my_localization_requests(self):
+        """Danh sách yêu cầu Việt hóa của người chơi (đọc từ .congu_save + trạng thái Server)."""
+        live_items = []
+        try:
+            community = self.get_community_requests()
+            if community.get("success"):
+                live_items = community.get("items") or []
+        except Exception as e:
+            print(f"[LocalizationRequest] Community fetch warning: {e}")
+
+        try:
+            official_games = self.get_games()
+        except Exception:
+            official_games = []
+
+        res = LOCALIZATION_REQ_MGR.list_requests(live_items=live_items, official_games=official_games)
+        out = {"success": True}
+        out.update(res)
+        return out
+
+    def sync_localization_requests(self):
+        """
+        Gọi khi mở App / nạp lại .congu_save ở PC khác:
+        Đối chiếu games.json để phát hiện game đã có bản Việt Hóa chính thức ("Tin vui!")
+        và cập nhật tiến độ dịch mới nhất từ máy chủ.
+        """
+        try:
+            official_games = [g for g in self.get_games() if not g.get("is_custom_game")]
+        except Exception:
+            official_games = []
+
+        res = LOCALIZATION_REQ_MGR.sync_with_official(official_games=official_games)
+        notifications = res.get("notifications", [])
+        return {
+            "success": True,
+            "changed": res.get("changed", False),
+            "notifications": notifications,
+            "items": res.get("items", []),
+            "total": res.get("total", 0),
+            "message": (f"{len(notifications)} tựa game bạn từng yêu cầu đã có bản Việt Hóa chính thức!"
+                        if notifications else "Đã đồng bộ trạng thái yêu cầu Việt hóa từ máy chủ.")
+        }
 
     def get_progress(self):
         """Returns current installation / download progress"""
@@ -2635,6 +2902,65 @@ class ModManagerAPI:
         except Exception as e:
             return {"success": False, "error": str(e), "games": []}
 
+    # =========================================================================
+    # DISCOVERY HUB APIs (TAB KHÁM PHÁ: STEAM TRENDING + HYDRA + VIỆT HÓA)
+    # =========================================================================
+    def get_discovery_feed(self, force_refresh=False):
+        """Trả về toàn bộ feed tab Khám Phá (Hero, Mới lên kệ, Steam Trending, Co-op)."""
+        try:
+            feed = DISCOVERY_MGR.get_feed(force_refresh=bool(force_refresh))
+            payload = {"success": True}
+            payload.update(feed)
+            return payload
+        except Exception as e:
+            return {"success": False, "error": str(e), "hero": [], "recent_repacks": [],
+                    "steam_trending": [], "online_coop": [], "stats": {}, "watchlist": []}
+
+    def get_discovery_trailer(self, steam_appid="", seconds=12):
+        """Lấy thông tin trailer + link clip MP4 cục bộ để phát khi rê chuột lên thẻ Poster."""
+        try:
+            return DISCOVERY_MGR.get_trailer(steam_appid, seconds)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def get_discovery_clip(self, steam_appid="", seconds=12):
+        """Tạo (hoặc lấy từ cache) file micro-trailer MP4 12-20 giây đầu của game."""
+        try:
+            res = DISCOVERY_MGR.build_preview_clip(steam_appid, seconds)
+            if res.get("success"):
+                res["url"] = f"/api/discovery/clip?appid={steam_appid}&seconds={int(seconds)}"
+            return res
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def check_pc_compatibility(self, steam_appid=""):
+        """Đối chiếu RAM/CPU/GPU của máy với pc_requirements của game (Smart PC Check)."""
+        try:
+            return DISCOVERY_MGR.pc_check(steam_appid)
+        except Exception as e:
+            return {"success": False, "status": "unknown", "message": str(e)}
+
+    def get_discovery_watchlist(self):
+        """Danh sách game người dùng đang Theo dõi (chờ nguồn .json có bản tải)."""
+        try:
+            return {"success": True, "watchlist": DISCOVERY_MGR.get_watchlist()}
+        except Exception as e:
+            return {"success": False, "watchlist": [], "error": str(e)}
+
+    def update_discovery_watchlist(self, action="add", title="", steam_appid="", poster_url=""):
+        """Thêm / bỏ theo dõi một tựa game trong tab Khám Phá."""
+        try:
+            return DISCOVERY_MGR.update_watchlist(action, title, steam_appid, poster_url)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def request_vietnamese_localization(self, title="", steam_appid="", note=""):
+        """Bấm 'Yêu cầu Việt hóa' cho game hot chưa có tiếng Việt -> đưa vào hàng đợi dịch."""
+        try:
+            return DISCOVERY_MGR.request_vietnamese(title, steam_appid, note, api_instance=self)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
     def start_torrent_download(self, uri, title="", save_dir=None):
         """Bắt đầu tải game bằng aria2c (Magnet / Torrent / HTTP link)."""
         try:
@@ -2690,9 +3016,9 @@ class ModManagerAPI:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def quit_app(self):
+    def quit_app(self, force: bool = False):
         """Immediately and cleanly terminate the application"""
-        if INSTALL_PROGRESS.get("status") == "running":
+        if not force and INSTALL_PROGRESS.get("status") == "running":
             return {
                 "success": False,
                 "message": "Không thể thoát ứng dụng khi đang thực thi cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ tiến trình hoàn tất để tránh làm hỏng tệp game."
@@ -2977,10 +3303,82 @@ class ModManagerAPI:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
+    # ==========================================================================
+    # UNIFIED SETTINGS (MENU CÀI ĐẶT TRUNG TÂM) - IPC BRIDGE
+    # ==========================================================================
+
+    def get_settings(self):
+        """Lấy cấu hình hợp nhất 4 tab (General, Scanner, Downloader, Cloud Save)."""
+        try:
+            return {"success": True, "settings": get_unified_settings()}
+        except Exception as e:
+            return {"success": False, "message": str(e), "settings": DEFAULT_USER_CONFIG}
+
+    def update_settings(self, new_config: dict):
+        """Cập nhật toàn bộ hoặc từng phần cài đặt từ Menu Cài Đặt Hợp Nhất."""
+        try:
+            return update_unified_settings(new_config)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def get_cache_info(self):
+        """Lấy thông tin dung lượng và số lượng tệp trong bộ nhớ đệm cache."""
+        try:
+            return get_cache_stats()
+        except Exception as e:
+            return {"success": False, "total_bytes": 0, "formatted_size": "0 B", "error": str(e)}
+
+    def clear_cache(self):
+        """Xóa sạch cache gói mod và tệp tạm trong %APPDATA%/VietModHub/cache."""
+        try:
+            return clear_app_cache()
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def open_appdata_folder(self):
+        """Mở thư mục %APPDATA%/VietModHub trong Windows Explorer."""
+        try:
+            return open_appdata_directory()
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def select_custom_library_folder(self):
+        """Mở hộp thoại chọn thư mục chứa game ngoài để thêm vào danh sách quét."""
+        chosen_dir = ""
+        try:
+            if self.window:
+                res = self.window.create_file_dialog(webview.FOLDER_DIALOG)
+                if res:
+                    chosen_dir = res if isinstance(res, str) else res[0]
+        except Exception as e:
+            print(f"[!] PyWebView folder dialog error: {e}")
+
+        if not chosen_dir:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_dir = filedialog.askdirectory(title="Chọn thư mục chứa game để thêm vào quét")
+                root.destroy()
+            except Exception:
+                pass
+
+        if chosen_dir:
+            return {"success": True, "path": os.path.normpath(chosen_dir)}
+        return {"success": False, "message": "Chưa chọn thư mục nào."}
+
 
 
 
 
 # Global API singleton instance
 api_instance = ModManagerAPI()
+
+# Tự động khôi phục game lẻ + yêu cầu Việt hóa từ Hồ Sơ (.congu_save) khi khởi động
+try:
+    merge_vault_custom_games()
+except Exception as _merge_err:
+    print(f"[LocalizationRequest] Startup merge skipped: {_merge_err}")
 set_api_instance_ref(api_instance)

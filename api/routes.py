@@ -27,6 +27,11 @@ from core.config_manager import (
     save_covers_cache,
     get_favorite_games,
     toggle_favorite,
+    get_unified_settings,
+    update_unified_settings,
+    get_cache_stats,
+    clear_app_cache,
+    open_appdata_directory,
 )
 
 from core.installer_pipeline import (
@@ -55,6 +60,8 @@ from api.ipc_bridge import (
     get_steam_games,
     COMMUNITY_CLOUD_MGR,
     CONTROLLER_ENGINE,
+    LOCALIZATION_REQ_MGR,
+    merge_vault_custom_games,
     log_startup,
 )
 
@@ -109,6 +116,10 @@ def verify_session_token():
     from calling /api/ endpoints. Only requests bearing the valid per-session Auth-Token are permitted.
     """
     if request.path.startswith("/api/covers/") or request.path.startswith("/api/game/poster_preview"):
+        return
+    if request.path.startswith("/api/discovery/clip"):
+        # Thẻ <video> phát micro-trailer không gửi được header token; tham số chỉ nhận appid dạng số
+        # nên vẫn an toàn tuyệt đối (không thể path traversal, chỉ phục vụ file trong discovery_trailers).
         return
     if request.path.startswith("/api/themes/") and not request.path.rstrip("/").endswith("/api/themes"):
         # custom.css & ảnh nền theme được nạp qua <link>/<img> nên trình duyệt không gửi được header token.
@@ -947,6 +958,39 @@ def api_vault_export():
     res = vault.export_vault(target_path)
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/vault/export_standard_zip", method="POST")
+def api_vault_export_standard_zip():
+    """Xuất save thành ZIP chuẩn mở được bằng Explorer/WinRAR/7-Zip."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    target_path = data.get("target_path")
+    if not target_path:
+        target_path = api_instance.export_standard_zip_dialog()
+        if not target_path:
+            return json.dumps({"success": False, "cancelled": True, "message": "Người dùng đã hủy xuất ZIP"})
+    vault = get_vault_instance()
+    res = vault.export_standard_zip(target_path, get_games(), load_user_config())
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/vault/import_standard_zip", method="POST")
+def api_vault_import_standard_zip():
+    """Khôi phục trực tiếp từ ZIP chuẩn theo save_manifest.json."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    source_path = data.get("source_path")
+    if not source_path:
+        source_path = api_instance.select_standard_zip_dialog()
+        if not source_path:
+            return json.dumps({"success": False, "cancelled": True, "message": "Người dùng đã hủy chọn ZIP"})
+    vault = get_vault_instance()
+    res = vault.import_standard_zip(source_path, get_games(), load_user_config(), backup_existing=data.get("backup_existing", True))
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+
 @server_app.route("/api/vault/import", method="POST")
 def api_vault_import():
     """Nạp file .congu_save từ USB hoặc file được chọn vào hệ thống."""
@@ -962,6 +1006,11 @@ def api_vault_import():
     vault = get_vault_instance()
     res = vault.import_vault(source_path)
     if res.get("success") and auto_unpack:
+        # Khôi phục danh sách game lẻ + yêu cầu Việt hóa đi kèm Hồ Sơ sang PC này
+        try:
+            res["restored_custom_games"] = merge_vault_custom_games()
+        except Exception as e:
+            print(f"[VaultImport] merge custom games warning: {e}")
         games = get_games()
         cfg = load_user_config()
         unpack_res = vault.unpack_all_installed_games(games, cfg)
@@ -1224,6 +1273,52 @@ def api_custom_games_set_appid():
 
 
 # =========================================================================
+# YÊU CẦU VIỆT HÓA CHO GAME LẺ (LOCALIZATION REQUESTS -> FILE .CONGU_SAVE)
+# =========================================================================
+@server_app.route("/api/localization/inspect", method="POST")
+def api_localization_inspect():
+    """Quét nhanh Engine & cấu trúc file ngôn ngữ của game ngoài (Engine Telemetry)."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "message": "game_id không được để trống!"}, ensure_ascii=False)
+    res = api_instance.inspect_custom_game_engine(game_id)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/localization/request", method="POST")
+def api_localization_request():
+    """Gửi yêu cầu Việt hóa cho game lẻ và lưu vĩnh viễn vào .congu_save."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    user_note = data.get("user_note", "")
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "message": "game_id không được để trống!"}, ensure_ascii=False)
+    res = api_instance.request_custom_game_localization(game_id, user_note)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/localization/my_requests", method="GET")
+def api_localization_my_requests():
+    """Danh sách yêu cầu Việt hóa của tôi (đọc từ Hồ Sơ .congu_save + trạng thái máy chủ)."""
+    response.content_type = "application/json"
+    res = api_instance.get_my_localization_requests()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/localization/sync", method="POST")
+def api_localization_sync():
+    """Đồng bộ trạng thái yêu cầu & phát hiện game đã có bản Việt Hóa chính thức ('Tin vui!')."""
+    response.content_type = "application/json"
+    res = api_instance.sync_localization_requests()
+    return json.dumps(res, ensure_ascii=False)
+
+
+# =========================================================================
 # HYDRA REPACK SOURCES & TORRENT DOWNLOAD ENGINE REST APIS
 # =========================================================================
 @server_app.route("/api/hydra/sources", method="GET")
@@ -1390,10 +1485,123 @@ def api_torrent_open_folder():
     return json.dumps(res, ensure_ascii=False)
 
 
+# ==============================================================================
+# DISCOVERY HUB (TAB KHÁM PHÁ) REST APIS
+# Ghép 3 nguồn: Steam Trending + Nguồn tải Hydra (.json) + Kho Việt hóa (games.json)
+# ==============================================================================
+
+@server_app.route("/api/discovery/feed", method=["GET", "POST"])
+def api_discovery_feed():
+    """Feed tổng hợp cho tab Khám Phá (cache 6 tiếng, mở tab tức thì)."""
+    response.content_type = "application/json"
+    force = False
+    if request.method == "POST":
+        data = request.json or {}
+        force = bool(data.get("force_refresh") or data.get("refresh"))
+    else:
+        force = str(request.query.get("refresh") or "").lower() in ("1", "true", "yes")
+    res = api_instance.get_discovery_feed(force_refresh=force)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/discovery/trailer", method=["GET", "POST"])
+def api_discovery_trailer():
+    """Thông tin micro-trailer + link clip MP4 cục bộ để phát preview khi rê chuột lên Poster."""
+    response.content_type = "application/json"
+    appid = ""
+    seconds = 12
+    if request.method == "POST":
+        data = request.json or {}
+        appid = str(data.get("steam_appid") or data.get("appid") or "").strip()
+        seconds = data.get("seconds") or 12
+    else:
+        appid = str(request.query.get("steam_appid") or request.query.get("appid") or "").strip()
+        seconds = request.query.get("seconds") or 12
+    try:
+        seconds = int(seconds)
+    except Exception:
+        seconds = 12
+    res = api_instance.get_discovery_trailer(appid, seconds)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/discovery/clip", method="GET")
+def api_discovery_clip():
+    """
+    Phục vụ file micro-trailer MP4 cục bộ (đã cắt 12-20s đầu) với hỗ trợ HTTP Range.
+    Được whitelist khỏi kiểm tra token vì thẻ <video> của trình duyệt không gửi được header,
+    và tham số chỉ nhận Steam AppID dạng số nên không thể path traversal.
+    """
+    appid = str(request.query.get("appid") or request.query.get("steam_appid") or "").strip()
+    try:
+        seconds = int(request.query.get("seconds") or 12)
+    except Exception:
+        seconds = 12
+    res = api_instance.get_discovery_clip(appid, seconds)
+    if not res.get("success"):
+        abort(404, res.get("message") or "Không có trailer cho tựa game này")
+    response.set_header("Cache-Control", "public, max-age=604800")
+    return static_file(res["file"], root=os.path.dirname(res["path"]))
+
+
+@server_app.route("/api/discovery/pc_check", method=["GET", "POST"])
+def api_discovery_pc_check():
+    """Đánh giá tương thích cấu hình máy với game (RAM/CPU/GPU vs pc_requirements)."""
+    response.content_type = "application/json"
+    appid = ""
+    if request.method == "POST":
+        data = request.json or {}
+        appid = str(data.get("steam_appid") or data.get("appid") or "").strip()
+    else:
+        appid = str(request.query.get("steam_appid") or request.query.get("appid") or "").strip()
+    res = api_instance.check_pc_compatibility(appid)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/discovery/watchlist", method=["GET", "POST"])
+def api_discovery_watchlist():
+    """Đọc hoặc cập nhật danh sách game đang Theo dõi bản tải / Việt hóa."""
+    response.content_type = "application/json"
+    if request.method == "POST":
+        data = request.json or {}
+        res = api_instance.update_discovery_watchlist(
+            action=str(data.get("action") or "add"),
+            title=str(data.get("title") or ""),
+            steam_appid=str(data.get("steam_appid") or ""),
+            poster_url=str(data.get("poster_url") or ""),
+        )
+        if not res.get("success"):
+            response.status = 400
+        return json.dumps(res, ensure_ascii=False)
+    res = api_instance.get_discovery_watchlist()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/discovery/request_vietnamese", method="POST")
+def api_discovery_request_vietnamese():
+    """Nút 'Yêu cầu Việt hóa' cho game hot chưa có tiếng Việt."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    title = str(data.get("title") or data.get("game_name") or "").strip()
+    if not title:
+        response.status = 400
+        return json.dumps({"success": False, "message": "Thiếu tên game cần Việt hóa!"}, ensure_ascii=False)
+    res = api_instance.request_vietnamese_localization(
+        title=title,
+        steam_appid=str(data.get("steam_appid") or ""),
+        note=str(data.get("note") or ""),
+    )
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+
 @server_app.route("/api/app/quit", method="POST")
 def api_app_quit():
     """Immediately and completely shut down the application and all background processes"""
-    if INSTALL_PROGRESS.get("status") == "running":
+    data = request.json or {}
+    force = bool(data.get("force", False))
+    if not force and INSTALL_PROGRESS.get("status") == "running":
         response.status = 409  # Conflict
         response.content_type = "application/json"
         return json.dumps({
@@ -1401,7 +1609,7 @@ def api_app_quit():
             "message": "Không thể thoát ứng dụng khi đang thực thi cài đặt hoặc gỡ bỏ bản mod! Vui lòng chờ hoàn tất."
         }, ensure_ascii=False)
 
-    res = api_instance.quit_app()
+    res = api_instance.quit_app(force=force)
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
@@ -1464,6 +1672,57 @@ def api_catalog_sync():
 def api_version_check():
     res = api_instance.check_app_version()
     response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+
+# ==============================================================================
+# MENU CÀI ĐẶT TRUNG TÂM (UNIFIED SETTINGS) REST ROUTES
+# ==============================================================================
+
+@server_app.route("/api/settings", method=["GET", "POST"])
+def api_unified_settings():
+    """Đọc hoặc ghi cấu hình hợp nhất 4 tab (General, Scanner, Downloader, Cloud Save)."""
+    response.content_type = "application/json"
+    if request.method == "POST":
+        data = request.json or {}
+        res = api_instance.update_settings(data)
+        if not res.get("success"):
+            response.status = 400
+        return json.dumps(res, ensure_ascii=False)
+    else:
+        res = api_instance.get_settings()
+        return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/cache/info", method="GET")
+def api_cache_info():
+    """Lấy dung lượng bộ nhớ đệm cache."""
+    response.content_type = "application/json"
+    res = api_instance.get_cache_info()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/cache/clear", method="POST")
+def api_cache_clear():
+    """Dọn dẹp sạch cache và file tạm."""
+    response.content_type = "application/json"
+    res = api_instance.clear_cache()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/settings/open_appdata", method="POST")
+def api_settings_open_appdata():
+    """Mở thư mục APPDATA."""
+    response.content_type = "application/json"
+    res = api_instance.open_appdata_folder()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/settings/browse_folder", method="POST")
+def api_settings_browse_folder():
+    """Chọn thư mục quét bổ sung."""
+    response.content_type = "application/json"
+    res = api_instance.select_custom_library_folder()
     return json.dumps(res, ensure_ascii=False)
 
 
