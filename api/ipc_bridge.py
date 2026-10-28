@@ -208,10 +208,37 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
     Lớp 3 & Lớp 4: Tự động tìm steam_appid, link ảnh bìa dọc 600x900 nét căng và thể loại cho game lẻ.
     Tự động lấy poster có mã hash Steam mới hoặc dựng Poster Glassmorphism từ header.jpg ngang (không cắt chữ),
     và lưu cache ảnh bìa tại chỗ (%APPDATA%/VietModHub/covers/{game_id}.jpg).
+    Tối ưu hóa: Nếu đã có local_cover và metadata trong cache, trả về tức thì (0ms mạng).
     """
+    # 0. Kiểm tra ảnh bìa cục bộ và cache metadata trước tiên (Tốc độ phản hồi tức thì 0.1ms)
+    safe_gid = re.sub(r"[^\w\-]", "_", game_id or fallback_title or "unknown")
+    local_cover_file = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
+    local_cover_png = os.path.join(COVERS_DIR, f"{safe_gid}.png")
+    local_cover = None
+    if os.path.exists(local_cover_file) and os.path.getsize(local_cover_file) > 1000:
+        local_cover = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_file))}"
+    elif os.path.exists(local_cover_png) and os.path.getsize(local_cover_png) > 500:
+        local_cover = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
+
+    c_cache = load_covers_cache() if "load_covers_cache" in globals() else {}
+    cached_meta = c_cache.get(game_id) or c_cache.get(safe_gid) if c_cache else {}
+
+    # SIÊU TỐI ƯU HÓA: Nếu đã có ảnh bìa cục bộ và đầy đủ metadata trong cache -> Trả về ngay trong 0.1ms!
+    if local_cover and cached_meta and cached_meta.get("genre") and cached_meta["genre"] != "GAME LẺ":
+        return {
+            "steam_appid": str(cached_meta.get("steam_appid") or ""),
+            "title": fallback_title or cached_meta.get("title") or safe_gid,
+            "avatar_url": local_cover,
+            "header_url": cached_meta.get("header_url"),
+            "local_cover": local_cover,
+            "genre": cached_meta.get("genre", "GAME LẺ")
+        }
+
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     appid = extract_local_steam_appid(game_dir) if game_dir else None
-    clean_title = fallback_title or resolve_clean_game_title(game_dir, exe_name)
+    if not appid and cached_meta and cached_meta.get("steam_appid"):
+        appid = str(cached_meta["steam_appid"])
+    clean_title = fallback_title or (cached_meta.get("title") if cached_meta else None) or resolve_clean_game_title(game_dir, exe_name)
 
     # 1. Nếu chưa có appid trong thư mục, tìm nhanh trong cơ sở dữ liệu steam_games.json offline (hơn 5,000 game)
     if not appid and clean_title:
@@ -246,22 +273,11 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
     result = {
         "steam_appid": appid,
         "title": clean_title,
-        "avatar_url": None,
-        "header_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else None,
-        "local_cover": None,
-        "genre": "GAME LẺ"
+        "avatar_url": local_cover,
+        "header_url": (cached_meta.get("header_url") if cached_meta else None) or (f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/header.jpg" if appid else None),
+        "local_cover": local_cover,
+        "genre": (cached_meta.get("genre") if cached_meta else None) or "GAME LẺ"
     }
-
-    # Kiểm tra xem đã có custom cover do người dùng chọn hoặc cover tải trước đó chưa
-    safe_gid = re.sub(r"[^\w\-]", "_", game_id or appid or clean_title or "unknown")
-    local_cover_file = os.path.join(COVERS_DIR, f"{safe_gid}.jpg")
-    local_cover_png = os.path.join(COVERS_DIR, f"{safe_gid}.png")
-    if os.path.exists(local_cover_file) and os.path.getsize(local_cover_file) > 1000:
-        result["local_cover"] = f"/api/covers/{safe_gid}.jpg?t={int(os.path.getmtime(local_cover_file))}"
-        result["avatar_url"] = result["local_cover"]
-    elif os.path.exists(local_cover_png) and os.path.getsize(local_cover_png) > 500:
-        result["local_cover"] = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
-        result["avatar_url"] = result["local_cover"]
 
     if not appid:
         # Nếu không có appid, thử trích xuất icon từ file exe
@@ -278,25 +294,32 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
         return result
 
     # 2. Gọi thêm appdetails để lấy thể loại (Genre) và link ảnh chính thức (kể cả có mã hash)
-    try:
-        details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese&cc=VN"
-        raw_det = steam_direct_request(details_url, timeout=3.5)
-        if not raw_det:
-            req = urllib.request.Request(details_url, headers=headers)
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                raw_det = resp.read()
-        if raw_det:
-            details_data = json.loads(raw_det.decode("utf-8", "ignore"))
-            app_data = details_data.get(str(appid), {}).get("data", {})
-            if app_data:
-                result["title"] = app_data.get("name", result["title"])
-                if app_data.get("header_image"):
-                    result["header_url"] = app_data.get("header_image")
-                genres = app_data.get("genres", [])
-                if genres:
-                    result["genre"] = genres[0].get("description", "PHIÊU LƯU").upper()
-    except Exception as e:
-        print(f"[Metadata] appdetails error: {e}")
+    if result.get("genre") == "GAME LẺ" or not result.get("header_url"):
+        try:
+            details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&l=vietnamese&cc=VN"
+            raw_det = steam_direct_request(details_url, timeout=3.5)
+            if not raw_det:
+                req = urllib.request.Request(details_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    raw_det = resp.read()
+            if raw_det:
+                details_data = json.loads(raw_det.decode("utf-8", "ignore"))
+                app_data = details_data.get(str(appid), {}).get("data", {})
+                if app_data:
+                    result["title"] = app_data.get("name", result["title"])
+                    if app_data.get("header_image"):
+                        result["header_url"] = app_data.get("header_image")
+                    genres = app_data.get("genres", [])
+                    if genres:
+                        result["genre"] = genres[0].get("description", "PHIÊU LƯU").upper()
+        except Exception as e:
+            print(f"[Metadata] appdetails error: {e}")
+
+    # TỐI ƯU HÓA: Nếu đã có local_cover (từ trước hoặc trong covers/), TRẢ VỀ NGAY LẬP TỨC!
+    # Tuyệt đối không gọi mạng tải lại candidate_posters, tiết kiệm 2-4 giây và giữ nguyên đường dẫn local_cover!
+    if result.get("local_cover"):
+        result["avatar_url"] = result["local_cover"]
+        return result
 
     # 3. Thu thập danh sách candidate Posters dọc 600x900 nét căng
     candidate_posters = []
@@ -404,6 +427,9 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
                 result["local_cover"] = f"/api/covers/{safe_gid}.png?t={int(os.path.getmtime(local_cover_png))}"
                 if not result.get("avatar_url"):
                     result["avatar_url"] = result["local_cover"]
+
+    if result.get("local_cover"):
+        result["avatar_url"] = result["local_cover"]
 
     return result
 
