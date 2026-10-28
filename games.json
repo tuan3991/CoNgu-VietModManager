@@ -1721,5 +1721,174 @@
       ]
     },
     "congu_sha256": "cc84b8faabadbfe560b88786851e9b361b7f9b3b28dfce16c765916b8872cf6a"
+  },
+  {
+    "id": "crawl",
+    "steam_appid": "293780",
+    "title": "Crawl",
+    "vietnamese_title": "Crawl - Hầm Ngục Hắc Ám (Việt Hóa)",
+    "developer": "Powerhoof",
+    "engine": "Unity 5.4",
+    "genre": "Brawler, Roguelike, Multiplayer Đấu Ngục, Pixel Art",
+    "description": "Tựa game vượt ngục arcade bất đối xứng huyền thoại, nơi 1 người chơi làm anh hùng và 3 người chơi còn lại hóa thân thành linh hồn điều khiển quái vật và cạm bẫy để tiêu diệt, đoạt lấy thân xác anh hùng. Đồ họa pixel art gothic nghẹt thở, tiến hóa quái vật và khiêu chiến Cựu Thần cổ đại.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "3,182 dòng",
+      "status": "Hoàn thành 100% (Full Accented Pixel Fonts)",
+      "version": "v1.0.0 (Bản Chuẩn Streaming Diff)",
+      "author": "Antigravity Localization Team",
+      "font": "11 bộ Pixel Font TrueType hỗ trợ 100% tiếng Việt",
+      "last_updated": "28/10/2026",
+      "mod_size": "~723.4 KB"
+    },
+    "executable_name": "Crawl.exe",
+    "default_folder_names": [
+      "Crawl",
+      "crawl"
+    ],
+    "assets": {
+      "poster": "/assets/crawl/library_600x900.jpg",
+      "banner": "/assets/crawl/library_hero.jpg",
+      "logo": "/assets/crawl/logo.png",
+      "header": "/assets/crawl/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn Streaming Diff)",
+        "release_date": "28/10/2026",
+        "changelog": "Bản phát hành chính thức Việt hóa trọn vẹn 100% thoại, giao diện, cổ vật, vũ khí và 11 font chữ pixel.",
+        "is_latest": true
+      }
+    ],
+    "install_steps": [
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/sharedassets0.assets",
+        "patch": "sharedassets0.assets.diff",
+        "original_sha256": "6f4ce189e24a7e701804a22d32d59d35489cec35cef414c7d7777e0ffad56385",
+        "patched_sha256": "79a2ff5c201d54ec265d262c84254afcfbd616e69164a3e20cfb9315f22330b2"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/sharedassets2.assets",
+        "patch": "sharedassets2.assets.diff",
+        "original_sha256": "fab651a2da30b4321625ede14284eb341ba399e51ec2673dae3e58db092d410a",
+        "patched_sha256": "ced05f8545466072a9ce8ec4816b348e35d7dee8074a59b9c5800f221ac7cf7f"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/sharedassets4.assets",
+        "patch": "sharedassets4.assets.diff",
+        "original_sha256": "fa6d33e9ee14593136942865d02d020ee9b51ec3c6fc8f4e9e127ea099e5aaf6",
+        "patched_sha256": "a1f48166eed4b6bdcde77c5c2509a0049513d72758028f1d374a1a0f03da55ab"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level2",
+        "patch": "level2.diff",
+        "original_sha256": "db900efef3b7b47daed48600f70144d9867b52947a2c70c3a97fe2e30b86553b",
+        "patched_sha256": "6cbf8fdd5f1469da6392d44aa38b105413664de294ea0a63d4af8c121353a689"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level3",
+        "patch": "level3.diff",
+        "original_sha256": "ae638557ce0614a71397e485d3cf99b90fa7146ec7f18ed9ebb95b611915f148",
+        "patched_sha256": "ae638557ce0614a71397e485d3cf99b90fa7146ec7f18ed9ebb95b611915f148"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level4",
+        "patch": "level4.diff",
+        "original_sha256": "711afe118a75bde0ebb81eaa39e514315dc6f54c726c667fcc0e437636df7839",
+        "patched_sha256": "e00964a1ac94185de8c9edea91d6aed7e336986df99253d8b9df68588367558f"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level5",
+        "patch": "level5.diff",
+        "original_sha256": "6a91a9b7680d8d9dda8638e13429761cb9f2feab80e4bae7207f2e28a6c616f8",
+        "patched_sha256": "a6fb6d4e5110702a7ef04ef399bb5a4349b651c681c8aa73647f59996e5326cb"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level9",
+        "patch": "level9.diff",
+        "original_sha256": "f6d7e7791b5ec5e31dc70d52ad2e70b767a5bcdbee50d4851b2bed607c5345e5",
+        "patched_sha256": "2179e8e30a60bc9b3f656a29b1eca37a8ff142ceb28bed68aeea8c497cb0ecda"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level10",
+        "patch": "level10.diff",
+        "original_sha256": "41ae282fc6e2dc6658cb5744e35314eb1d7474d832879f227a12340868d85341",
+        "patched_sha256": "79b3515741e6e609a7af8dffe15841c3faba5cf1f2d9957f87454ef0563b017f"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/level11",
+        "patch": "level11.diff",
+        "original_sha256": "b080eb027694aa7bb276b6915a09b7f889f1d5ea5632024e62ab34eaa26bd860",
+        "patched_sha256": "e229f26ead320440fad374b75c889b8de3ef2818b06e874616e8616635c6a2e9"
+      },
+      {
+        "action": "patch_binary",
+        "target": "Crawl_Data/Managed/Assembly-CSharp.dll",
+        "patch": "Assembly-CSharp.dll.diff",
+        "original_sha256": "e93e8fb49fd3c3ebe622d0f9f9557c1e4dd475c2a277be19e2c05cbb1f05f61e",
+        "patched_sha256": "f55587bb2a4ada023916a139cea756b31ea0a02806df40cfe69577a381faa4af"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/sharedassets0.assets"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/sharedassets2.assets"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/sharedassets4.assets"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level2"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level3"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level4"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level5"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level9"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level10"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/level11"
+      },
+      {
+        "action": "restore_backup",
+        "target": "Crawl_Data/Managed/Assembly-CSharp.dll"
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/Crawl.congu",
+    "mod_size": "~723.4 KB",
+    "congu_sha256": "4a48ef39b270bb2c2bbaff9bf5a349002e356fe0e5e31b01597a24af5eaa0ef8",
+    "mod_type": "pipeline",
+    "status_marker": "Crawl_Data/sharedassets0.assets.congu_bak"
   }
 ]

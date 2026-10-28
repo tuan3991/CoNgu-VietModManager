@@ -94,32 +94,3 @@ def download_file_with_progress(
     return True
 
 
-# ==============================================================================
-# QUẢN LÝ SINGLETON ĐỘNG CƠ TẢI XUỐNG
-# ==============================================================================
-
-_TORRENT_MGR_INSTANCE: Optional[TorrentDownloadManager] = None
-_HYDRA_MGR_INSTANCE: Optional[HydraSourceManager] = None
-
-
-def get_torrent_manager(appdata_dir: Optional[str] = None) -> TorrentDownloadManager:
-    """Lấy thể hiện quản lý tải Torrent (Aria2c Daemon)."""
-    global _TORRENT_MGR_INSTANCE
-    if _TORRENT_MGR_INSTANCE is None:
-        target_dir = appdata_dir or APPDATA_DIR
-        _TORRENT_MGR_INSTANCE = TorrentDownloadManager(target_dir)
-    return _TORRENT_MGR_INSTANCE
-
-
-def get_hydra_manager(appdata_dir: Optional[str] = None) -> HydraSourceManager:
-    """Lấy thể hiện quản lý kho nguồn Hydra Launcher."""
-    global _HYDRA_MGR_INSTANCE
-    if _HYDRA_MGR_INSTANCE is None:
-        target_dir = appdata_dir or APPDATA_DIR
-        _HYDRA_MGR_INSTANCE = HydraSourceManager(target_dir)
-    return _HYDRA_MGR_INSTANCE
-
-
-# Khởi tạo mặc định
-TORRENT_MGR = get_torrent_manager()
-HYDRA_MGR = get_hydra_manager()
