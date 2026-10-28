@@ -2133,6 +2133,39 @@ class ModManagerAPI:
                 sz = os.path.getsize(target_str)
                 return {"success": True, "is_valid": True, "message": f"Bản Việt Hóa The Witcher 3 Next-Gen ({sz:,} bytes) đang hoạt động chuẩn 100%!"}
 
+        # --- Data-Driven Action Pipeline (mod_type: "pipeline") ---
+        # Xác minh trực tiếp bằng SHA-256 của từng tệp sau khi vá nhị phân.
+        if mtype == "pipeline" or (g.get("install_steps") and not g.get("relative_install_path")):
+            steps = [st for st in (g.get("install_steps") or [])
+                     if st.get("action") == "patch_binary"]
+            if steps:
+                ok = 0
+                problems = []
+                for st in steps:
+                    tgt = os.path.join(game_path, st["target"].replace("/", os.sep))
+                    if not os.path.exists(tgt):
+                        problems.append("thiếu " + st["target"])
+                        continue
+                    actual = calculate_sha256(tgt)
+                    expect = st.get("patched_sha256")
+                    if expect and actual == expect:
+                        ok += 1
+                    else:
+                        problems.append("sai SHA-256: " + st["target"])
+                total = len(steps)
+                if ok == total:
+                    return {
+                        "success": True,
+                        "is_valid": True,
+                        "message": f"Bản Việt hóa hợp lệ: {ok}/{total} tệp khớp SHA-256 chuẩn 100%!"
+                    }
+                detail = "; ".join(problems[:3])
+                return {
+                    "success": True,
+                    "is_valid": False,
+                    "message": f"Phát hiện sai lệch: {ok}/{total} tệp khớp. {detail}"
+                }
+
         return {"success": False, "is_valid": False, "message": "Bản Việt hóa hiện chưa được cài đặt trong thư mục game."}
 
     def check_updates(self, game_id):
@@ -2769,6 +2802,171 @@ class ModManagerAPI:
     def elevate_admin(self):
         """Relaunch app with Administrator privileges on demand"""
         return {"success": request_uac_elevation()}
+
+    # ==========================================================================
+    # CUSTOM THEMES (giao dien) - IPC BRIDGE
+    # ==========================================================================
+
+    def get_themes(self):
+        """Lấy danh sách theme (builtin + người dùng) và theme đang kích hoạt."""
+        try:
+            from core.theme_manager import list_themes, get_active_theme
+            return {"success": True, "themes": list_themes(), "active": get_active_theme()}
+        except Exception as e:
+            log_startup(f"[Theme] Lỗi lấy danh sách theme: {e}")
+            return {"success": False, "themes": [], "active": "cyberpunk_default", "message": str(e)}
+
+    def set_theme(self, theme_id: str):
+        """Kích hoạt một theme đã cài (áp dụng ngay, không cần khởi động lại app)."""
+        try:
+            from core.theme_manager import set_active_theme
+            return set_active_theme(theme_id)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def get_theme_payload(self, theme_id: str):
+        """Lấy manifest đã kiểm duyệt + URL asset để frontend áp dụng tức thì."""
+        try:
+            from core.theme_manager import get_theme
+            data = get_theme(theme_id)
+            if not data:
+                return {"success": False, "message": "Không tìm thấy theme!"}
+            return {"success": True, "theme": data}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def import_theme_dialog(self):
+        """Mở hộp thoại chọn gói theme (.congu_theme / .zip) từ máy tính và cài đặt an toàn."""
+        chosen_file = ""
+        try:
+            if self.window:
+                file_types = ('Gói Theme Cổ Ngữ (*.congu_theme;*.zip)', 'All files (*.*)')
+                res = self.window.create_file_dialog(
+                    webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+                )
+                if res:
+                    chosen_file = res if isinstance(res, str) else res[0]
+        except Exception as e:
+            print(f"[!] PyWebView theme dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.askopenfilename(
+                    title="Chọn gói Theme Cổ Ngữ (.congu_theme)",
+                    filetypes=[("Gói Theme Cổ Ngữ", "*.congu_theme"), ("ZIP", "*.zip"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+
+        if not chosen_file:
+            return {"success": False, "message": "Bạn chưa chọn gói theme nào."}
+
+        try:
+            from core.theme_manager import install_theme_zip, get_themes_root
+            res = install_theme_zip(chosen_file, get_themes_root())
+            return res
+        except Exception as e:
+            return {"success": False, "message": f"Lỗi cài theme: {e}"}
+
+    def export_theme_dialog(self, theme_id: str):
+        """Đóng gói theme hiện có thành 1 file .congu_theme để chia sẻ cho cộng đồng."""
+        if not theme_id:
+            return {"success": False, "message": "Thiếu theme_id."}
+        chosen_file = ""
+        try:
+            if self.window:
+                file_types = ('Gói Theme Cổ Ngữ (*.congu_theme)', 'All files (*.*)')
+                res = self.window.create_file_dialog(
+                    webview.SAVE_DIALOG,
+                    save_filename=f"{theme_id}.congu_theme",
+                    file_types=file_types
+                )
+                if res:
+                    chosen_file = res if isinstance(res, str) else res[0]
+        except Exception as e:
+            print(f"[!] PyWebView theme save dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.asksaveasfilename(
+                    title="Lưu gói Theme để chia sẻ",
+                    initialfile=f"{theme_id}.congu_theme",
+                    defaultextension=".congu_theme",
+                    filetypes=[("Gói Theme Cổ Ngữ", "*.congu_theme"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+
+        if not chosen_file:
+            return {"success": False, "message": "Bạn chưa chọn nơi lưu file theme."}
+
+        try:
+            from core.theme_manager import export_theme
+            return export_theme(theme_id, chosen_file)
+        except Exception as e:
+            return {"success": False, "message": f"Lỗi xuất theme: {e}"}
+
+    def pick_theme_background(self):
+        """Mở hộp thoại chọn ảnh nền (wallpaper) cho Theme Studio."""
+        chosen_file = ""
+        try:
+            if self.window:
+                file_types = ('Ảnh (*.png;*.jpg;*.jpeg;*.webp;*.gif)', 'All files (*.*)')
+                res = self.window.create_file_dialog(
+                    webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+                )
+                if res:
+                    chosen_file = res if isinstance(res, str) else res[0]
+        except Exception as e:
+            print(f"[!] PyWebView background dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.askopenfilename(
+                    title="Chọn ảnh nền cho Theme",
+                    filetypes=[("Ảnh", "*.png *.jpg *.jpeg *.webp *.gif"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+
+        if not chosen_file:
+            return {"success": False, "message": "Bạn chưa chọn ảnh nền."}
+        return {"success": True, "path": chosen_file}
+
+    def save_theme_studio(self, payload: dict):
+        """Lưu theme tạo từ Theme Studio (màu sắc, blur, ảnh nền do người dùng chọn)."""
+        try:
+            from core.theme_manager import build_theme_from_values
+            return build_theme_from_values(payload or {})
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def delete_theme(self, theme_id: str):
+        """Xóa một theme người dùng (không xóa được theme mặc định / theme đang dùng)."""
+        try:
+            from core.theme_manager import delete_theme
+            return delete_theme(theme_id)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
 
 
 

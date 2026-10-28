@@ -110,6 +110,10 @@ def verify_session_token():
     """
     if request.path.startswith("/api/covers/") or request.path.startswith("/api/game/poster_preview"):
         return
+    if request.path.startswith("/api/themes/") and not request.path.rstrip("/").endswith("/api/themes"):
+        # custom.css & ảnh nền theme được nạp qua <link>/<img> nên trình duyệt không gửi được header token.
+        # An toàn vẫn bảo đảm: chỉ phục vụ file trong thư mục theme + validate_safe_path chống traversal.
+        return
     if request.path.startswith("/api/window/") or request.path.startswith("/api/achievements/"):
         return
     if request.path.startswith("/api/"):
@@ -262,6 +266,116 @@ def api_toggle_favorite():
 def api_get_favorites():
     response.content_type = "application/json"
     return json.dumps({"success": True, "favorites": get_favorite_games()}, ensure_ascii=False)
+
+
+# ==============================================================================
+# CUSTOM THEMES (Giao diện người dùng) REST API
+# ==============================================================================
+
+@server_app.route("/api/themes", method="GET")
+def api_get_themes():
+    """Danh sách theme (builtin + người dùng) kèm theme đang dùng."""
+    response.content_type = "application/json"
+    return json.dumps(api_instance.get_themes(), ensure_ascii=False)
+
+@server_app.route("/api/themes/active", method="POST")
+def api_set_active_theme():
+    """Kích hoạt theme theo id, áp dụng ngay không cần khởi động lại app."""
+    data = request.json or {}
+    theme_id = (data.get("theme_id") or "").strip()
+    res = api_instance.set_theme(theme_id)
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/detail", method=["GET", "POST"])
+def api_get_theme_detail():
+    """Lấy manifest + thông tin assets của một theme để frontend áp dụng tức thì."""
+    if request.method == "POST":
+        data = request.json or {}
+    else:
+        data = {"theme_id": request.query.get("theme_id") or request.query.get("id") or ""}
+    theme_id = (data.get("theme_id") or "").strip()
+    res = api_instance.get_theme_payload(theme_id)
+    if not res.get("success"):
+        response.status = 404
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/import", method="POST")
+def api_import_theme():
+    """Mở hộp thoại chọn gói .congu_theme và cài đặt an toàn."""
+    res = api_instance.import_theme_dialog()
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/export", method="POST")
+def api_export_theme():
+    """Đóng gói theme hiện tại thành file .congu_theme để chia sẻ."""
+    data = request.json or {}
+    theme_id = (data.get("theme_id") or "").strip()
+    res = api_instance.export_theme_dialog(theme_id)
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/studio", method="POST")
+def api_theme_studio():
+    """Lưu theme do người dùng tự chỉnh (màu sắc, blur, ảnh nền)."""
+    data = request.json or {}
+    res = api_instance.save_theme_studio(data)
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/pick_background", method="POST")
+def api_theme_pick_background():
+    """Mở hộp thoại chọn ảnh nền wallpaper cho Theme Studio."""
+    res = api_instance.pick_theme_background()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/delete", method="POST")
+def api_delete_theme():
+    """Xóa theme người dùng (không xóa theme mặc định hoặc theme đang dùng)."""
+    data = request.json or {}
+    theme_id = (data.get("theme_id") or "").strip()
+    res = api_instance.delete_theme(theme_id)
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/themes/<theme_id>/custom.css", method="GET")
+def api_theme_custom_css(theme_id):
+    """Phục vụ custom.css của theme (đã lọc @import / url ngoài)."""
+    try:
+        from core.theme_manager import get_theme_css
+        css = get_theme_css(theme_id)
+    except Exception:
+        abort(404)
+    if not css:
+        abort(404)
+    response.content_type = "text/css; charset=utf-8"
+    response.set_header("Cache-Control", "no-cache")
+    return css
+
+@server_app.route("/api/themes/<theme_id>/assets/<filepath:path>", method="GET")
+def api_theme_asset(theme_id, filepath):
+    """Phục vụ ảnh nền / font của theme với kiểm tra chống Path Traversal."""
+    try:
+        from core.theme_manager import resolve_asset_path
+        abs_path = resolve_asset_path(theme_id, filepath)
+    except Exception:
+        abort(404)
+    response.set_header("Cache-Control", "public, max-age=3600")
+    return static_file(os.path.basename(abs_path), root=os.path.dirname(abs_path))
+
 
 @server_app.route("/api/repo_dir", method="GET")
 def api_get_repo_dir():

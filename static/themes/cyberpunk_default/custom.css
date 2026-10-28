@@ -1,0 +1,14 @@
+/* ==========================================================================
+   Cổ Ngữ Cyberpunk (Mặc định) — custom.css
+   --------------------------------------------------------------------------
+   Đây là theme mặc định đi kèm ứng dụng Cổ Ngữ (VietModHub Pro).
+
+   File này cố ý chỉ chứa comment: giao diện Cyberpunk gốc đã được định nghĩa
+   đầy đủ trong `static/css/styles.css`. Theme Engine chỉ cần một file
+   `custom.css` hợp lệ (rỗng về hiệu lực) để làm điểm nối cho các theme cộng
+   đồng kế thừa.
+
+   Nếu bạn muốn tùy biến, hãy tạo theme mới trong Theme Studio thay vì sửa
+   file mặc định này — mọi thay đổi ở đây có thể bị ghi đè khi cập nhật app.
+   Các biến CSS an toàn có thể override qua `variables` trong theme.json.
+   ========================================================================== */
