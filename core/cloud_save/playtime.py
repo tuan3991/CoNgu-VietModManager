@@ -7,8 +7,10 @@ import sys
 import time
 import json
 import threading
+from datetime import datetime
 from typing import Dict, Any, Optional, Callable
 
+from . import process_utils as pu
 from .process_utils import is_any_exe_running_in_folder, _internal_log, get_default_appdata_dir
 
 
@@ -49,8 +51,8 @@ class PlaytimeManager:
                 target_dir = game_dir
                 if not target_dir or not os.path.isdir(target_dir):
                     try:
-                        if _CONFIG_GETTER:
-                            cfg = _CONFIG_GETTER()
+                        if pu._CONFIG_GETTER:
+                            cfg = pu._CONFIG_GETTER()
                             target_dir = cfg.get(f"{game_id}_path")
                     except Exception:
                         pass
@@ -72,8 +74,8 @@ class PlaytimeManager:
             rec = self._data.get(game_id)
             if not game_dir:
                 try:
-                    if _CONFIG_GETTER:
-                        cfg = _CONFIG_GETTER()
+                    if pu._CONFIG_GETTER:
+                        cfg = pu._CONFIG_GETTER()
                         game_dir = cfg.get(f"{game_id}_path")
                 except Exception:
                     pass
@@ -241,8 +243,12 @@ class PlaytimeManager:
 
                     # Quét phát hiện thành tựu thời gian thực (Cơ chế Hydra Launcher / Achievement Watcher)
                     try:
-                        if ACHIEVEMENT_MGR:
-                            ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
+                        try:
+                            from .achievements import ACHIEVEMENT_MGR
+                            if ACHIEVEMENT_MGR:
+                                ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
+                        except Exception:
+                            pass
                     except Exception:
                         pass
 

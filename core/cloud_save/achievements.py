@@ -9,10 +9,12 @@ import json
 import re
 import glob
 import threading
+from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
 from core.steam_client import steam_direct_request
 from core.scanner import extract_local_steam_appid
+from . import process_utils as pu
 from .process_utils import _internal_log, get_default_appdata_dir
 
 
@@ -59,8 +61,8 @@ class AchievementManager:
             return ""
         # 1. Kiểm tra custom_games.json
         try:
-            if _CUSTOM_GAMES_GETTER:
-                for cg in _CUSTOM_GAMES_GETTER():
+            if pu._CUSTOM_GAMES_GETTER:
+                for cg in pu._CUSTOM_GAMES_GETTER():
                     if cg.get("id") == game_id:
                         aid = str(cg.get("steam_appid") or "").strip()
                         if aid:
@@ -69,7 +71,7 @@ class AchievementManager:
             pass
         # 2. Kiểm tra games.json
         try:
-            p = _GAMES_JSON_PATH_GETTER() if _GAMES_JSON_PATH_GETTER else "games.json"
+            p = pu._GAMES_JSON_PATH_GETTER() if pu._GAMES_JSON_PATH_GETTER else "games.json"
             if p and os.path.exists(p):
                 with open(p, "r", encoding="utf-8") as f:
                     for g in json.load(f):
@@ -350,8 +352,10 @@ class AchievementManager:
                 raw_det = steam_direct_request(details_url, timeout=4.0)
                 if raw_det:
                     det = json.loads(raw_det.decode("utf-8", "ignore"))
-                    ach_data = det.get(str(appid), {}).get("data", {}).get("achievements", {})
-                    highlighted = ach_data.get("highlighted", [])
+                    app_info = det.get(str(appid), {}) if isinstance(det, dict) else {}
+                    data_obj = app_info.get("data") if isinstance(app_info, dict) else {}
+                    ach_data = data_obj.get("achievements") if isinstance(data_obj, dict) else {}
+                    highlighted = ach_data.get("highlighted", []) if isinstance(ach_data, dict) else []
                     for a in highlighted:
                         ach_name = a.get("name") or a.get("localized_name")
                         icon_url = a.get("path")
@@ -390,12 +394,12 @@ class AchievementManager:
         """Hàm trả dữ liệu hoàn chỉnh cho Frontend static/index.html hiển thị."""
         # 1. Tự động tìm game_dir từ user_config hoặc custom_games.json
         if not game_dir and game_id:
-            if _CONFIG_GETTER:
-                cfg = _CONFIG_GETTER()
+            if pu._CONFIG_GETTER:
+                cfg = pu._CONFIG_GETTER()
                 game_dir = cfg.get(f"{game_id}_path", "")
-            if not game_dir and _CUSTOM_GAMES_GETTER:
+            if not game_dir and pu._CUSTOM_GAMES_GETTER:
                 try:
-                    for cg in _CUSTOM_GAMES_GETTER():
+                    for cg in pu._CUSTOM_GAMES_GETTER():
                         if cg.get("id") == game_id:
                             game_dir = cg.get("game_root", "")
                             break
@@ -541,8 +545,8 @@ class AchievementManager:
         if game_dir and os.path.isdir(game_dir):
             appid = extract_local_steam_appid(game_dir) or ""
         if not appid and game_id:
-            if _CONFIG_GETTER:
-                cfg = _CONFIG_GETTER()
+            if pu._CONFIG_GETTER:
+                cfg = pu._CONFIG_GETTER()
                 g_path = cfg.get(f"{game_id}_path")
                 if g_path and os.path.isdir(g_path):
                     appid = extract_local_steam_appid(g_path) or ""

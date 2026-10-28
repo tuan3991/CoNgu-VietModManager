@@ -1136,6 +1136,16 @@ class ModManagerAPI:
         """Lấy danh sách và trạng thái mở khóa thành tựu của game (Chuẩn Hydra Launcher)."""
         appid = str(game_id_or_appid) if str(game_id_or_appid).isdigit() else ""
         game_id = "" if appid else str(game_id_or_appid)
+        if not appid and game_id:
+            try:
+                for g in self.get_games():
+                    if g.get("id") == game_id:
+                        appid = str(g.get("steam_appid") or "")
+                        if not game_dir:
+                            game_dir = g.get("game_path") or ""
+                        break
+            except Exception:
+                pass
         return ACHIEVEMENT_MGR.get_game_achievements_view(appid=appid, game_dir=game_dir, game_id=game_id)
 
     def poll_new_achievements(self):

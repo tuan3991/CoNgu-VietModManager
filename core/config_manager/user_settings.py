@@ -3,15 +3,91 @@
 Core Config Manager - User Settings, Repo & Data Caches
 """
 import os
+import sys
 import json
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from .paths import (
     APP_DIR, DEFAULT_REPO_DIR, FALLBACK_REPO_DIR, CONFIG_JSON,
-    USER_DATA_FILE, COVERS_CACHE_FILE
+    USER_DATA_FILE, COVERS_CACHE_FILE, APPDATA_DIR
 )
 from core.scanner import get_available_drives
+
+
+DEFAULT_USER_CONFIG = {
+    "general": {
+        "theme": "cyberpunk_default",
+        "auto_check_update": True,
+        "achievement_sound": True
+    },
+    "scanner": {
+        "auto_scan_on_startup": True,
+        "custom_library_paths": [],
+        "scan_steam": True,
+        "scan_epic": True,
+        "scan_gog": True
+    },
+    "downloader": {
+        "preferred_source": "github_cdn",
+        "keep_congu_cache": False,
+        "max_concurrent_downloads": 3,
+        "max_download_limit_kb": 0
+    },
+    "cloud_save": {
+        "cloud_id": "",
+        "password": "",
+        "auto_sync_on_exit": True,
+        "track_playtime": True,
+        "offline_achievements_scan": True
+    }
+}
+
+
+def _normalize_nested_config(cfg: dict) -> bool:
+    """Đảm bảo cấu hình luôn có đầy đủ 4 nhánh nested: general, scanner, downloader, cloud_save và đồng bộ tương thích ngược."""
+    changed = False
+    for section, defaults in DEFAULT_USER_CONFIG.items():
+        if section not in cfg or not isinstance(cfg[section], dict):
+            cfg[section] = {}
+            changed = True
+        for k, v in defaults.items():
+            if k not in cfg[section]:
+                cfg[section][k] = v
+                changed = True
+
+    # Đồng bộ tương thích ngược với các trường cũ
+    # 1. Theme
+    if "active_theme" in cfg and cfg["active_theme"]:
+        if cfg["general"]["theme"] != cfg["active_theme"]:
+            cfg["general"]["theme"] = cfg["active_theme"]
+    else:
+        cfg["active_theme"] = cfg["general"].get("theme", "cyberpunk_default")
+
+    # 2. Cloud ID & Password
+    comm_cloud = cfg.get("community_cloud")
+    if isinstance(comm_cloud, dict):
+        if not cfg["cloud_save"]["cloud_id"] and comm_cloud.get("cloud_id"):
+            cfg["cloud_save"]["cloud_id"] = comm_cloud["cloud_id"]
+        if not cfg["cloud_save"]["password"] and comm_cloud.get("password"):
+            cfg["cloud_save"]["password"] = comm_cloud["password"]
+    else:
+        cfg["community_cloud"] = {
+            "server_url": "https://script.google.com/macros/s/AKfycbyCj_X491qIq1Ew4-hI1j9dK0g1o2T0F8/exec",
+            "cloud_id": cfg["cloud_save"]["cloud_id"],
+            "password": cfg["cloud_save"]["password"],
+            "last_sync": None,
+            "last_size": 0,
+            "is_logged_in": bool(cfg["cloud_save"]["cloud_id"])
+        }
+
+    # 3. Custom library paths
+    if "custom_library_paths" in cfg and isinstance(cfg["custom_library_paths"], list):
+        for p in cfg["custom_library_paths"]:
+            if p not in cfg["scanner"]["custom_library_paths"]:
+                cfg["scanner"]["custom_library_paths"].append(p)
+
+    return changed
 
 
 def load_user_config() -> dict:
@@ -23,6 +99,7 @@ def load_user_config() -> dict:
             with open(legacy_config, "r", encoding="utf-8") as f:
                 saved = json.load(f)
                 cfg.update(saved)
+            _normalize_nested_config(cfg)
             save_user_config(cfg)
             return cfg
         except Exception:
@@ -35,6 +112,10 @@ def load_user_config() -> dict:
                 cfg.update(saved)
         except Exception:
             pass
+
+    if _normalize_nested_config(cfg):
+        save_user_config(cfg)
+
     return cfg
 
 
@@ -216,3 +297,181 @@ def save_covers_cache(cache: dict) -> bool:
     except Exception as e:
         print(f"[ConfigManager] Error saving covers cache: {e}")
         return False
+
+
+def get_unified_settings() -> dict:
+    """Lấy cấu hình hợp nhất 4 tab (General, Scanner, Downloader, Cloud Save)."""
+    cfg = load_user_config()
+    return {
+        "general": dict(cfg.get("general", DEFAULT_USER_CONFIG["general"])),
+        "scanner": dict(cfg.get("scanner", DEFAULT_USER_CONFIG["scanner"])),
+        "downloader": dict(cfg.get("downloader", DEFAULT_USER_CONFIG["downloader"])),
+        "cloud_save": dict(cfg.get("cloud_save", DEFAULT_USER_CONFIG["cloud_save"])),
+    }
+
+
+def update_unified_settings(new_config: dict) -> dict:
+    """Cập nhật toàn bộ hoặc từng phần cài đặt từ 4 tab của Menu Cài Đặt."""
+    try:
+        cfg = load_user_config()
+        if not isinstance(new_config, dict):
+            return {"success": False, "message": "Dữ liệu cấu hình không hợp lệ."}
+
+        for section in ["general", "scanner", "downloader", "cloud_save"]:
+            if section in new_config and isinstance(new_config[section], dict):
+                if section not in cfg or not isinstance(cfg[section], dict):
+                    cfg[section] = {}
+                cfg[section].update(new_config[section])
+
+        # Đồng bộ ngược tương thích với theme hệ thống
+        if "general" in cfg and "theme" in cfg["general"]:
+            cfg["active_theme"] = cfg["general"]["theme"]
+            try:
+                from core.theme_manager import set_active_theme
+                set_active_theme(cfg["general"]["theme"])
+            except Exception:
+                pass
+
+        # Đồng bộ ngược với tài khoản Community Cloud
+        if "cloud_save" in cfg and isinstance(cfg["cloud_save"], dict):
+            if "community_cloud" not in cfg or not isinstance(cfg["community_cloud"], dict):
+                cfg["community_cloud"] = {}
+            if "cloud_id" in cfg["cloud_save"]:
+                cfg["community_cloud"]["cloud_id"] = cfg["cloud_save"]["cloud_id"]
+                cfg["community_cloud"]["is_logged_in"] = bool(cfg["cloud_save"]["cloud_id"])
+            if "password" in cfg["cloud_save"]:
+                cfg["community_cloud"]["password"] = cfg["cloud_save"]["password"]
+
+        # Đồng bộ ngược với danh sách thư mục quét ngoài
+        if "scanner" in cfg and isinstance(cfg["scanner"], dict) and "custom_library_paths" in cfg["scanner"]:
+            cfg["custom_library_paths"] = cfg["scanner"]["custom_library_paths"]
+
+        # Cập nhật giới hạn băng thông aria2c nếu có
+        if "downloader" in cfg and isinstance(cfg["downloader"], dict):
+            try:
+                from torrent_downloader import TorrentDownloadManager
+                mgr = TorrentDownloadManager.get_instance()
+                if mgr and mgr.is_available():
+                    limit_kb = int(cfg["downloader"].get("max_download_limit_kb", 0))
+                    max_concurrent = int(cfg["downloader"].get("max_concurrent_downloads", 3))
+                    mgr.set_speed_limit(limit_kb)
+                    mgr.set_max_concurrent(max_concurrent)
+            except Exception:
+                pass
+
+        ok = save_user_config(cfg)
+        if not ok:
+            return {"success": False, "message": "Không thể lưu tệp user_config.json."}
+
+        return {
+            "success": True,
+            "message": "Đã lưu toàn bộ cài đặt thành công!",
+            "settings": get_unified_settings()
+        }
+    except Exception as e:
+        print(f"[ConfigManager] Error updating unified settings: {e}")
+        return {"success": False, "message": f"Lỗi lưu cài đặt: {e}"}
+
+
+def get_cache_stats() -> dict:
+    """Tính toán dung lượng bộ nhớ đệm cache các gói mod .congu, file tạm và hydra cache."""
+    cache_dirs = [
+        os.path.join(APPDATA_DIR, "cache"),
+        os.path.join(APPDATA_DIR, "temp"),
+    ]
+    total_bytes = 0
+    file_count = 0
+
+    for cdir in cache_dirs:
+        if os.path.exists(cdir):
+            for root, _, files in os.walk(cdir):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    try:
+                        total_bytes += os.path.getsize(fp)
+                        file_count += 1
+                    except Exception:
+                        pass
+
+    if total_bytes >= 1024 * 1024 * 1024:
+        formatted = f"{total_bytes / (1024 * 1024 * 1024):.2f} GB"
+    elif total_bytes >= 1024 * 1024:
+        formatted = f"{total_bytes / (1024 * 1024):.1f} MB"
+    elif total_bytes >= 1024:
+        formatted = f"{total_bytes / 1024:.1f} KB"
+    else:
+        formatted = f"{total_bytes} B"
+
+    return {
+        "success": True,
+        "total_bytes": total_bytes,
+        "file_count": file_count,
+        "formatted_size": formatted
+    }
+
+
+def clear_app_cache() -> dict:
+    """Dọn dẹp sạch sẽ bộ nhớ đệm cache các gói .congu và tệp tạm thời."""
+    cache_dirs = [
+        os.path.join(APPDATA_DIR, "cache"),
+        os.path.join(APPDATA_DIR, "temp"),
+    ]
+    freed_bytes = 0
+    deleted_files = 0
+
+    for cdir in cache_dirs:
+        if os.path.exists(cdir):
+            for root, dirs, files in os.walk(cdir, topdown=False):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    try:
+                        sz = os.path.getsize(fp)
+                        os.remove(fp)
+                        freed_bytes += sz
+                        deleted_files += 1
+                    except Exception:
+                        pass
+                for d in dirs:
+                    dp = os.path.join(root, d)
+                    try:
+                        os.rmdir(dp)
+                    except Exception:
+                        pass
+
+    for cdir in cache_dirs:
+        try:
+            os.makedirs(cdir, exist_ok=True)
+        except Exception:
+            pass
+
+    if freed_bytes >= 1024 * 1024 * 1024:
+        freed_str = f"{freed_bytes / (1024 * 1024 * 1024):.2f} GB"
+    elif freed_bytes >= 1024 * 1024:
+        freed_str = f"{freed_bytes / (1024 * 1024):.1f} MB"
+    else:
+        freed_str = f"{freed_bytes / 1024:.1f} KB"
+
+    return {
+        "success": True,
+        "freed_bytes": freed_bytes,
+        "deleted_files": deleted_files,
+        "formatted_freed": freed_str,
+        "message": f"Đã dọn dẹp {deleted_files} tệp cache, giải phóng {freed_str} dung lượng ổ đĩa!"
+    }
+
+
+def open_appdata_directory() -> dict:
+    """Mở nhanh thư mục dữ liệu %APPDATA%/VietModHub/ trên Windows Explorer."""
+    import subprocess
+    target = os.path.normpath(APPDATA_DIR)
+    os.makedirs(target, exist_ok=True)
+    try:
+        if sys.platform == "win32":
+            os.startfile(target)
+        else:
+            subprocess.Popen(["xdg-open", target])
+        return {"success": True, "path": target, "message": f"Đã mở thư mục: {target}"}
+    except Exception as e:
+        print(f"[ConfigManager] Error opening AppData: {e}")
+        return {"success": False, "error": str(e), "message": f"Không thể mở thư mục: {e}"}
+
