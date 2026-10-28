@@ -1027,7 +1027,8 @@ def api_vault_open_folder():
     folder = os.path.dirname(vault.vault_path)
     try:
         if os.path.exists(vault.vault_path):
-            subprocess.Popen(f'explorer /select,"{vault.vault_path}"')
+            no_window = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+            subprocess.Popen(f'explorer /select,"{vault.vault_path}"', creationflags=no_window)
         else:
             os.startfile(folder)
         return json.dumps({"success": True, "folder": folder})

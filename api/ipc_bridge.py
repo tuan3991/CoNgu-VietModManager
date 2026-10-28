@@ -2172,7 +2172,14 @@ class ModManagerAPI:
             return {"success": True, "message": "Không có tiến trình game nào đang chạy."}
 
         try:
-            res = subprocess.run(["taskkill", "/F", "/IM", proc_name], capture_output=True, text=True, check=False)
+            no_window = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+            res = subprocess.run(
+                ["taskkill", "/F", "/IM", proc_name],
+                capture_output=True,
+                text=True,
+                check=False,
+                creationflags=no_window
+            )
             time.sleep(0.5)
             is_still_running, _ = check_game_running(g, game_path)
             if not is_still_running:

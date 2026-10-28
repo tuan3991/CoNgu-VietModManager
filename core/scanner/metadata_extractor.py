@@ -124,7 +124,13 @@ def extract_exe_icon(exe_path: str, output_img_path: str) -> bool:
             f"$icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{clean_exe}'); "
             f"if ($icon) {{ $bitmap = $icon.ToBitmap(); $bitmap.Save('{clean_out}', [System.Drawing.Imaging.ImageFormat]::Png); exit 0 }} else {{ exit 1 }}"
         )
-        res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], capture_output=True, timeout=5)
+        no_window = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            timeout=5,
+            creationflags=no_window
+        )
         return res.returncode == 0 and os.path.exists(output_img_path) and os.path.getsize(output_img_path) > 500
     except Exception:
         return False
