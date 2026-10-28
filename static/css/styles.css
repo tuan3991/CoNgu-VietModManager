@@ -1,0 +1,364 @@
+    :root {
+      --font-pixel: 'Chakra Petch', 'JetBrains Mono', monospace;
+      --font-display: 'Chakra Petch', sans-serif;
+      --font-sans: 'Be Vietnam Pro', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* 4 Core Neon Colors */
+      --neon-cyan: #00F0FF;
+      --neon-magenta: #FF2A85;
+      --neon-amber: #FFB800;
+      --neon-green: #00FF9D;
+      --neon-crimson: #FF3344;
+
+      --bg-deep: #0b0c1a;
+      --bg-night: #161129;
+      --bg-card: #111224;
+      --shadow-pixel: 4px 4px 0px #05050a;
+      --shadow-pixel-sm: 2px 2px 0px #05050a;
+      --shadow-pixel-lg: 6px 6px 0px #05050a;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: 
+        radial-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(135deg, #0b0c1a 0%, #161129 50%, #0d0e1a 100%);
+      background-size: 16px 16px, 100% 100%;
+      background-attachment: fixed;
+      color: #F1F5F9;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Font Utilities */
+    .font-pixel { 
+      font-family: var(--font-pixel) !important; 
+      letter-spacing: 0.05em !important;
+      font-feature-settings: "tnum" 1 !important;
+    }
+    .font-display { 
+      font-family: var(--font-display) !important; 
+      letter-spacing: 0.04em !important;
+    }
+    .font-mono-tech { 
+      font-family: var(--font-mono) !important; 
+      letter-spacing: 0.03em !important;
+    }
+    .font-sans, .font-body { 
+      font-family: var(--font-sans) !important; 
+      letter-spacing: normal !important;
+    }
+
+    /* Custom Retro Pixel Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #070812; border-left: 1px solid #1a1d36; }
+    ::-webkit-scrollbar-thumb { background: #00F0FF; border: 1px solid #05050a; }
+    ::-webkit-scrollbar-thumb:hover { background: #FF2A85; }
+
+    /* Sleek 4px Slim Scrollbar in Modals (Fix 6) */
+    .pixel-modal ::-webkit-scrollbar,
+    #gameModal ::-webkit-scrollbar,
+    #updateModal ::-webkit-scrollbar,
+    #requestModal ::-webkit-scrollbar {
+      width: 4px !important;
+      height: 4px !important;
+    }
+    .pixel-modal ::-webkit-scrollbar-track,
+    #gameModal ::-webkit-scrollbar-track,
+    #updateModal ::-webkit-scrollbar-track,
+    #requestModal ::-webkit-scrollbar-track {
+      background: rgba(7, 8, 18, 0.4) !important;
+      border-left: none !important;
+    }
+    .pixel-modal ::-webkit-scrollbar-thumb,
+    #gameModal ::-webkit-scrollbar-thumb,
+    #updateModal ::-webkit-scrollbar-thumb,
+    #requestModal ::-webkit-scrollbar-thumb {
+      background: #00F0FF !important;
+      border: none !important;
+      border-radius: 2px !important;
+    }
+    .pixel-modal ::-webkit-scrollbar-thumb:hover,
+    #gameModal ::-webkit-scrollbar-thumb:hover,
+    #updateModal ::-webkit-scrollbar-thumb:hover,
+    #requestModal ::-webkit-scrollbar-thumb:hover {
+      background: #FF2A85 !important;
+    }
+
+    /* Sidebar Custom Cyber Scrollbar (Steam Style) */
+    .custom-sidebar-scroll::-webkit-scrollbar {
+      width: 4px !important;
+    }
+    .custom-sidebar-scroll::-webkit-scrollbar-track {
+      background: rgba(7, 8, 20, 0.4) !important;
+    }
+    .custom-sidebar-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.35) !important;
+      border-radius: 2px !important;
+    }
+    .custom-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+      background: #00F0FF !important;
+    }
+
+    /* Modal Action Buttons - Single Line No Wrap (Fix 4) */
+    .modal-action-btn {
+      white-space: nowrap !important;
+      min-width: max-content !important;
+      padding: 10px 20px !important;
+      flex-shrink: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    /* Brand Title Cyber Neon */
+    .app-brand-title {
+      font-family: var(--font-display) !important;
+      font-weight: 800 !important;
+      font-size: 24px !important;
+      letter-spacing: 0.1em !important;
+      text-transform: uppercase !important;
+      color: #F8FAFC !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      line-height: 1 !important;
+    }
+
+    .brand-slashes {
+      color: #00F0FF !important;
+      font-family: var(--font-pixel) !important;
+      font-weight: 800 !important;
+      font-size: 18px !important;
+      margin-right: 6px !important;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.4) !important;
+      display: inline-block !important;
+    }
+
+    .brand-name {
+      color: #FFFFFF !important;
+      font-family: var(--font-display) !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.1em !important;
+      text-shadow: 0 0 14px rgba(255, 255, 255, 0.3), 0 0 25px rgba(0, 240, 255, 0.3) !important;
+    }
+
+    /* Pixel Badge */
+    .tech-badge, .file-path, .protocol-text {
+      font-family: var(--font-pixel) !important;
+      font-size: 10px !important;
+      letter-spacing: 0.05em !important;
+    }
+
+    /* Glass Effect with Cyber Border */
+    .glass {
+      background: rgba(10, 12, 26, 0.42);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.35);
+    }
+
+    /* Tactile Pixel Buttons */
+    .pixel-btn {
+      border-radius: 2px !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+      transition: all 0.12s ease-in-out !important;
+      font-family: var(--font-display) !important;
+      text-transform: none !important;
+      letter-spacing: 0.02em !important;
+      position: relative;
+    }
+    .pixel-btn:hover {
+      transform: translate(-1px, -1px) !important;
+      box-shadow: 4px 4px 0px #05050a !important;
+    }
+    .pixel-btn:active {
+      transform: translate(2px, 2px) !important;
+      box-shadow: 1px 1px 0px #05050a !important;
+    }
+
+    /* Neon Color Button Variants */
+    .btn-neon-green {
+      background: #00FF9D !important;
+      color: #05050a !important;
+      border: 1px solid #00FF9D !important;
+      font-weight: 800 !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 12px rgba(0, 255, 157, 0.35) !important;
+    }
+    .btn-neon-green:hover {
+      background: #33FFAE !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 18px rgba(0, 255, 157, 0.55) !important;
+    }
+
+    .btn-arcade-amber {
+      background: #FFB800 !important;
+      color: #05050a !important;
+      border: 1px solid #FFE600 !important;
+      font-weight: 900 !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 14px rgba(255, 184, 0, 0.4) !important;
+    }
+    .btn-arcade-amber:hover {
+      background: #FFC72C !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 20px rgba(255, 184, 0, 0.6) !important;
+    }
+
+    .btn-cyber-magenta {
+      background: rgba(255, 42, 133, 0.12) !important;
+      color: #FF2A85 !important;
+      border: 1px solid #FF2A85 !important;
+      font-weight: 700 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+    }
+    .btn-cyber-magenta:hover {
+      background: #FF2A85 !important;
+      color: #ffffff !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(255, 42, 133, 0.5) !important;
+    }
+
+    .btn-neon-cyan {
+      background: rgba(0, 240, 255, 0.12) !important;
+      color: #00F0FF !important;
+      border: 1px solid #00F0FF !important;
+      font-weight: 700 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+    }
+    .btn-neon-cyan:hover {
+      background: #00F0FF !important;
+      color: #05050a !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(0, 240, 255, 0.5) !important;
+    }
+
+    .btn-retro-crimson {
+      background: rgba(255, 51, 68, 0.15) !important;
+      color: #FF6677 !important;
+      border: 1px solid #FF3344 !important;
+      font-weight: 700 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+    }
+    .btn-retro-crimson:hover {
+      background: #FF3344 !important;
+      color: #ffffff !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(255, 51, 68, 0.5) !important;
+    }
+
+    /* Pixel Game Card */
+    .pixel-card {
+      border-radius: 2px !important;
+      background: #111224 !important;
+      border: 1px solid rgba(0, 240, 255, 0.25) !important;
+      box-shadow: 4px 4px 0px #05050a !important;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+    }
+    .pixel-card:hover {
+      border-color: #00F0FF !important;
+      box-shadow: 6px 6px 0px #05050a, 0 0 20px rgba(0, 240, 255, 0.3) !important;
+      transform: translate(-2px, -2px) !important;
+    }
+
+    /* CRT Scanlines Overlay */
+    .crt-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.20) 0px,
+        rgba(0, 0, 0, 0.20) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      opacity: 0.8;
+    }
+
+    /* Hero Arcade Frame with Double Neon Glow */
+    .hero-arcade-frame {
+      position: relative;
+      border-radius: 2px !important;
+      border: 2px solid #00F0FF !important;
+      box-shadow: 6px 6px 0px #05050a, 0 0 25px rgba(0, 240, 255, 0.25), inset 0 0 30px rgba(0, 240, 255, 0.1) !important;
+      outline: 1px solid rgba(255, 42, 133, 0.45);
+      outline-offset: 4px;
+    }
+
+    /* Pixel Segmented EXP / Health Bar */
+    .pixel-exp-bar {
+      display: flex;
+      gap: 2.5px;
+      background: #080914;
+      padding: 2px;
+      border: 1px solid rgba(255, 184, 0, 0.6);
+      box-shadow: 2px 2px 0px #05050a;
+      height: 8px;
+      border-radius: 1px;
+    }
+    .pixel-exp-seg {
+      flex: 1;
+      background: #1e223b;
+      height: 100%;
+    }
+    .pixel-exp-seg.active-amber {
+      background: linear-gradient(180deg, #FFE600 0%, #FFB800 100%);
+      box-shadow: 0 0 4px rgba(255, 184, 0, 0.7);
+    }
+    .pixel-exp-seg.active-cyan {
+      background: linear-gradient(180deg, #80F8FF 0%, #00F0FF 100%);
+      box-shadow: 0 0 4px rgba(0, 240, 255, 0.7);
+    }
+
+    /* Pixel Filter Tabs */
+    .pixel-tab {
+      border-radius: 2px !important;
+      background: #111326 !important;
+      border: 1px solid #232747 !important;
+      color: #94A3B8 !important;
+      box-shadow: 3px 3px 0px #05050a !important;
+      font-family: var(--font-display) !important;
+      text-transform: none !important;
+      letter-spacing: 0.02em !important;
+      transition: all 0.15s ease !important;
+    }
+    .pixel-tab:hover {
+      border-color: #00F0FF !important;
+      color: #FFFFFF !important;
+      transform: translate(-1px, -1px) !important;
+      box-shadow: 4px 4px 0px #05050a !important;
+    }
+    .pixel-tab.active-filter-tab {
+      background: #00F0FF !important;
+      color: #05050a !important;
+      border-color: #00F0FF !important;
+      font-weight: 800 !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 15px rgba(0, 240, 255, 0.45) !important;
+    }
+
+    /* Modals with Softened Cyber Borders (25% Opacity, Non-Distracting) */
+    .pixel-modal {
+      border-radius: 6px !important;
+      border: 1px solid rgba(0, 240, 255, 0.25) !important;
+      background: #0e0f22 !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 240, 255, 0.08) !important;
+      outline: none !important;
+    }
+    /* Frameless Window Drag Region (Native + Webkit Drag) */
+    .pywebview-drag-region {
+      -webkit-app-region: drag;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .pywebview-drag-region:active {
+      cursor: grabbing;
+    }
+    .no-drag,
+    .no-drag *,
+    button,
+    input,
+    textarea,
+    select,
+    a,
+    .pixel-btn,
+    .cursor-pointer {
+      -webkit-app-region: no-drag;
+    }

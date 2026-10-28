@@ -39,8 +39,10 @@ Sau khi đã đọc hiểu `ARCHITECTURE.md`, hãy thực hiện tuần tự 5 g
 
 ---
 
-[GIAI ĐOẠN 2: XỬ LÝ TRIỆT ĐỂ FONT CHỮ TIẾNG VIỆT & CHỐNG LỖI FALLBACK / MẤT CHỮ LATIN-1]
-1. Chạy script Python tự động kiểm tra toàn bộ file font rời (`.ttf`, `.otf`), Bitmap Font (`.fnt`, `.xml` + `.png`/`.dds`/`.tga`), Unreal Font (`.ufont`/`.uasset`) hoặc `TMP_FontAsset` / `Font` trong các file `.assets` / `.bundle` của Unity xem đã có đủ 134 ký tự tiếng Việt dựng sẵn (cả chữ thường lẫn CHỮ HOA) chưa:
+[GIAI ĐOẠN 2: XỬ LÝ TRIỆT ĐỂ FONT CHỮ TIẾNG VIỆT & CHỐNG LỖI FALLBACK / MOJIBAKE / LỆCH DÒNG]
+1. KIỂM TRA ĐỘ PHỦ 100% FONT TRÊN TOÀN BỘ GAME (COVERAGE AUDIT):
+   - Truy vết đúng font đang gắn trực tiếp trên UI Component (Menu, HUD, Popup, Subtitle) thay vì chỉ sửa file font rời (vì nhiều game để `.ttf` rác nhưng UI thực tế lại nạp từ Bitmap Font `.fnt`/`.xml` + `.png`/`.dds`/`.tga`, Telltale `.font` + `.d3dtx`, hay Pre-baked Font Asset).
+   - Quét toàn bộ: Font vector rời (`.ttf`, `.otf`), Unity Font (`TMP_FontAsset`, `Font`), Unreal Font (`.ufont`/`.uasset`), và Bitmap Font của Engine riêng xem đã nạp đủ 134 ký tự tiếng Việt dựng sẵn chưa:
    ```python
    # Mẫu logic bắt buộc chạy để kiểm tra đủ 134 ký tự tiếng Việt (74 chữ thường/gốc + 60 chữ HOA có dấu)
    VN_CHARS = (
@@ -52,31 +54,37 @@ Sau khi đã đọc hiểu `ARCHITECTURE.md`, hãy thực hiện tuần tự 5 g
    # 1. Với file .ttf/.otf: dùng fontTools kiểm tra all(ord(ch) in font.getBestCmap() for ch in VN_CHARS)
    # 2. Với Unity TMP_FontAsset (qua UnityPy): đọc m_CharacterTable, lấy tập hợp {item.m_Unicode for item in data.m_CharacterTable} và kiểm tra đủ 100% ord(ch) trong VN_CHARS.
    ```
-2. QUY TẮC TOÁN HỌC BẮT BUỘC KHI REBUILD TMP_FONTASSET BẰNG PYTHON:
-   * Khi tạo lại Atlas cho TMP_FontAsset, BẮT BUỘC xóa các glyph Latin cũ (U+0020 - U+007E) và sinh lại đồng bộ cả A-Z, a-z, 0-9, dấu câu lẫn 134 ký tự tiếng Việt từ cùng 1 file .ttf (cấm giữ A-Z gốc rồi chỉ chèn thêm chữ có dấu gây lệch độ đậm nhạt).
-   * Cập nhật đồng bộ cả 2 bảng `m_GlyphTable` (chứa `m_GlyphRect` và `m_Metrics`) và `m_CharacterTable` (ánh xạ `m_Unicode` -> `m_GlyphIndex`).
-   * Cấm co kéo (resize) chữ có dấu theo khung cố định. Bắt buộc tính đường gióng ngang trong `m_Metrics` theo đúng công thức: `ascent, descent = font.getmetrics()`, `left, top, right, bottom = font.getbbox(ch)` -> `m_HorizontalBearingY = ascent - top`, `m_HorizontalBearingX = left`, `m_HorizontalAdvance = font.getlength(ch)`.
-   * Áp dụng biến đổi khoảng cách `scipy.ndimage.distance_transform_edt` chuẩn hóa theo `m_AtlasPadding` (spread) để tạo biên SDF mượt (tâm cạnh chữ = 128).
-3. QUY TẮC BẮT BUỘC VỚI BITMAP FONT, CUSTOM ENGINE & BẪY BẢNG MÃ LATIN-1 (CHỐNG MẤT CHỮ TÀNG HÌNH):
-   * Cảnh giác bẫy Latin-1 (`Windows-1252` / `ISO-8859-1`): Các ký tự `á, à, é, è, í, ì, ó, ò, ú, ù, ý, â, ê, ô` nằm trong bảng mã phương Tây `Latin-1` (`U+0080 - U+00FF`) nên font gốc của game luôn hiển thị được, nhưng các ký tự tiếng Việt thuộc `Latin Extended` (`ă, đ, ơ, ư, ắ, ầ, ọ, ạ, ể...` từ `U+0100` trở lên) sẽ bị biến mất hoàn toàn (không hiện cả ô vuông `□`, ví dụ: `"Bắt đầu trò chơi"` bị cụt thành `"Bt u trò chi"`, `"CHỌN"` thành `"CHN"`).
-   * Bắt buộc truy vết đúng Font đang gắn trực tiếp trên UI Component (Scene/Prefab/Menu) thay vì chỉ sửa file `.ttf` rời trong thư mục game (vì nhiều game để file `.ttf` rác nhưng UI thực tế lại đọc từ Bitmap Font `.fnt`/`.xml` + `.png`/`.dds`/`.tga` hoặc Pre-baked Font Atlas).
-   * Nếu game dùng Bitmap Font (`.fnt`, `.xml`, `.dat` đi kèm ảnh texture): BẮT BUỘC dùng script Python vẽ lại ảnh Font Atlas chứa đủ 134 ký tự `VN_CHARS` và cập nhật lại toàn bộ tọa độ `char id / x / y / width / height / xoffset / yoffset / xadvance` trong file cấu hình font.
-   * Nếu Engine của game hoặc file ngôn ngữ chỉ đọc bảng mã 1-byte (`ANSI / Windows-1252`, lọc bỏ mọi ký tự có mã `ord(ch) > 255`):
-     - Cách 1: Hook/Patch hàm đọc chuỗi và hàm vẽ chữ trong file binary (`.exe` / `.dll`) sang chuẩn `UTF-8` / `UTF-16`.
-     - Cách 2 (Character Remapping): Ánh xạ các ký tự tiếng Việt ngoài bảng `Latin-1` vào các ô mã `0x80 - 0xFF` không dùng tới của bảng `Windows-1252` (như `¤, §, ¨, ©, ª, «, ¬, ®...`), đồng thời vẽ hình dáng chữ tiếng Việt tương ứng vào đúng các ô mã đó trên Font Atlas.
-4. QUY TẮC CHỐNG LỖI "CHỮ TEO NHỎ & BAY LƠ LỬNG NHƯ SỐ MŨ" (ANTI-SUPERSCRIPT & BASELINE CALIBRATION):
-   * CẤM CHẮP VÁ LỆCH FONT (No Hybrid Patching): Tuyệt đối cấm giữ nguyên các chữ cái gốc (`A-Z, a-z, ò, á, ù`) trên Atlas của game rồi chỉ vẽ chèn thêm các ký tự tiếng Việt thiếu (`ă, đ, ơ, ư, ắ, ầ, ọ, ạ...`) bằng một font khác hoặc kích thước khác, gây ra lỗi chữ mới chèn bị nhỏ tí hon, nét mảnh và bay lơ lửng trên đầu chữ cũ (kiểu `Bắᵗ đầᵘ trò chơⁱ`).
-   * BẮT BUỘC ĐO VÀ KHÓA CỨNG CHIỀU CAO PIXEL (Auto-Calibrate Point Size):
-     - Trước khi render glyph mới bằng Python (PIL/FreeType), bắt buộc đọc thông số của ký tự chữ cái gốc trong game (lấy chữ `'O'` hoa và `'o'` thường làm chuẩn) để lấy chính xác chiều cao hiển thị thực tế tính bằng pixel (`orig_cap_height = height_of('O')`).
-     - Dùng vòng lặp tự động tăng/giảm `font_size` của file `.ttf` tiếng Việt cho đến khi chiều cao thực tế của chữ `'O'` mới (`bbox[3] - bbox[1]`) khớp 100% với `orig_cap_height` của font gốc (sai số tối đa ±1px). Tuyệt đối cấm đoán mò hoặc gán cứng `font_size` mặc định (như 16, 24, 32).
-     - Phải render lại ĐỒNG BỘ 100% cả chữ cái không dấu (`A-Z, a-z, 0-9`) lẫn 134 ký tự `VN_CHARS` từ cùng một font `.ttf` ở cùng `font_size` đã đo (và tái tạo lại hiệu ứng viền/stroke/shadow nếu font gốc có viền).
-   * BẮT BUỘC CĂN THẲNG ĐƯỜNG GIÓNG CHÂN (Baseline / Y-Offset Alignment):
-     - Tuyệt đối cấm gán `yoffset = 0` khi cắt glyph theo khung sát (`tight bounding box`), vì sẽ làm các chữ có dấu bị hút dính lên mép trên cùng của dòng.
-     - Công thức bắt buộc cho Bitmap Font (`.fnt` / XML / Custom Atlas): Với `ascent, descent = font.getmetrics()` và `left, top, right, bottom = font.getbbox(ch)`, bắt buộc đặt `width = right - left`, `height = bottom - top`, `xoffset = left`, và **`yoffset = top`** (hoặc `yoffset = base_line - (ascent - top)` theo hệ quy chiếu của file `.fnt` gốc) sao cho chân của các chữ cái tiếng Việt (`ă, ắ, đ, ơ, ư`) nằm thẳng tắp trên cùng một đường kẻ ngang với chân chữ `'a'`, `'o'`, `'B'`, `'T'`.
-* [CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 2 -> GHI VÀO `PROGRESS.md`]:
-  - Liệt kê tên chính xác của TẤT CẢ các Font Asset thực tế đang gắn trên UI Menu/HUD của game, định dạng của chúng (`TTF`, `TMP_FontAsset`, hay `Bitmap Font`), và kết quả kiểm tra độ phủ `VN_CHARS` trên từng font (`134/134 PASS`).
 
----
+2. QUY TẮC TOÁN HỌC BẮT BUỘC KHI REBUILD UNITY TMP_FONTASSET BẰNG PYTHON:
+   - Khi tạo lại Atlas cho `TMP_FontAsset`, BẮT BUỘC xóa các glyph Latin cũ (`U+0020` - `U+007E`) và sinh lại đồng bộ cả `A-Z, a-z, 0-9`, dấu câu lẫn 134 ký tự tiếng Việt từ cùng 1 file `.ttf` (cấm giữ `A-Z` gốc rồi chỉ chèn thêm chữ có dấu gây lệch độ đậm nhạt).
+   - Cập nhật đồng bộ cả 2 bảng `m_GlyphTable` (chứa `m_GlyphRect` và `m_Metrics`) và `m_CharacterTable` (ánh xạ `m_Unicode` -> `m_GlyphIndex`).
+   - Cấm co kéo (resize) chữ có dấu theo khung cố định. Bắt buộc tính đường gióng ngang trong `m_Metrics` theo đúng công thức:
+     `ascent, descent = font.getmetrics()`
+     `left, top, right, bottom = font.getbbox(ch)`
+     -> **`m_HorizontalBearingY = ascent - top`**
+     -> **`m_HorizontalBearingX = left`**
+     -> **`m_HorizontalAdvance = font.getlength(ch)`**
+   - Áp dụng biến đổi khoảng cách `scipy.ndimage.distance_transform_edt` chuẩn hóa theo `m_AtlasPadding` (spread) để tạo biên SDF mượt (tâm cạnh chữ = 128).
+
+3. XỬ LÝ BITMAP FONT, CUSTOM ENGINE & BẪY BẢNG MÃ LATIN-1 (CHỐNG MẤT CHỮ TÀNG HÌNH & MOJIBAKE):
+   - Cảnh giác bẫy Latin-1 (`Windows-1252` / `ISO-8859-1`): Các chữ `á, à, é, è, í, ì, ó, ò, ú, ù, ý, â, ê, ô` nằm trong dải `U+0080 - U+00FF` nên font gốc luôn vẽ được, nhưng các ký tự `Latin Extended` (`ă, đ, ơ, ư, ắ, ầ, ọ, ạ, ể...` từ `U+0100` trở lên) sẽ bị biến mất tàng hình (không hiện cả ô vuông `□`, làm `"Bắt đầu trò chơi"` bị cụt thành `"Bt u trò chi"`).
+   - Với Engine chỉ nhận chuỗi 1-byte (`ANSI / Windows-1252`, cắt bỏ `ord(ch) > 255`):
+     + Cách 1 (Ưu tiên): Hook/Patch hàm đọc chuỗi và hàm vẽ text trong binary (`.exe`/`.dll`) sang `UTF-8` hoặc `UTF-16`.
+     + Cách 2 (Character Remapping): Ánh xạ các ký tự ngoài Latin-1 sang các ô byte `0x80 - 0xFF` chưa dùng (`¤, §, ¨, ©, ª, «, ¬, ®...`) trong file text/ngôn ngữ, ĐỒNG THỜI bắt buộc vẽ lại hình dáng ký tự tương ứng vào đúng ô mã đó trên ảnh Font Texture Atlas.
+   - Khi sửa Bitmap Font (`.fnt`, `.xml`, Telltale `.font` + `.d3dtx`/`.dds`, `.gfx`): BẮT BUỘC cập nhật đồng bộ cả (1) **Ảnh Texture Atlas** (vẽ đủ chữ gốc + 134 ký tự tiếng Việt) và (2) **Bảng ánh xạ Character ID -> Tọa độ UV (`x, y, width, height, xoffset, yoffset, xadvance`)**. Tuyệt đối không làm lệch cấu trúc nhị phân khiến ký tự này trỏ nhầm sang ô hình của ký tự khác (gây lỗi `ể` $\rightarrow$ `™`, `ế` $\rightarrow$ `—`, `à` $\rightarrow$ `f`).
+
+4. CHỐNG LỖI "CHỮ TEO NHỎ & BAY LƠ LỬNG NHƯ SỐ MŨ" (ANTI-SUPERSCRIPT & BASELINE ALIGNMENT):
+   - CẤM CHẮP VÁ LỆCH FONT (No Hybrid Patching): Cấm tuyệt đối việc giữ `A-Z, a-z` gốc trên Atlas rồi chèn chữ có dấu bằng một font khác hoặc cỡ chữ khác, gây lỗi chữ chèn vào bị nhỏ tí hon, nét mảnh và bay lơ lửng trên đầu chữ cũ (kiểu `Bắᵗ đầᵘ trò chơⁱ`).
+   - TỰ ĐỘNG ĐO VÀ KHÓA CỨNG CHIỀU CAO PIXEL (Auto-Calibrate Point Size):
+     + Đo chiều cao pixel hiển thị thực tế của chữ cái gốc trong game (lấy chữ `'O'` hoa và `'o'` thường làm mốc: `orig_cap_height = height_of('O')`).
+     + Dùng vòng lặp tự động tăng/giảm `font_size` của file `.ttf` tiếng Việt cho đến khi chiều cao thực tế của chữ `'O'` mới (`bbox[3] - bbox[1]`) khớp 100% với `orig_cap_height` (sai số tối đa $\pm 1$px). Cấm đoán mò cỡ font mặc định.
+     + Render lại ĐỒNG BỘ 100% cả `A-Z, a-z, 0-9` lẫn 134 ký tự `VN_CHARS` từ cùng 1 font `.ttf` ở cùng `font_size` đã hiệu chuẩn (tái tạo lại viền/stroke/shadow nếu font gốc có hiệu ứng).
+   - CĂN THẲNG TUYỆT ĐỐI ĐƯỜNG GIÓNG CHÂN (Baseline Calibration):
+     + Tuyệt đối cấm gán `yoffset = 0` khi cắt glyph theo khung sát biên (`tight bounding box`), vì sẽ làm toàn bộ chữ có dấu bị hút dính lên trần dòng chữ.
+     + Công thức chuẩn cho Bitmap Font: Với `ascent, descent = font.getmetrics()` và `left, top, right, bottom = font.getbbox(ch)`, gán `width = right - left`, `height = bottom - top`, `xoffset = left`, và **`yoffset = top`** (hoặc `yoffset = base_line - (ascent - top)` theo hệ quy chiếu của engine) để bảo đảm chân của `ă, ắ, đ, ơ, ư` nằm thẳng hàng tắp trên cùng một baseline ngang với `a, o, B, T`.
+
+- [CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 2 -> BẮT BUỘC GHI VÀO `PROGRESS.md`]:
+  - Báo cáo rõ danh sách TẤT CẢ các Font Asset thực tế gắn trên UI/HUD/Dialog của game, định dạng lưu trữ (`TTF`, `TMP_FontAsset`, hay `Bitmap Font`), và kết quả kiểm tra độ phủ `VN_CHARS` trên từng font (`134/134 PASS`).
 
 [GIAI ĐOẠN 3: DỊCH THUẬT BẢN ĐỊA HÓA SÁNG TẠO (TRANSCREATION & CONTEXTUAL LOCALIZATION)]
 1. QUY TRÌNH DỊCH BẮT BUỘC VỚI `tools/llm_batch_translator.py` (CẤM DỊCH MÁY RẺ TIỀN):
@@ -125,14 +133,19 @@ Sau khi đã đọc hiểu `ARCHITECTURE.md`, hãy thực hiện tuần tự 5 g
      - Kiểm tra độ phủ ngôn ngữ: Quét lại toàn bộ `m_text` (TMP), `MonoBehaviour` strings và `ldstr` trong `.dll`. Liệt kê bất kỳ chuỗi nào (kể cả từ đơn UI như `Player`, `Damage` hoặc chuỗi chứa thẻ `<sprite>`, `<link>`) vẫn còn là từ vựng tiếng Anh. Độ phủ thực tế phải đạt >= 99.8%.
      - Kiểm tra chéo Text-to-Font Glyph (Chống tàng hình chữ): Lấy tập hợp toàn bộ ký tự xuất hiện trong bản dịch (`used_chars = set("".join(translated_texts))`), đối chiếu trực tiếp với bảng `CharacterTable` / `Cmap` / `.fnt` của TẤT CẢ các Font đang được gắn vào UI Component của game. Nếu bất kỳ ký tự nào (đặc biệt là nhóm ngoài bảng `Latin-1` như `ă, đ, ơ, ư, ắ, ầ, ọ, ạ, ể...`) chưa có mặt trong bảng Glyph của Font UI hoặc bị lưu sai bảng mã (ANSI/Latin-1 làm mất byte UTF-8) -> Báo lỗi đỏ (Exit Code != 0) và BẮT BUỘC quay lại Giai đoạn 2 để sửa Font/Encoding ngay lập tức.
      - Kiểm tra toán học Tỷ lệ kích thước & Đường gióng chân (Glyph Scale & Baseline Check): Trong script kiểm định Font, bắt buộc lấy thông số `height` và vị trí đáy (`yoffset + height` đối với Bitmap Font, hoặc `m_HorizontalBearingY - m_Height` đối với TMP) của nhóm chữ cái tiếng Việt mở rộng (`ơ, đ, ă, ư`) so sánh trực tiếp với nhóm chữ cái cơ bản (`o, d, a, u`). Nếu chiều cao của `'ơ'` lệch quá 15% so với `'o'`, hoặc vị trí chân chữ lệch nhau quá 2 pixel -> Báo lỗi đỏ `FAIL: GLYPH SCALE OR BASELINE MISALIGNMENT` (Exit Code != 0) và bắt buộc quay lại Giai đoạn 2 render lại Font.
-3. Smoke Test thực tế & Đối chiếu OCR từng chữ (Menu + In-game UI):
-   * Cài bản dịch vào thư mục game, khởi chạy tiến trình game ở chế độ cửa sổ (non-blocking), chụp ảnh màn hình cả Menu chính lẫn giao diện UI/Sách kỹ năng.
-   * BẮT BUỘC dùng Vision đọc từng chữ hiển thị thực tế trên ảnh chụp màn hình và đối chiếu 1:1 với chuỗi trong `translated_strings.json` để xác nhận 4 tiêu chí:
-     (1) Không còn sót chữ hệ thống tiếng Anh (`Player`, `Damage`, `Spell`...).
-     (2) Các câu mô tả có gắn thẻ `<sprite>`/`<link>` không bị tàng hình hay mất chữ.
-     (3) Font hiển thị đẹp, không lỗi ô vuông (`□`), không đè chữ hay mất dấu chữ HOA.
-     (4) TUYỆT ĐỐI KHÔNG bị lỗi "nuốt/rụng ký tự tiếng Việt ngoài bảng Latin-1" (Ví dụ: chỉ hiện các chữ `á, ò, ù, ê, ô` nhưng mất sạch các chữ `ă, đ, ơ, ư, ắ, ầ, ọ, ạ...` làm chữ `"CHỌN TRÒ CHƠI"` bị biến thành `"CHN TRÒ CHI"`, `"Bắt đầu"` thành `"Bt u"`, `"Quay lại"` thành `"QUAY LI"`). Nếu phát hiện thiếu bất kỳ chữ cái nào trên ảnh chụp màn hình so với bản dịch, TUYỆT ĐỐI CẤM chuyển sang Giai đoạn 5.
-     (5) TUYỆT ĐỐI KHÔNG bị lỗi "chữ to chữ nhỏ / chữ bay lơ lửng như số mũ" (Superscript/Baseline Bug): Soi kỹ các dòng chữ có dấu trên ảnh chụp màn hình (như `"CHỌN TRÒ CHƠI"`, `"Bắt đầu"`, `"Tùy chọn"`, `"Quay lại"`). Nếu các ký tự tiếng Việt (`Ọ, Ơ, ắ, đ, ầ, ơ, Ạ`) bị nhỏ hơn các chữ cái đứng cạnh, khác độ dày nét chữ, hoặc bị đẩy cao lên phía trên như số mũ thay vì đứng phẳng chân trên cùng một đường thẳng ngang, BẮT BUỘC đánh trượt (`FAIL`) và quay lại Giai đoạn 2 sửa lại `font_size` + `yoffset`/`BearingY`.
+3. Smoke Test thực tế & Đối chiếu OCR trực quan từng chữ (Visual OCR Gate):
+   * Cài bản dịch vào thư mục game, khởi chạy tiến trình game ở chế độ cửa sổ (non-blocking).
+   * Chụp ảnh màn hình toàn diện nhiều góc: Menu chính, Hộp thoại hệ thống / Popup thông báo (Dialog), Màn hình cài đặt (Settings), HUD In-game và Sách kỹ năng/Kho đồ (Inventory).
+   * BẮT BUỘC dùng Vision/OCR đọc từng từ hiển thị thực tế trên ảnh chụp màn hình và đối chiếu 1:1 với bản dịch để kiểm tra nghiêm ngặt 6 tiêu chuẩn sau:
+
+     (1) Độ phủ Text & Chữ nền: Không còn sót bất kỳ chuỗi hiển thị tiếng Anh nào (`Player`, `Damage`, `Spell`...), bao gồm cả các dòng chữ thông báo nhỏ chạy ngầm dưới nền hoặc góc màn hình.
+     (2) Toàn vẹn thẻ Rich Text: Các câu mô tả có gắn thẻ `<sprite>`, `<link>`, `<color>`, `<style>` phải hiển thị mượt mà; tuyệt đối không bị tàng hình, mất chữ hay lộ mã code thô ra giao diện.
+     (3) Chống lỗi mất nét & Ký tự rỗng (`□`, `▯`, `?`): Font hiển thị sắc nét, không bị biến thành ô vuông (`□`), hình chữ nhật đứng (`▯`), dấu chấm hỏi (`?`), không đè chữ lộn xộn và không mất dấu thanh ở các cụm từ IN HOA (`ALL CAPS`).
+     (4) TUYỆT ĐỐI KHÔNG bị lỗi "nuốt/rụng ký tự tiếng Việt ngoài bảng Latin-1": Cảnh giác hiện tượng chỉ hiện các chữ có sẵn trong chuẩn Tây Âu (`á, à, é, è, ó, ò, ú, ù, ê, ô`) nhưng rụng mất hoàn toàn các chữ thuộc Latin Extended (`ă, đ, ơ, ư, ắ, ầ, ọ, ạ, ể...`), làm chữ `"CHỌN TRÒ CHƠI"` bị cụt thành `"CHN TRÒ CHI"`, `"Bắt đầu"` thành `"Bt u"`, `"Quay lại"` thành `"QUAY LI"`.
+     (5) TUYỆT ĐỐI KHÔNG bị lỗi "Mojibake / Lệch bảng mã / Lệch UV Font Texture": Không để chữ tiếng Việt bị biến dạng thành các ký tự lạ hoặc biểu tượng toán học/ký hiệu đặc biệt (ví dụ: `ể` thành `™`, `ế` thành `—`, `ạ` thành `‰`, `ậ/ố` thành `ž`, `ỏ` thành `ś`, `┼`, hoặc `à` biến thành `f` như `"tài khoản này"` $\rightarrow$ `"tfi kho▯n nfy"`, `"hủy bỏ"` $\rightarrow$ `"h y bś"`). Nếu phát hiện bất kỳ chữ nào bị biến dạng, BẮT BUỘC đánh trượt (`FAIL`) và quay lại Giai đoạn 2 để kiểm tra bảng ánh xạ remap hoặc vẽ lại UV Texture Atlas.
+     (6) TUYỆT ĐỐI KHÔNG bị lỗi "chữ to chữ nhỏ / bay lơ lửng như số mũ" (Superscript/Baseline Bug): Soi kỹ chân chữ và độ dày nét chữ của các cụm từ có dấu (`"CHỌN TRÒ CHƠI"`, `"Bắt đầu"`, `"Tùy chọn"`, `"Quay lại"`). Toàn bộ ký tự tiếng Việt (`Ọ, Ơ, ắ, đ, ầ, ơ, Ạ...`) phải có cùng kích thước pixel, cùng độ đậm nhạt và đứng phẳng trên cùng một đường gióng chân (baseline) với các chữ cái không dấu (`a, o, B, T`). Cấm tình trạng chữ chèn thêm bị teo nhỏ hoặc bị đẩy cao vút lên mép trên dòng chữ (kiểu `Bắᵗ đầᵘ trò chơⁱ`).
+
+   * ĐIỀU KIỆN TIÊN QUYẾT: Nếu ảnh chụp màn hình không vượt qua đồng thời cả 6 tiêu chí trên, TUYỆT ĐỐI CẤM chuyển sang Giai đoạn 5 (Đóng gói). Bắt buộc dừng lại để sửa triệt để file Font ở Giai đoạn 2 hoặc dịch bù ở Giai đoạn 1 & 3.
 
 * [CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 4 -> GHI VÀO `PROGRESS.md`]:
   - Ghi rõ kết quả chạy `style_and_calque_audit.py` và `independent_binary_audit.py` (Exit Code = 0).

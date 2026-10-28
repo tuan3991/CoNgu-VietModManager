@@ -1,113 +1,128 @@
-# TIẾN TRÌNH VIỆT HÓA FINAL FANTASY RESONANCE
-**Đường dẫn game**: `E:\Games\FINAL FANTASY RESONANCE`  
-**Ngày bắt đầu**: 2026-10-27  
+# TIẾN TRÌNH VIỆT HÓA THE WALKING DEAD (SEASON 1)
+**Đường dẫn game**: `E:\SteamLibrary\steamapps\common\The Walking Dead`  
+**Ngày thực hiện**: 2026-10-27  
 
 ---
 
 ## BƯỚC 0: NẠP BỐI CẢNH HỆ THỐNG CỔ NGỮ
-- [x] Đã đọc `ARCHITECTURE.md`, `games.json`, `pack_mod.py`, `app.py`.
-- [x] Nắm rõ cơ chế Data-Driven Action Pipeline, container `.congu` V2, Streaming Binary Diff (`xdelta3`/`hdiffz`), In-Place Atomic Backup.
-- [x] Đã trang bị công cụ Unreal Engine 5: `tools/repak.exe` (v0.2.2 with Oodle decompressor `oo2core_9_win64.dll`), thư viện `pylocres` đọc ghi `.locres` V3.
-- **Trạng thái**: PASS
+- [x] Đã đọc và nắm vững `ARCHITECTURE.md`, `games.json`, `pack_mod.py`, `app.py`.
+- [x] Nắm rõ cơ chế Data-Driven Action Pipeline (`install_steps` / `uninstall_steps`), container `.congu` V2, Streaming Binary Diff (`xdelta3`/`hdiffz`), In-Place Atomic Backup.
+- [x] Đã trang bị và kiểm tra công cụ Telltale Tool Engine: Đã biên dịch thành công `tools/ttarchext.exe` (v0.2.9 với thuật toán giải mã Blowfish Telltale và zlib 1.3.1).
+- **Trạng thái**: PASS (100%)
 
 ---
 
 ## GIAI ĐOẠN 1: NHẬN DIỆN ENGINE, NGHIÊN CỨU CỐT TRUYỆN & QUÉT SÂU 100% NGUỒN TEXT
-- **Engine**: Unreal Engine 5 (UE 5.0 - 5.3+ với Zen IoStore `ucas`/`utoc` và Container `.pak` chuẩn V11 unencrypted). Executable: `FFRS\Binaries\Win64\FFRS-Win64-Shipping.exe`.
-- **Bảng mã (Encoding)**: UTF-8 & UTF-16 trong Unreal StringTables / `.locres` Version 3 (GUID `0x7574140e, 0xfc034a67, 0x9d90154a, 0x1b7f37c3`).
-- **Hồ sơ bản địa hóa (`GAME_BIBLE.md`)**: ĐÃ HOÀN THÀNH (Lập hồ sơ đầy đủ 4 phần: Cơ chế Turn-Based HD-2D JRPG, Tông giọng bi tráng Fantasy 13+, Bảng phân vai & Đại từ xưng hô Rain, Lasswell, Fina... cấm tuyệt đối "Tôi - Bạn", Glossary bất biến Lapis, Visions, Resonance, Espers, Crystals).
+- **Engine**: Telltale Tool (DirectX 9, 32-bit x86, archive system `.ttarch` v9 Blowfish).
+- **Bảng mã (Encoding)**: `UTF-8` bên trong container ERTM `.landb` (Language Database).
+- **Hồ sơ bản địa hóa (`GAME_BIBLE.md`)**: Đã hoàn thành 100% với 133 dòng chi tiết (Thể loại, Tông giọng ESRB 17+, Bảng đại từ xưng hô nhân vật cấm "Tôi - Bạn", Glossary 22 thuật ngữ bất biến).
 - **Số lượng chuỗi trích xuất được**:
-  - Tầng 1 (Localization & DataTables): 26,725 chuỗi (`FFRS/Content/Localization/Game/en/Game.locres`).
-  - Tầng 2 (UI Prefab & Slate Menu): 0 chuỗi độc lập (Kiến trúc Unreal Engine 5 định tuyến 100% nhãn UI, tiêu đề bảng, thông báo sang hệ thống Text Localization Namespace `ST_UI_*` trong `Game.locres`).
-  - Tầng 3 (DataTables / UAsset Custom Fields): 0 chuỗi độc lập (Toàn bộ DataTable vật phẩm, kỹ năng, nhân vật, vũ khí đều xuất chuỗi hiển thị qua StringTables `ST_Equipment*`, `ST_Skill*`, `ST_Unit*` trong `Game.locres`).
-  - Tầng 4 (Hardcoded / Binary Strings): 0 chuỗi độc lập (Đã quét `FFRS-Win64-Shipping.exe`, engine sử dụng hệ thống FText cache, không chứa chuỗi hội thoại hay UI hardcode rời ngoài `.locres`).
-  - **Tổng chuỗi trích xuất vào `raw_strings.json`**: 26,725 chuỗi (đầy đủ key và source).
-- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 1]**: PASS 100%
+  - Tầng 1 (Localization & DataTables / 182 file `.landb` trên cả 5 Episode 101 - 105): **29,755** chuỗi (Episode 101: 7,320; Episode 102: 6,299; Episode 103: 5,632; Episode 104: 5,764; Episode 105: 4,740).
+  - Tầng 2 (UI Prefab & Scene m_text): Toàn bộ text UI (Menu, nút bấm, thông báo, lựa chọn, hướng dẫn QTE) đều được Telltale Tool gom tập trung trong các file `ui_menu_english.landb`, `choice_notification_english.landb`, `ui_credits_english.landb` đã được trích xuất trọn vẹn ở Tầng 1.
+  - Tầng 3 (ScriptableObjects / Logic Props): 0 chuỗi độc lập (các file `.prop` chỉ chứa thuộc tính logic và key hash ánh xạ vào file `.landb`).
+  - Tầng 4 (Hardcode & Dynamic Strings): 0 chuỗi hiển thị người chơi trong binary `WalkingDead101.exe` (toàn bộ chuỗi hiển thị đều qua API `landb`).
+- **File xuất chuỗi thô**: `raw_strings.json` (29,755 entries, 6.7 MB).
+- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 1]**: **PASS (100%)**
 
 ---
 
 ## GIAI ĐOẠN 2: XỬ LÝ TRIỆT ĐỂ FONT CHỮ TIẾNG VIỆT & CHỐNG LỖI FALLBACK / MẤT CHỮ LATIN-1
-- **Danh sách Font UI/HUD thực tế trong game**:
-  1. `SE-ALPSN.ufont` (Alps Normal - Font UI chính, hội thoại, menu): **134/134 VN_CHARS PASS (100%)**.
-  2. `SE-ALPSB.ufont` (Alps Bold - Font đề mục, nút bấm, thông số): **134/134 VN_CHARS PASS (100%)**.
-  3. `SE-ALPSCB.ufont` (Alps Condensed Bold - Bảng số liệu, thanh đo): **134/134 VN_CHARS PASS (100%)**.
-  4. `SE-ALPSI.ufont` (Alps Italic - Mô tả nghiêng, chú thích): **134/134 VN_CHARS PASS (100%)**.
-  5. `SE-GARRITHR.ufont` (Garrick Thin Normal - Tiêu đề cổ điển, chương truyện): **134/134 VN_CHARS PASS (100%)**.
-  6. `SE-MLSDS.ufont` (Imperial Bold - Phụ đề sử thi, lời thoại trùm): **134/134 VN_CHARS PASS (100%)**.
-  7. `SE-MLSDT.ufont` (Imperial Bold Italic - Danh hiệu, tên chiêu thức): **134/134 VN_CHARS PASS (100%)**.
-  8. `SE-VOGEN.ufont` (Vogel Normal - Phụ trợ hệ thống): **134/134 VN_CHARS PASS (100%)**.
-  9. `SE-VOGEB___.ufont` (Vogel Bold - Tiêu đề phụ): **134/134 VN_CHARS PASS (100%)**.
-  10. `SE-VOGEI___.ufont` (Vogel Italic - Chú giải phụ trợ): **134/134 VN_CHARS PASS (100%)**.
-- **Định dạng Font**: Unreal Engine `UFontFace` container (4-byte length prefix + Full TrueType TTF binary + 4-byte padding footer).
-- **Kết quả hiệu chuẩn Point Size & Căn chuẩn Baseline (Chống teo nhỏ & Chống bay lơ lửng)**:
-  - Tất cả 134 ký tự `VN_CHARS` và các chữ cái cơ bản A-Z, a-z, 0-9 được sinh đồng bộ 100% từ cùng một font TrueType.
-  - Kiểm định toán học `verify_font_math.py`: Khoảng cách đáy `diff = abs(vn_bottom - base_bottom) = 0` tuyệt đối trên toàn bộ các cặp chữ (`o`-`ơ`, `d`-`đ`, `a`-`ă`, `u`-`ư`, `O`-`Ơ`, `D`-`Đ`, `A`-`Ă`).
-  - Đường gióng chân (baseline) phẳng hàng tuyệt đối, chiều cao Cap Height đồng nhất 100%, loại bỏ triệt để lỗi superscript (chữ bay lơ lửng như số mũ) và hybrid patching.
-- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 2]**: PASS 100%
+- **Danh sách Font UI/HUD thực tế trong game (Toàn bộ 27/27 font)**:
+  1. `arial_30.font`: 134/134 PASS (100%)
+  2. `ccchatterbox_12.font`: 134/134 PASS (100%)
+  3. `cheapsignage_50.font`: 134/134 PASS (100%)
+  4. `cheapsignage_70.font`: 134/134 PASS (100%)
+  5. `clarendon_36_bold.font`: 134/134 PASS (100%)
+  6. `creatinin_12.font`: 134/134 PASS (100%)
+  7. `creatinin_16.font`: 134/134 PASS (100%)
+  8. `creatinin_50.font`: 134/134 PASS (100%)
+  9. `creatinin_50_bold.font`: 134/134 PASS (100%)
+  10. `dcc_-_sharp_distress_black_48.font`: 134/134 PASS (100%)
+  11. `dcc_-_sharp_distress_black_60.font`: 134/134 PASS (100%)
+  12. `frail_sansregular_50.font`: 134/134 PASS (100%)
+  13. `frail_sansregular_50_bold.font`: 134/134 PASS (100%)
+  14. `frail_sansregular_70.font`: 134/134 PASS (100%)
+  15. `futura_lt_book_40.font`: 134/134 PASS (100%)
+  16. `helvetica_lt_condensedblack_40.font`: 134/134 PASS (100%)
+  17. `helveticaneue_lt_67_mdcn_40.font`: 134/134 PASS (100%)
+  18. `lionel_classic_60.font`: 134/134 PASS (100%)
+  19. `nittenaattifire_32.font`: 134/134 PASS (100%)
+  20. `nittenaattifire_45.font`: 134/134 PASS (100%)
+  21. `old_typography_64.font`: 134/134 PASS (100%)
+  22. `outcast_ii_48.font`: 134/134 PASS (100%)
+  23. `outcast_ii_60.font`: 134/134 PASS (100%)
+  24. `pencilpete_60.font`: 134/134 PASS (100%)
+  25. `pencilpete_font_40.font`: 134/134 PASS (100%)
+  26. `rockwell_50_bold.font`: 134/134 PASS (100%)
+  27. `score_board_50.font`: 134/134 PASS (100%)
+- **Định dạng Font**: Telltale Tool Bitmap Font (ERTM 256-glyph table + Embedded DXT5 DDS Atlas).
+- **Kiến trúc Bảng mã Character Remapping Không Control Bytes**:
+  - 32 ký tự tiếng Việt nằm trong Latin-1 giữ nguyên mã ISO-8859-1 (0xC0..0xFD).
+  - 95 ký tự tiếng Việt mở rộng được ánh xạ vào các ô mã trống 0x80..0xFF (loại trừ 0xA0 NBSP).
+  - 7 ký tự HOA cực hiếm (Ỳ, Ẵ, Ẻ, Ũ, Ẳ, Ỷ, Ỵ với tần suất <= 2 lần trong toàn game) được gán vào 7 ký tự ASCII an toàn: `$`, `@`, `\`, `^`, `|`, `` ` ``, `~`.
+  - Triệt tiêu 100% control bytes (< 0x20), loại bỏ hoàn toàn lỗi nuốt chữ, lỗi font rụng glyph.
+- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 2]**: **PASS (100%)**
 
 ---
 
 ## GIAI ĐOẠN 3: DỊCH THUẬT BẢN ĐỊA HÓA SÁNG TẠO (TRANSCREATION & CONTEXTUAL LOCALIZATION)
-- **Quy trình translation batch**: ĐÃ HOÀN THÀNH (535 batches ngữ cảnh phân chia theo `GAME_BIBLE.md`, đầy đủ nhãn `UI_CONTROL`, `DIALOGUE`, `LORE_SYSTEM`).
-- **Số chuỗi đã dịch**: **26,725 / 26,725 chuỗi (100% bao phủ toàn bộ text game, cốt truyện Chapters 1-8, Chamber of Arms trials, kỹ năng, trang bị, vật phẩm)**.
-- **Chuẩn hóa Unicode NFC**: ĐẠT 100% (Merged và kiểm định toàn vẹn bằng `tools/llm_batch_translator.py`).
-- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 3]**: PASS 100%
+- **Quy trình dịch**: 
+  - Khử trùng lặp (Deduplication) dịch 20,888 chuỗi độc nhất, tự động ánh xạ lại đầy đủ 29,755 dòng thoại trên 182 file `.landb`.
+  - Dịch bổ sung 2 chuỗi tin tức Marquee Ticker trên màn hình tiêu đề trong `prefs_cmsnewsfeeddata.prop`:
+    + `"Check out the official website for all the latest information at www.telltalegames.com"` -> `"Xem thông tin mới nhất trên trang web chính thức tại www.telltalegames.com"`
+    + `"For the latest information on The Walking Dead five-part game series, please visit the official website www.walkingdeadthegame.com"` -> `"Để biết thông tin mới nhất về loạt game 5 tập The Walking Dead, vui lòng truy cập trang web chính thức www.walkingdeadthegame.com"`
+  - Bảo toàn 100% biến, mã định dạng và thẻ hệ thống (`{0}`, `%s`, `\n`, tag).
+  - Áp dụng ma trận xưng hô nhân vật theo `GAME_BIBLE.md`. Triệt tiêu đại từ vô hồn "Tôi - Bạn".
+- **Số chuỗi đã dịch**: **29,755 / 29,755 chuỗi thoại + 2 chuỗi Newsfeed Ticker (100%)**
+- **Chuẩn hóa Unicode NFC**: Đạt chuẩn Unicode NFC 100%.
+- **File kết quả**: `translated_strings.json` (29,755 entries) + `modded_props/prefs_cmsnewsfeeddata.prop`.
+- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 3]**: **PASS (100%)**
 
 ---
 
 ## GIAI ĐOẠN 4: TỰ KIỂM ĐỊNH ĐỘC LẬP (INDEPENDENT AUTOMATED QA GATE)
-- **Kiểm định văn phong & biến (`style_and_calque_audit.py`)**: ĐẠT 0 LỖI, 0 CẢNH BÁO (Exit Code = 0, toàn bộ 26,725 chuỗi được audit thẻ, biến số và ngữ cảnh).
-- **Audit nhị phân & Text-to-Font Glyph (`independent_binary_audit.py`)**:
-  - `Game.locres`: 26,725 chuỗi, độ phủ ngôn ngữ nhị phân thực tế đạt **100.00% PASS**.
-  - Toàn bộ 10 FontFace (`SE-ALPSB`, `SE-ALPSCB`, `SE-ALPSI`, `SE-ALPSN`, `SE-GARRITHR`, `SE-MLSDS`, `SE-MLSDT`, `SE-VOGEB___`, `SE-VOGEI___`, `SE-VOGEN`): Độ phủ `VN_CHARS` đạt **134/134 PASS (100.00%)**.
-  - Kiểm định toán học Baseline Alignment: `diff = 0px` trên tất cả các cặp chữ (`o`-`ơ`, `d`-`đ`, `a`-`ă`, `u`-`ư`, `O`-`Ơ`, `D`-`Đ`, `A`-`Ă`).
-- **Smoke test & Đối chiếu OCR 1:1 trên màn hình thực tế**:
-  - Đã xuất ảnh kiểm định trực quan toàn diện: `scratch/ffrs_smoke_verification.png` (và lưu trong thư mục artifacts).
-  - `Ảnh chụp màn hình: "BẮT ĐẦU" == Bản dịch JSON: "BẮT ĐẦU" -> PASS`
-  - `Ảnh chụp màn hình: "TIẾP TỤC" == Bản dịch JSON: "TIẾP TỤC" -> PASS`
-  - `Ảnh chụp màn hình: "TẢI DỮ LIỆU" == Bản dịch JSON: "TẢI DỮ LIỆU" -> PASS`
-  - `Ảnh chụp màn hình: "TÙY CHỌN HỆ THỐNG" == Bản dịch JSON: "TÙY CHỌN HỆ THỐNG" -> PASS`
-  - `Ảnh chụp màn hình: "ĐỘ KHÓ: TIÊU CHUẨN" == Bản dịch JSON: "ĐỘ KHÓ: TIÊU CHUẨN" -> PASS`
-  - `Ảnh chụp màn hình: "CÀI ĐẶT ĐỒ HỌA & ÂM THANH" == Bản dịch JSON: "CÀI ĐẶT ĐỒ HỌA & ÂM THANH" -> PASS`
-  - `Ảnh chụp màn hình: "ĐỘI NGŨ PHÁT TRIỂN" == Bản dịch JSON: "ĐỘI NGŨ PHÁT TRIỂN" -> PASS`
-  - `Ảnh chụp màn hình: "THOÁT RA MÀN HÌNH CHÍNH" == Bản dịch JSON: "THOÁT RA MÀN HÌNH CHÍNH" -> PASS`
-  - `Ảnh chụp màn hình: "CHỌN TRÒ CHƠI" == Bản dịch JSON: "CHỌN TRÒ CHƠI" -> PASS`
-  - `Ảnh chụp màn hình: "VƯƠNG QUỐC GRANDSHELT" == Bản dịch JSON: "VƯƠNG QUỐC GRANDSHELT" -> PASS`
-- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 4]**: PASS 100%
+- **Kiểm định văn phong & biến (`style_and_calque_audit.py`)**:
+  - Tổng số chuỗi kiểm định: **29,755**
+  - Lỗi sai lệch biến/thẻ/mã điều khiển: **0**
+  - Cảnh báo từ dịch máy / Calque / Sai lệch ngữ cảnh UI: **0**
+  - Exit code: **0 (PASS)**
+- **Audit nhị phân & Text-to-Font Glyph (`independent_twd_audit.py`)**:
+  - Kiểm tra thứ tự nạp: `0_00_vietnamese.ttarch` nằm ở vị trí ưu tiên cao nhất (đầu tiên theo cơ chế First-In Wins của std::map trong Telltale Tool) trên cả 5 Episode:
+    + `default`: 1/28 PASS
+    + `WalkingDead102`: 1/26 PASS
+    + `WalkingDead103`: 1/22 PASS
+    + `WalkingDead104`: 1/23 PASS
+    + `WalkingDead105`: 1/18 PASS
+  - Độ phủ Glyph Text-to-Font: **27/27 font PASS 134/134 VN_CHARS** (100%).
+  - Kiểm tra glyph 'à' (0xE0) và các glyph 'ể, ế, ạ, ố, ỏ, đ, ủ, ử, ả, ề, ở, ữ, ằ, ộ': 100% có UV và width hợp lệ từ Arial.
+  - Chuỗi Ticker trong `prefs_cmsnewsfeeddata.prop`: Cả 2 chuỗi tin tức đã được dịch và nhúng chuẩn vào .prop (100% PASS).
+  - Hộp thoại hệ thống entry #257 (`ui_menu_english.landb`): Giải mã hoàn hảo `"Không thể thiết lập kết nối đến máy chủ Telltale..."` (100% PASS).
+  - Exit code: **0 (PASS)**
+- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 4]**: **PASS (100%)**
 
 ---
 
 ## GIAI ĐOẠN 5: XUẤT BẢN, ĐỒNG BỘ AVATAR & ĐÓNG GÓI LÊN HỆ THỐNG CỔ NGỮ
-- **Backup bản dịch tại `C:\Users\tuan3\Documents\Viethoagame\FinalFantasyResonance`**: ĐÃ HOÀN THÀNH.
-  - Lưu trữ đầy đủ: Container `FINAL_FANTASY_RESONANCE_Viethoa.congu`, Mod pak `FFRS-Windows_Vietnamese_P.pak`, `Game.locres`, `GAME_BIBLE.md`, `PROGRESS.md`, `translated_strings.json`, và ảnh kiểm định trực quan `ffrs_smoke_verification.png`.
-- **Đóng gói container `.congu` V2 (`pack_mod.py`)**: ĐÃ HOÀN THÀNH.
-  - Container: `FINAL_FANTASY_RESONANCE_Viethoa.congu`
-  - Kích thước: 2,011,651 bytes (~1.92 MB).
-  - Chuẩn mã hóa: Container V2 (AES-256-GCM, zlib).
-  - SHA-256: `addf16fa118f0aad497a07e1cebcec8f6217264b59d95d63d935d635a8fdba42`.
-- **Đồng bộ Avatar & Banner hệ thống VietModHub**: ĐÃ HOÀN THÀNH.
-  - Đã xuất bản bộ ảnh UI cao cấp chuẩn Steam Store vào `static/assets/ffrs/`:
-    - `library_600x900.jpg` (Vertical Poster sắc nét, đã loại bỏ watermark).
-    - `library_hero.jpg` (Hero Banner rộng).
-    - `header.jpg` (Capsule header).
-    - `logo.png` (Logo game sắc nét).
-- **Cấu hình `games.json` & Data-Driven Action Pipeline**: ĐÃ HOÀN THÀNH.
-  - Game ID: `ffrs`.
-  - Tên hiển thị: `FINAL FANTASY RESONANCE`.
-  - `install_steps`: Sao chép an toàn `FFRS-Windows_Vietnamese_P.pak` vào `FFRS/Content/Paks/`.
-  - `uninstall_steps`: Xóa sạch mod pak, hoàn trả 100% trạng thái nguyên bản mà không chạm đến IoStore gốc.
-  - Xác thực API Cổ Ngữ (`api_get_games`): Trả về trạng thái `INSTALLED` ("ĐÃ CÀI ĐẶT"), vận hành mượt mà trên App Cổ Ngữ.
-- **Tải lên GitHub Release (`mods-v1`)**: ĐÃ HOÀN THÀNH.
-  - File: `FINAL_FANTASY_RESONANCE_Viethoa.congu`
-  - Asset ID: `681093322`
-  - URL: `https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/FINAL_FANTASY_RESONANCE_Viethoa.congu`
-  - Trạng thái kiểm tra tải xuống: HTTP 200 (ONLINE & ACCESSIBLE).
-- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 5]**: PASS 100%
+- **Thư mục phân phối sạch**: `C:\Users\tuan3\Documents\Viethoagame\TheWalkingDead\Pack\`
+  - `default\0_00_vietnamese.ttarch` (67 files: 39 landb + 27 fonts + 1 prop, 38,411,805 bytes)
+  - `WalkingDead102\0_00_vietnamese.ttarch` (73 files: 45 landb + 27 fonts + 1 prop, 38,389,661 bytes)
+  - `WalkingDead103\0_00_vietnamese.ttarch` (62 files: 34 landb + 27 fonts + 1 prop, 38,180,893 bytes)
+  - `WalkingDead104\0_00_vietnamese.ttarch` (69 files: 41 landb + 27 fonts + 1 prop, 38,296,349 bytes)
+  - `WalkingDead105\0_00_vietnamese.ttarch` (51 files: 23 landb + 27 fonts + 1 prop, 38,074,909 bytes)
+- **Đóng gói container `.congu` V2 (`pack_mod.py`)**:
+  - Container: `TheWalkingDead.congu` (8,161,628 bytes, ~7.8 MB)
+  - Thuật toán mã hóa: AES-256-GCM Streaming Chunked V2
+  - Mã SHA-256: `cc84b8faabadbfe560b88786851e9b361b7f9b3b28dfce16c765916b8872cf6a`
+  - Đã cập nhật vào `games.json` mục `the_walking_dead` với `install_steps` và `uninstall_steps` chuẩn `0_00_vietnamese.ttarch`.
+- **Trạng thái**: **HOÀN THÀNH 100% (PRODUCTION READY)**
 
----
-
-## TỔNG KẾT DỰ ÁN
-- **Trạng thái chung**: HOÀN THÀNH XUẤT SẮC 100% (Từ Bước 0 đến Giai đoạn 5).
-- **Tổng số dòng text Việt hóa**: 26,725 chuỗi (100% bao phủ toàn bộ text game).
-- **Bộ font tiếng Việt**: 10/10 FontFace đạt 134/134 VN_CHARS (100% độ phủ, 0px sai lệch baseline).
-- **Độ sẵn sàng**: Sẵn sàng phục vụ cộng đồng game thủ qua VietModManager (Cổ Ngữ).
+  - `library_600x900.jpg` (49,996 bytes)
+  - `library_hero.jpg` (232,944 bytes)
+  - `logo.png` (107,110 bytes)
+  - Đã đồng bộ vào: `static/assets/the_walking_dead/`, `dist/VietModHub/_internal/static/assets/the_walking_dead/`, `VietModHub_Portable/_internal/static/assets/the_walking_dead/`.
+- **Cấu hình `games.json` & Data-Driven Action Pipeline**:
+  - Đã đăng ký entry `the_walking_dead` với thông số hoàn thiện 100%, 29,755 dòng, 182 tệp `.landb`.
+  - 5 bước cài đặt `copy_file` và 5 bước gỡ cài đặt `delete` hoàn toàn idempotent, không can thiệp tệp gốc.
+  - Hỗ trợ đồng bộ save game: `%DOCUMENTS%/Telltale Games/The Walking Dead`.
+  - Khớp nối và xác thực toàn vẹn tự động (`validate_zip_against_games_json`): **PASS**.
+- **[CHỐT CHẶN NGHIỆM THU GIAI ĐOẠN 5]**: **PASS (100%)**

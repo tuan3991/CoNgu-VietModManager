@@ -99,66 +99,13 @@ except ImportError:
         raise RuntimeError("Không tìm thấy hàm apply_binary_patch trong security!")
 
 
-def download_file_with_progress(url, dest_path, progress_callback=None):
-    """
-    Download file from HTTP/HTTPS URL or Google Drive with progress tracking.
-    Handles Google Drive large file confirmation tokens automatically.
-    """
-    import urllib.request
-    import http.cookiejar
-    import time
-    import re
-    import os
-
-    dest_dir = os.path.dirname(dest_path)
-    if dest_dir:
-        os.makedirs(dest_dir, exist_ok=True)
-    
-    # Convert Google Drive share URL to direct download URL
-    gdrive_match = re.search(r'(?:drive\.google\.com/file/d/|drive\.google\.com/uc\?id=|id=)([a-zA-Z0-9_-]{25,})', url)
-    if gdrive_match:
-        file_id = gdrive_match.group(1)
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
-
-    cj = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-
-    req = urllib.request.Request(url, headers=headers)
-    resp = opener.open(req)
-
-    # Check for Google Drive virus scan confirmation
-    content_type = resp.headers.get("Content-Type", "")
-    if "text/html" in content_type:
-        body = resp.read().decode("utf-8", errors="ignore")
-        confirm_token = re.search(r'confirm=([0-9A-Za-z_]+)', body)
-        if not confirm_token:
-            confirm_token = re.search(r'name="confirm"\s+value="([^"]+)"', body)
-        if confirm_token:
-            token = confirm_token.group(1)
-            confirm_url = f"{url}&confirm={token}"
-            req2 = urllib.request.Request(confirm_url, headers=headers)
-            resp = opener.open(req2)
-
-    total_size = int(resp.headers.get("Content-Length", 0))
-    downloaded = 0
-    chunk_size = 65536
-    start_time = time.time()
-
-    with open(dest_path, "wb") as f:
-        while True:
-            chunk = resp.read(chunk_size)
-            if not chunk:
-                break
-            f.write(chunk)
-            downloaded += len(chunk)
-            if progress_callback:
-                percent = int(downloaded * 100 / total_size) if total_size > 0 else 50
-                elapsed = time.time() - start_time
-                speed_kb = (downloaded / 1024) / elapsed if elapsed > 0 else 0
-                progress_callback(downloaded, total_size, percent, speed_kb)
-
-    return True
+from core.downloader import (
+    download_file_with_progress,
+    TORRENT_MGR,
+    HYDRA_MGR,
+    TorrentDownloadManager,
+    HydraSourceManager,
+)
 
 import os
 import sys
@@ -185,33 +132,43 @@ import urllib.parse
 import ctypes
 from ctypes import wintypes
 
-# Base paths with PyInstaller frozen support
-if getattr(sys, 'frozen', False):
-    EXE_DIR = os.path.dirname(sys.executable)
-    if os.path.exists(os.path.join(EXE_DIR, "static")):
-        APP_DIR = EXE_DIR
-        STATIC_DIR = os.path.join(EXE_DIR, "static")
-    else:
-        APP_DIR = getattr(sys, '_MEIPASS', EXE_DIR)
-        STATIC_DIR = os.path.join(APP_DIR, "static")
-else:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
-    STATIC_DIR = os.path.join(APP_DIR, "static")
-USER_DOCS_DIR = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Documents")
-DEFAULT_REPO_DIR = os.path.join(USER_DOCS_DIR, "Viethoagame")
-FALLBACK_REPO_DIR = os.path.join(APP_DIR, "Viethoagame")
-GAMES_JSON = os.path.join(APP_DIR, "games.json")
-
-# AppData safe directory (chống mất cấu hình và lỗi quyền ghi khi đóng gói PyInstaller)
-APPDATA_DIR = os.path.join(os.environ.get("APPDATA", APP_DIR), "VietModHub")
-CONFIG_JSON = os.path.join(APPDATA_DIR, "user_config.json")
-BACKUP_ROOT = os.path.join(APPDATA_DIR, "backups")
-USER_DATA_FILE = os.path.join(APPDATA_DIR, "user_data.json")
-COVERS_DIR = os.path.join(APPDATA_DIR, "covers")
-COVERS_CACHE_FILE = os.path.join(APPDATA_DIR, "covers_cache.json")
-PLAYTIME_FILE = os.path.join(APPDATA_DIR, "playtime.json")
-os.makedirs(APPDATA_DIR, exist_ok=True)
-os.makedirs(COVERS_DIR, exist_ok=True)
+# --- CONFIGURATION, CATALOG & PATH ENGINE (MODULARIZED CORE) ---
+from core.config_manager import (
+    APP_DIR,
+    STATIC_DIR,
+    USER_DOCS_DIR,
+    DEFAULT_REPO_DIR,
+    FALLBACK_REPO_DIR,
+    GAMES_JSON,
+    APPDATA_DIR,
+    CONFIG_JSON,
+    BACKUP_ROOT,
+    USER_DATA_FILE,
+    COVERS_DIR,
+    COVERS_CACHE_FILE,
+    PLAYTIME_FILE,
+    CACHE_GAMES_JSON,
+    CUSTOM_GAMES_JSON,
+    CURRENT_VERSION,
+    GITHUB_REPO,
+    REMOTE_CATALOG_URLS,
+    REMOTE_VERSION_URLS,
+    load_user_config,
+    save_user_config,
+    get_repo_dir,
+    get_all_configured_game_paths,
+    get_active_games_json_path,
+    get_games,
+    load_custom_games,
+    save_custom_games,
+    sync_remote_catalog,
+    check_app_update,
+    load_user_data,
+    save_user_data,
+    load_covers_cache,
+    save_covers_cache,
+    set_api_instance_ref,
+)
 
 def log_startup(msg: str):
     """Ghi log khoi dong ung dung de chan doan su co tren moi may tinh."""
@@ -228,142 +185,11 @@ def log_startup(msg: str):
     except Exception:
         pass
 
-def load_covers_cache():
-    """Nạp cache metadata & avatar đã tìm được của game lẻ từ tệp JSON."""
-    if os.path.exists(COVERS_CACHE_FILE):
-        try:
-            with open(COVERS_CACHE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-def save_covers_cache(cache):
-    """Lưu cache metadata & avatar của game lẻ vào tệp JSON."""
-    try:
-        with open(COVERS_CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"[!] Error saving covers cache: {e}")
-
-def extract_local_steam_appid(game_dir: str) -> str | None:
-    """Lớp 1: Quét nhanh steam_appid có sẵn trong các file cấu hình của game lẻ/repack (Độ chính xác 100%, 0 giây)."""
-    if not game_dir or not os.path.exists(game_dir):
-        return None
-
-    # 1. Tìm trực tiếp file steam_appid.txt (ở gốc hoặc trong các thư mục con gần nhất)
-    for pattern in ["steam_appid.txt", "*/steam_appid.txt", "*/*/steam_appid.txt"]:
-        for path in glob.glob(os.path.join(game_dir, pattern)):
-            try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read().strip()
-                    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
-                    if lines and lines[0].isdigit() and int(lines[0]) > 0:
-                        return lines[0]
-            except OSError:
-                pass
-
-    # 2. Quét trong các file .ini phổ biến của game cài ngoài (steam_emu.ini, tenoke.ini, rune.ini...)
-    ini_patterns = [
-        "steam_emu.ini", "*/steam_emu.ini", "*/*/steam_emu.ini",
-        "*tenoke*.ini", "*/*tenoke*.ini",
-        "*rune*.ini", "*/*rune*.ini",
-        "*codex*.ini", "*/*codex*.ini",
-        "*onlinefix*.ini", "*/*onlinefix*.ini",
-        "*flt*.ini", "*/*flt*.ini",
-        "*ali213*.ini", "*/*ali213*.ini",
-        "cream_api.ini", "*/cream_api.ini"
-    ]
-    for pattern in ini_patterns:
-        for path in glob.glob(os.path.join(game_dir, pattern)):
-            try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
-                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId)\s*=\s*(\d{3,10})", text, re.IGNORECASE)
-                    if match and match.group(1) != "0":
-                        return match.group(1)
-            except OSError:
-                pass
-
-    # Quét đệ quy nếu file .ini nằm sâu trong thư mục Engine hoặc Plugins (như Unreal Engine / Unity)
-    deep_ini_patterns = [
-        os.path.join(game_dir, "**", "steam_emu.ini"),
-        os.path.join(game_dir, "**", "*tenoke*.ini"),
-        os.path.join(game_dir, "**", "*rune*.ini"),
-        os.path.join(game_dir, "**", "*codex*.ini"),
-        os.path.join(game_dir, "**", "cream_api.ini")
-    ]
-    for deep_pat in deep_ini_patterns:
-        for path in glob.glob(deep_pat, recursive=True):
-            try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
-                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId)\s*=\s*(\d{3,10})", text, re.IGNORECASE)
-                    if match and match.group(1) != "0":
-                        return match.group(1)
-            except OSError:
-                pass
-
-    # 3. Quét tệp goggame-*.info (JSON metadata của GOG)
-    for path in glob.glob(os.path.join(game_dir, "goggame-*.info")) + glob.glob(os.path.join(game_dir, "*", "goggame-*.info")):
-        try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                gog_data = json.load(f)
-                gog_appid = gog_data.get("steam_appid") or gog_data.get("gameId")
-                if gog_appid and str(gog_appid).isdigit():
-                    return str(gog_appid)
-        except Exception:
-            pass
-
-    return None
-
-def resolve_clean_game_title(game_dir: str, exe_name: str = "") -> str:
-    """Lớp 2: Trích xuất và làm sạch tên game thật từ thư mục hoặc Unity app.info."""
-    if not game_dir:
-        return ""
-
-    # 1. Nếu là game Unity, đọc dòng thứ 2 trong *_Data/app.info (chứa Product Name chuẩn)
-    for app_info in glob.glob(os.path.join(game_dir, "*_Data", "app.info")) + glob.glob(os.path.join(game_dir, "*", "*_Data", "app.info")):
-        try:
-            with open(app_info, "r", encoding="utf-8", errors="ignore") as f:
-                lines = [line.strip() for line in f.readlines() if line.strip()]
-                if len(lines) >= 2 and len(lines[1]) > 1:
-                    return lines[1]
-        except OSError:
-            pass
-
-    # 2. Lấy từ tên thư mục gốc hoặc tên exe và lọc bỏ rác kỹ thuật
-    raw_name = os.path.basename(os.path.normpath(game_dir))
-    if raw_name.lower() in ("binaries", "win64", "win32", "x64", "x86", "game", "bin") and exe_name:
-        raw_name = os.path.splitext(os.path.basename(exe_name))[0]
-    elif raw_name.lower() in ("binaries", "win64", "win32", "x64", "x86", "game", "bin"):
-        raw_name = os.path.basename(os.path.dirname(os.path.normpath(game_dir)))
-
-    # Xóa các hậu tố Engine, phiên bản và nhóm Repack
-    clean = re.sub(r"(-Win64-Shipping|-Win32-Shipping|_x64|_x86|_DX11|_DX12|-Shipping)", "", raw_name, flags=re.IGNORECASE)
-    clean = re.sub(r"\[.*?\]|\(.*?\)", " ", clean)
-    clean = re.sub(r"\b(v?\d+(\.\d+)+|repack|portable|gog|fitgirl|dodi|elamigos|tenoke|rune|codex|flt|goldberg|cpi|skidrow)\b", " ", clean, flags=re.IGNORECASE)
-    clean = re.sub(r"[._\-]+", " ", clean)
-    # Tách chữ CamelCase (VD: RavenousDevils -> Ravenous Devils)
-    clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", clean)
-    return re.sub(r"\s+", " ", clean).strip()
-
-def extract_exe_icon(exe_path: str, output_img_path: str) -> bool:
-    """Lớp 4 Fallback: Trích xuất icon gốc từ file .exe trên Windows thành file PNG."""
-    if not exe_path or not os.path.exists(exe_path) or not sys.platform.startswith("win"):
-        return False
-    try:
-        clean_exe = os.path.abspath(exe_path).replace("'", "''")
-        clean_out = os.path.abspath(output_img_path).replace("'", "''")
-        ps_cmd = (
-            f"Add-Type -AssemblyName System.Drawing; "
-            f"$icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{clean_exe}'); "
-            f"if ($icon) {{ $bitmap = $icon.ToBitmap(); $bitmap.Save('{clean_out}', [System.Drawing.Imaging.ImageFormat]::Png); exit 0 }} else {{ exit 1 }}"
-        )
-        res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], capture_output=True, timeout=5)
-        return res.returncode == 0 and os.path.exists(output_img_path) and os.path.getsize(output_img_path) > 500
-    except Exception:
-        return False
+from core.scanner import (
+    extract_local_steam_appid,
+    resolve_clean_game_title,
+    extract_exe_icon,
+)
 
 def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallback_title: str = "", game_id: str = "") -> dict:
     """
@@ -589,158 +415,37 @@ def _norm_rel(rel_path: str) -> str:
         p = p.replace("//", "/")
     return p
 
-CURRENT_VERSION = "2.0.3"
-GITHUB_REPO = "tuan3991/CoNgu-VietModManager"
-REMOTE_CATALOG_URLS = [
-    f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/games.json",
-    f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/games.json",
-]
-REMOTE_VERSION_URLS = [
-    f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.json",
-    f"https://cdn.jsdelivr.net/gh/{GITHUB_REPO}@main/version.json",
-]
-CACHE_GAMES_JSON = os.path.join(APPDATA_DIR, "games_cache.json")
-
-def get_active_games_json_path():
-    """Return the best available games.json path (remote cache or bundled local)"""
-    # Môi trường phát triển (Dev Source): luôn ưu tiên tệp games.json mã nguồn cục bộ
-    if not getattr(sys, 'frozen', False) and os.path.exists(GAMES_JSON):
-        return GAMES_JSON
-
-    if os.path.exists(GAMES_JSON):
-        if not os.path.exists(CACHE_GAMES_JSON):
-            return GAMES_JSON
-        try:
-            if os.path.getmtime(GAMES_JSON) >= os.path.getmtime(CACHE_GAMES_JSON):
-                return GAMES_JSON
-        except Exception:
-            pass
-    if os.path.exists(CACHE_GAMES_JSON) and os.path.getsize(CACHE_GAMES_JSON) > 100:
-        return CACHE_GAMES_JSON
-    if os.path.exists(GAMES_JSON):
-        return GAMES_JSON
-    fallback_exe_json = os.path.join(os.path.dirname(sys.executable), "games.json")
-    if os.path.exists(fallback_exe_json):
-        return fallback_exe_json
-    return GAMES_JSON
-
-def sync_remote_catalog(force=False):
-    """
-    Fetch the latest games.json from GitHub CDN and update local cache.
-    Returns: dict(success=bool, updated=bool, count=int, message=str)
-    """
-    import urllib.request
-    import json
-    
-    headers = {"User-Agent": "CoNgu-VietModManager/2.0"}
-    
-    for url in REMOTE_CATALOG_URLS:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=6) as resp:
-                if resp.status == 200:
-                    data = resp.read().decode('utf-8')
-                    parsed = json.loads(data)
-                    if isinstance(parsed, list) and len(parsed) > 0:
-                        current_path = get_active_games_json_path()
-                        if os.path.exists(current_path) and not force:
-                            try:
-                                with open(current_path, 'r', encoding='utf-8') as f:
-                                    current_content = f.read()
-                                if current_content.strip() == data.strip():
-                                    return {"success": True, "updated": False, "count": len(parsed), "message": "Kho game đã ở bản mới nhất"}
-                            except Exception:
-                                pass
-                        
-                        # Save to cache
-                        with open(CACHE_GAMES_JSON, 'w', encoding='utf-8') as f:
-                            f.write(data)
-                            
-                        # Chỉ cập nhật GAMES_JSON cục bộ khi đang chạy bản đóng gói Portable (Frozen)
-                        if getattr(sys, 'frozen', False):
-                            try:
-                                with open(GAMES_JSON, 'w', encoding='utf-8') as f:
-                                    f.write(data)
-                            except Exception:
-                                pass
-                            
-                        return {"success": True, "updated": True, "count": len(parsed), "message": f"Đã đồng bộ {len(parsed)} game từ máy chủ đám mây!"}
-        except Exception:
-            continue
-            
-    current_count = 0
-    p = get_active_games_json_path()
-    if os.path.exists(p):
-        try:
-            with open(p, 'r', encoding='utf-8') as f:
-                current_count = len(json.load(f))
-        except Exception:
-            pass
-    return {"success": False, "updated": False, "count": current_count, "message": "Đang dùng dữ liệu ngoại tuyến (Offline)"}
-
-def check_app_update():
-    """Check version.json on remote GitHub"""
-    import urllib.request
-    import json
-    import re
-    
-    headers = {"User-Agent": "CoNgu-VietModManager/2.0"}
-    for url in REMOTE_VERSION_URLS:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    info = json.loads(resp.read().decode('utf-8'))
-                    remote_ver = info.get("version", CURRENT_VERSION)
-                    
-                    def parse_v(v):
-                        return [int(x) for x in re.sub(r'[^0-9.]', '', v).split('.') if x.isdigit()]
-                    
-                    has_update = parse_v(remote_ver) > parse_v(CURRENT_VERSION)
-                    return {
-                        "success": True,
-                        "current_version": CURRENT_VERSION,
-                        "latest_version": remote_ver,
-                        "has_update": has_update,
-                        "title": info.get("name") or info.get("title", f"Bản cập nhật v{remote_ver}"),
-                        "release_date": info.get("release_date", ""),
-                        "changelog": info.get("changelog", []),
-                        "download_url": info.get("download_url", f"https://github.com/{GITHUB_REPO}/releases/latest"),
-                        "portable_zip_url": info.get("portable_zip_url", "")
-                    }
-        except Exception:
-            continue
-            
-    return {
-        "success": False,
-        "current_version": CURRENT_VERSION,
-        "latest_version": CURRENT_VERSION,
-        "has_update": False,
-        "message": "Không thể kiểm tra phiên bản mới"
-    }
+# (Config, catalog and update functions imported from core.config_manager)
 
 
 os.makedirs(APPDATA_DIR, exist_ok=True)
 os.makedirs(BACKUP_ROOT, exist_ok=True)
 
-# Global progress tracker for install/uninstall operations
-INSTALL_PROGRESS = {
-    "status": "idle",       # "idle", "running", "success", "error"
-    "percent": 0,
-    "message": "",
-    "game_id": "",
-    "operation": ""         # "install" | "uninstall"
-}
-
-def set_progress(percent, message, status="running", game_id="", operation=""):
-    global INSTALL_PROGRESS
-    INSTALL_PROGRESS["percent"] = percent
-    INSTALL_PROGRESS["message"] = message
-    INSTALL_PROGRESS["status"] = status
-    if game_id:
-        INSTALL_PROGRESS["game_id"] = game_id
-    if operation:
-        INSTALL_PROGRESS["operation"] = operation
+# ==============================================================================
+# IMPORT BACKUP & INSTALLER PIPELINE MODULES (CORE/INSTALLER_PIPELINE.PY)
+# ==============================================================================
+from core.backup_rollback import (
+    backup_file_inplace,
+    load_backup_manifest,
+    record_preexisting_environment,
+    record_backup_manifest,
+    record_modded_state,
+    restore_files_inplace,
+)
+from core.installer_pipeline import (
+    INSTALL_PROGRESS,
+    set_progress,
+    get_install_progress,
+    _MOD_OP_LOCK,
+    patch_ini_file,
+    execute_pipeline_step,
+    execute_action_pipeline,
+    install_mod,
+    install_mod_impl,
+    uninstall_mod,
+    uninstall_mod_impl,
+    emergency_restore_game,
+)
 
 def calculate_sha256(filepath):
     """Calculate SHA256 checksum of a file"""
@@ -911,1076 +616,28 @@ def check_game_running(g, game_path=None):
 
     return False, None
 
-# --- CẤU HÌNH WIN32 API BẰNG CTYPES (FOLDER-SCOPE PROCESS TRACKING) ---
-TH32CS_SNAPPROCESS = 0x00000002
-PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+# --- CLOUD SAVE, ACHIEVEMENTS & PLAYTIME ENGINE (MODULARIZED CORE) ---
+from core.cloud_save import (
+    PROCESSENTRY32W,
+    EXCLUDED_HELPER_EXES,
+    is_any_exe_running_in_folder,
+    PlaytimeManager,
+    AchievementManager,
+    handle_game_exit_hook,
+    get_vault_instance,
+    ConguSaveVault,
+    CloudSyncManager,
+    DEFAULT_CLIENT_ID,
+    DEFAULT_CLIENT_SECRET,
+    ACHIEVEMENT_MGR,
+    PLAYTIME_MGR,
+    CLOUD_SYNC_MGR,
+    SAVE_VAULT,
+    configure_cloud_save_system,
+)
 
-class PROCESSENTRY32W(ctypes.Structure):
-    _fields_ = [
-        ("dwSize", wintypes.DWORD),
-        ("cntUsage", wintypes.DWORD),
-        ("th32ProcessID", wintypes.DWORD),
-        ("th32DefaultHeapID", ctypes.POINTER(wintypes.ULONG)),
-        ("th32ModuleID", wintypes.DWORD),
-        ("cntThreads", wintypes.DWORD),
-        ("th32ParentProcessID", wintypes.DWORD),
-        ("pcPriClassBase", wintypes.LONG),
-        ("dwFlags", wintypes.DWORD),
-        ("szExeFile", wintypes.WCHAR * 260),
-    ]
 
-kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
-INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
-
-kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
-kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-
-kernel32.Process32FirstW.restype = wintypes.BOOL
-kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-
-kernel32.Process32NextW.restype = wintypes.BOOL
-kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-
-kernel32.OpenProcess.restype = wintypes.HANDLE
-kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-
-kernel32.CloseHandle.restype = wintypes.BOOL
-kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-
-kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
-kernel32.QueryFullProcessImageNameW.argtypes = [
-    wintypes.HANDLE,
-    wintypes.DWORD,
-    wintypes.LPWSTR,
-    ctypes.POINTER(wintypes.DWORD),
-]
-
-EXCLUDED_HELPER_EXES = {
-    "unitycrashhandler64.exe",
-    "unitycrashhandler32.exe",
-    "crashreportclient.exe",
-    "crashreportclienteditor.exe",
-    "unins000.exe",
-    "unins001.exe",
-    "uninstall.exe",
-    "dxwebsetup.exe",
-    "vcredist_x64.exe",
-    "vcredist_x86.exe",
-    "vc_redist.x64.exe",
-    "vc_redist.x86.exe",
-    "cmd.exe",
-    "powershell.exe",
-    "conhost.exe"
-}
-
-def is_any_exe_running_in_folder(game_dir: str) -> bool:
-    """
-    Kiểm tra xem có bất kỳ file .exe nào nằm trong thư mục `game_dir` đang chạy không.
-    Giải quyết triệt để trường hợp Launcher gọi tiến trình con (-Win64-Shipping.exe) rồi tự tắt.
-    Tự động bỏ qua các tiến trình phụ trợ (Crash Reporter, Trình gỡ cài đặt, DirectX Setup).
-    """
-    if not game_dir or not os.path.isdir(game_dir):
-        return False
-
-    target_root = os.path.normcase(os.path.realpath(game_dir))
-    if not target_root.endswith(os.sep):
-        target_root += os.sep
-
-    h_snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-    if not h_snap or h_snap == INVALID_HANDLE_VALUE or h_snap == -1:
-        return False
-
-    try:
-        pe32 = PROCESSENTRY32W()
-        pe32.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-        if not kernel32.Process32FirstW(h_snap, ctypes.byref(pe32)):
-            return False
-
-        buf_len = wintypes.DWORD(1024)
-        path_buf = ctypes.create_unicode_buffer(1024)
-
-        while True:
-            pid = pe32.th32ProcessID
-            if pid > 4:
-                h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-                if h_proc:
-                    try:
-                        buf_len.value = 1024
-                        if kernel32.QueryFullProcessImageNameW(h_proc, 0, path_buf, ctypes.byref(buf_len)):
-                            raw_val = path_buf.value
-                            if raw_val:
-                                proc_path = os.path.normcase(os.path.realpath(raw_val))
-                                proc_name = os.path.basename(proc_path).lower()
-                                if proc_name not in EXCLUDED_HELPER_EXES and proc_path.startswith(target_root):
-                                    return True
-                    except Exception:
-                        pass
-                    finally:
-                        kernel32.CloseHandle(h_proc)
-
-            if not kernel32.Process32NextW(h_snap, ctypes.byref(pe32)):
-                break
-    except Exception:
-        pass
-    finally:
-        kernel32.CloseHandle(h_snap)
-
-    return False
-
-
-class PlaytimeManager:
-    """Bộ quản lý khởi chạy game và đếm giờ chơi chuẩn xác theo thời gian thực (Zero-Leak Clean Exit)."""
-
-    def __init__(self, db_path: str = None, on_game_exit_callback=None):
-        self.appdata_dir = APPDATA_DIR
-        os.makedirs(self.appdata_dir, exist_ok=True)
-        self.db_path = db_path or os.path.join(self.appdata_dir, "playtime.json")
-        self.lock = threading.RLock()
-        self.active_games = {}  # {game_id: {"start_ts": float, "last_chk": float, "last_active": float, "game_dir": str}}
-        self.on_game_exit_callback = on_game_exit_callback
-        self._data = self._load_db()
-
-    def _load_db(self) -> dict:
-        if os.path.exists(self.db_path):
-            try:
-                with open(self.db_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"[PlaytimeManager] Load DB error: {e}")
-        return {}
-
-    def _save_db(self, game_id: str = None, game_dir: str = None):
-        with self.lock:
-            try:
-                tmp_path = self.db_path + ".tmp"
-                with open(tmp_path, "w", encoding="utf-8") as f:
-                    json.dump(self._data, f, ensure_ascii=False, indent=2)
-                os.replace(tmp_path, self.db_path)
-            except Exception as e:
-                print(f"[PlaytimeManager] Save DB error: {e}")
-
-            # Lưu đồng bộ 1 bản Portable ngay trong thư mục game (nếu có quyền ghi)
-            if game_id:
-                target_dir = game_dir
-                if not target_dir or not os.path.isdir(target_dir):
-                    try:
-                        cfg = load_user_config()
-                        target_dir = cfg.get(f"{game_id}_path")
-                    except Exception:
-                        pass
-                if target_dir and os.path.isdir(target_dir):
-                    try:
-                        local_file = os.path.join(target_dir, ".congu_playtime.json")
-                        with open(local_file, "w", encoding="utf-8") as lf:
-                            json.dump(self._data.get(game_id, {}), lf, ensure_ascii=False, indent=2)
-                    except OSError:
-                        pass
-
-    def is_game_running(self, game_id: str) -> bool:
-        with self.lock:
-            return game_id in self.active_games
-
-    def get_game_stats(self, game_id: str, game_dir: str = None) -> dict:
-        """Lấy thông tin giờ chơi đã định dạng đẹp để gửi lên Frontend (Hỗ trợ Live Playtime khi đang chơi)."""
-        with self.lock:
-            rec = self._data.get(game_id)
-            if not game_dir:
-                try:
-                    cfg = load_user_config()
-                    game_dir = cfg.get(f"{game_id}_path")
-                except Exception:
-                    pass
-
-            # Khôi phục / đồng bộ hai chiều từ file portable trong thư mục game (Bảo toàn dữ liệu tuyệt đối)
-            if game_dir and os.path.isdir(game_dir):
-                local_file = os.path.join(game_dir, ".congu_playtime.json")
-                if os.path.exists(local_file):
-                    try:
-                        with open(local_file, "r", encoding="utf-8") as lf:
-                            local_rec = json.load(lf)
-                            local_sec = int(local_rec.get("total_seconds", 0))
-                            current_sec = int(rec.get("total_seconds", 0)) if rec else 0
-                            if local_sec > current_sec:
-                                rec = local_rec
-                                self._data[game_id] = rec
-                                self._save_db(game_id, game_dir)
-                            elif current_sec > local_sec:
-                                # Đồng bộ ngược vào file portable nếu máy có giờ chơi mới hơn
-                                try:
-                                    with open(local_file, "w", encoding="utf-8") as wlf:
-                                        json.dump(rec, wlf, ensure_ascii=False, indent=2)
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass
-                elif rec and int(rec.get("total_seconds", 0)) > 0:
-                    try:
-                        with open(local_file, "w", encoding="utf-8") as wlf:
-                            json.dump(rec, wlf, ensure_ascii=False, indent=2)
-                    except Exception:
-                        pass
-
-            rec = rec or {"total_seconds": 0, "last_played_ts": None, "sessions_count": 0}
-            total_sec = int(rec.get("total_seconds", 0))
-
-            # Tự nhận diện cả khi người dùng mở game bằng Shortcut ngoài Desktop
-            is_running = game_id in self.active_games
-            if not is_running and game_dir and os.path.isdir(game_dir):
-                if is_any_exe_running_in_folder(game_dir):
-                    self.start_tracking(game_id, game_dir)
-                    is_running = True
-
-            # Tính Live Playtime trực tiếp nếu game đang chạy
-            if is_running:
-                active_info = self.active_games.get(game_id)
-                if active_info:
-                    start_session_ts = active_info.get("start_ts", time.time())
-                    live_seconds = int(time.time() - active_info.get("last_chk", start_session_ts))
-                    total_sec += max(0, live_seconds)
-
-            # Định dạng chuỗi hiển thị thông minh giống Steam
-            if total_sec == 0:
-                formatted_time = "Chưa chơi"
-            elif total_sec < 60:
-                formatted_time = f"{total_sec} giây" if is_running else "< 1 phút"
-            elif total_sec < 3600:
-                formatted_time = f"{max(1, total_sec // 60)} phút"
-            else:
-                formatted_time = f"{round(total_sec / 3600, 1)} giờ"
-
-            last_ts = rec.get("last_played_ts")
-            if is_running:
-                last_played_str = "Đang chơi"
-            elif not last_ts:
-                last_played_str = "Chưa từng mở"
-            else:
-                try:
-                    diff_days = (datetime.now().date() - datetime.fromtimestamp(last_ts).date()).days
-                    if diff_days == 0:
-                        last_played_str = "Hôm nay"
-                    elif diff_days == 1:
-                        last_played_str = "Hôm qua"
-                    else:
-                        last_played_str = datetime.fromtimestamp(last_ts).strftime("%d/%m/%Y")
-                except Exception:
-                    last_played_str = "Vừa xong"
-
-            return {
-                "game_id": game_id,
-                "is_running": is_running,
-                "total_seconds": total_sec,
-                "formatted_time": formatted_time,
-                "last_played_str": last_played_str,
-                "sessions_count": rec.get("sessions_count", 0)
-            }
-
-    def start_background_scanner(self, get_installed_paths_callback):
-        """Khởi động luồng quét ngầm nhận diện game mở từ Shortcut Desktop / Steam."""
-        if hasattr(self, '_scanner_running') and self._scanner_running:
-            return
-        self._scanner_running = True
-        self.get_installed_paths = get_installed_paths_callback
-
-        def _scan_loop():
-            # Chờ 4s đầu để app khởi động mượt mà
-            time.sleep(4)
-            while self._scanner_running:
-                try:
-                    time.sleep(5)
-                    if not self.get_installed_paths:
-                        continue
-                    installed_paths = self.get_installed_paths()
-                    if not installed_paths:
-                        continue
-                    for gid, gpath in installed_paths.items():
-                        if not gpath or not os.path.isdir(gpath):
-                            continue
-                        with self.lock:
-                            is_active = gid in self.active_games
-                        if not is_active:
-                            if is_any_exe_running_in_folder(gpath):
-                                log_startup(f"[PlaytimeTracker] Tự động phát hiện game '{gid}' mở từ Shortcut Desktop/Steam tại '{gpath}'!")
-                                self.start_tracking(gid, gpath)
-                except Exception as e:
-                    pass
-
-        t = threading.Thread(target=_scan_loop, daemon=True)
-        t.start()
-
-    def start_tracking(self, game_id: str, game_dir: str):
-        """Bắt đầu luồng theo dõi đếm giờ tự động (Daemon Watcher)."""
-        with self.lock:
-            if game_id in self.active_games:
-                return
-            now = time.time()
-            self.active_games[game_id] = {
-                "start_ts": now,
-                "last_chk": now,
-                "last_active": now,
-                "game_dir": game_dir
-            }
-            rec = self._data.setdefault(game_id, {
-                "total_seconds": 0, "last_played_ts": int(now), "sessions_count": 0, "daily_log": {}
-            })
-            rec["last_played_ts"] = int(now)
-            rec["sessions_count"] = rec.get("sessions_count", 0) + 1
-            self._save_db(game_id, game_dir)
-
-        t = threading.Thread(
-            target=self._monitor_loop,
-            args=(game_id, game_dir),
-            daemon=True
-        )
-        t.start()
-        log_startup(f"[PlaytimeTracker] Đã kích hoạt luồng theo dõi cho '{game_id}'")
-
-    def _monitor_loop(self, game_id: str, game_dir: str):
-        """Vòng lặp kiểm tra mỗi 3s và lưu checkpoint nhịp tim mỗi 60s."""
-        time.sleep(3)
-        start_ts = time.time()
-        last_checkpoint = start_ts
-        last_active = start_ts
-        session_saved_sec = 0
-        unseen_streak = 0
-
-        try:
-            while True:
-                time.sleep(3)
-                now = time.time()
-
-                if is_any_exe_running_in_folder(game_dir):
-                    unseen_streak = 0
-                    last_active = now
-
-                    # Quét phát hiện thành tựu thời gian thực (Cơ chế Hydra Launcher / Achievement Watcher)
-                    try:
-                        if "ACHIEVEMENT_MGR" in globals() and ACHIEVEMENT_MGR:
-                            ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
-                    except Exception:
-                        pass
-
-                    elapsed_delta = int(now - last_checkpoint)
-                    # Lưu nhịp tim mỗi 60 giây chống mất dữ liệu khi mất điện hoặc crash
-                    if elapsed_delta >= 60:
-                        self._add_seconds(game_id, game_dir, elapsed_delta)
-                        session_saved_sec += elapsed_delta
-                        last_checkpoint = now
-                        with self.lock:
-                            if game_id in self.active_games:
-                                self.active_games[game_id]["last_chk"] = now
-                                self.active_games[game_id]["last_active"] = now
-                else:
-                    # Chờ xác nhận 2 nhịp liên tiếp (~6s) phòng lúc Launcher đang chuyển sang Shipping.exe
-                    unseen_streak += 1
-                    if unseen_streak >= 2:
-                        session_elapsed = int(max(0, last_active - start_ts))
-                        remaining_delta = max(0, session_elapsed - session_saved_sec)
-                        if remaining_delta > 0:
-                            self._add_seconds(game_id, game_dir, remaining_delta)
-                        break
-        except Exception as e:
-            print(f"[PlaytimeTracker] Monitor loop error: {e}")
-        finally:
-            with self.lock:
-                self.active_games.pop(game_id, None)
-
-        log_startup(f"[PlaytimeTracker] Phiên chơi của '{game_id}' đã kết thúc.")
-        if self.on_game_exit_callback:
-            try:
-                self.on_game_exit_callback(game_id, game_dir)
-            except Exception as e:
-                print(f"[PlaytimeTracker] Post-exit hook error: {e}")
-
-    def _add_seconds(self, game_id: str, game_dir: str, seconds: int):
-        if seconds <= 0:
-            return
-        with self.lock:
-            today_key = datetime.now().strftime("%Y-%m-%d")
-            now_ts = int(time.time())
-            rec = self._data.setdefault(game_id, {
-                "total_seconds": 0, "last_played_ts": now_ts, "sessions_count": 1, "daily_log": {}
-            })
-            rec["total_seconds"] = int(rec.get("total_seconds", 0)) + seconds
-            rec["last_played_ts"] = now_ts
-            daily = rec.setdefault("daily_log", {})
-            daily[today_key] = int(daily.get(today_key, 0)) + seconds
-            self._save_db(game_id, game_dir)
-
-    def flush_all_active(self):
-        """Lưu nốt số giây đang chơi dở trước khi CỔ NGỮ đóng hẳn (Zero-Leak Clean Exit)."""
-        with self.lock:
-            now = time.time()
-            for gid, info in list(self.active_games.items()):
-                last_chk = info.get("last_chk", info.get("start_ts", now))
-                delta = int(now - last_chk)
-                if delta > 0:
-                    gdir = info.get("game_dir")
-                    self._add_seconds(gid, gdir, delta)
-                    info["last_chk"] = now
-
-    def get_all_stats(self) -> dict:
-        """Trả về toàn bộ thống kê giờ chơi và trạng thái đang chạy cho tất cả game."""
-        with self.lock:
-            result = {}
-            for gid, rec in self._data.items():
-                is_running = gid in self.active_games
-                total_sec = int(rec.get("total_seconds", 0))
-                if is_running:
-                    active_info = self.active_games.get(gid)
-                    if active_info:
-                        start_session_ts = active_info.get("start_ts", time.time())
-                        live_seconds = int(time.time() - active_info.get("last_chk", start_session_ts))
-                        total_sec += max(0, live_seconds)
-
-                if total_sec == 0:
-                    formatted_time = "Chưa chơi"
-                elif total_sec < 60:
-                    formatted_time = f"{total_sec} giây" if is_running else "< 1 phút"
-                elif total_sec < 3600:
-                    formatted_time = f"{max(1, total_sec // 60)} phút"
-                else:
-                    formatted_time = f"{round(total_sec / 3600, 1)} giờ"
-
-                result[gid] = {
-                    "game_id": gid,
-                    "is_running": is_running,
-                    "total_seconds": total_sec,
-                    "formatted_time": formatted_time,
-                    "last_played_str": "Đang chơi" if is_running else (rec.get("last_played_str") or "Gần đây"),
-                    "sessions_count": rec.get("sessions_count", 0)
-                }
-            return result
-
-
-class AchievementManager:
-    """
-    Bộ quản lý phát hiện, đọc tiến độ và đồng bộ Thành tựu cho game lẻ
-    theo chuẩn cơ chế không can thiệp RAM của Hydra Launcher & Achievement Watcher.
-    Hỗ trợ tự động nhận diện Emulator: Goldberg, GSE, RUNE, CODEX, TENOKE, OnlineFix, FLT, ALI213, SmartSteamEmu.
-    """
-
-    def __init__(self, steam_api_key: str = ""):
-        self.appdata_dir = APPDATA_DIR
-        self.schema_dir = os.path.join(self.appdata_dir, "achievements_schema")
-        self.progress_file = os.path.join(self.appdata_dir, "achievements_progress.json")
-        os.makedirs(self.schema_dir, exist_ok=True)
-        self.steam_api_key = steam_api_key
-        self.lock = threading.RLock()
-        self.unlocked_cache = {}  # {appid_or_gid: {"ACH_ID": ts, ...}}
-        self.newly_unlocked_queue = []  # [{"game_id": ..., "id": ..., "title": ..., "description": ..., "icon": ...}]
-        self._progress_data = self._load_progress()
-
-    def _load_progress(self) -> dict:
-        if os.path.exists(self.progress_file):
-            try:
-                with open(self.progress_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {}
-
-    def _save_progress(self):
-        with self.lock:
-            try:
-                tmp = self.progress_file + ".tmp"
-                with open(tmp, "w", encoding="utf-8") as f:
-                    json.dump(self._progress_data, f, ensure_ascii=False, indent=2)
-                os.replace(tmp, self.progress_file)
-            except Exception:
-                pass
-
-    def _resolve_appid_from_metadata(self, game_id: str) -> str:
-        """Tìm steam_appid của game từ games.json."""
-        if not game_id:
-            return ""
-        try:
-            p = get_active_games_json_path()
-            if os.path.exists(p):
-                with open(p, "r", encoding="utf-8") as f:
-                    for g in json.load(f):
-                        if g.get("id") == game_id:
-                            return str(g.get("steam_appid") or "")
-        except Exception:
-            pass
-        return ""
-
-    def _get_candidate_save_files(self, appid: str, game_dir: str = "") -> list[tuple[str, str]]:
-        """Trả về danh sách các đường dẫn file lưu thành tựu có thể tồn tại của mọi Steam Emulator."""
-        if not appid and not game_dir:
-            return []
-
-        candidates = []
-        appdata = os.environ.get("APPDATA", "")
-        localappdata = os.environ.get("LOCALAPPDATA", "")
-        public_doc = os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Documents")
-        user_profile = os.environ.get("USERPROFILE", "")
-        documents = os.path.join(user_profile, "Documents")
-
-        if appid:
-            s_appid = str(appid)
-            candidates.extend([
-                # 1. Goldberg / GSE Saves (Định dạng JSON)
-                ("goldberg_json", os.path.join(appdata, "Goldberg SteamEmu Saves", s_appid, "achievements.json")),
-                ("goldberg_json", os.path.join(appdata, "GSE Saves", s_appid, "achievements.json")),
-                ("goldberg_json", os.path.join(localappdata, "Goldberg SteamEmu Saves", s_appid, "achievements.json")),
-                ("goldberg_json", os.path.join(localappdata, "GSE Saves", s_appid, "achievements.json")),
-                # 2. RUNE / CODEX / FLT / OnlineFix / SmartSteamEmu (Định dạng INI)
-                ("ini", os.path.join(public_doc, "Steam", "RUNE", s_appid, "achievements.ini")),
-                ("ini", os.path.join(public_doc, "Steam", "CODEX", s_appid, "achievements.ini")),
-                ("ini", os.path.join(appdata, "Steam", "CODEX", s_appid, "achievements.ini")),
-                ("ini", os.path.join(public_doc, "OnlineFix", s_appid, "Stats", "Achievements.ini")),
-                ("ini", os.path.join(appdata, "FLT", s_appid, "stats", "achievements.ini")),
-                ("ini", os.path.join(appdata, "SmartSteamEmu", s_appid, "achievements.ini")),
-                ("ini", os.path.join(appdata, "SmartSteamEmu", s_appid, "stats", "achievements.ini")),
-                ("ini", os.path.join(documents, "Steam", "CODEX", s_appid, "achievements.ini")),
-                ("ini", os.path.join(documents, "Steam", "RUNE", s_appid, "achievements.ini")),
-                ("ini", os.path.join(documents, "OnlineFix", s_appid, "Stats", "Achievements.ini")),
-            ])
-
-        # 3. Các file lưu ngay bên trong thư mục cài đặt game (TENOKE, ALI213, OnlineFix portable, Goldberg local)
-        if game_dir and os.path.isdir(game_dir):
-            for pattern, fmt in [
-                ("**/steam_settings/achievements.json", "goldberg_local_schema"),
-                ("**/SteamData/user_stats.ini", "tenoke_ini"),
-                ("**/Profile/Stats/Achievements.ini", "ini"),
-                ("**/OnlineFix/**/Achievements.ini", "ini"),
-                ("**/achievements.ini", "ini"),
-                ("**/achievements.json", "goldberg_json"),
-            ]:
-                try:
-                    for found_path in glob.glob(os.path.join(game_dir, pattern), recursive=True):
-                        item = (fmt, found_path)
-                        if fmt != "goldberg_local_schema" and item not in candidates:
-                            candidates.append(item)
-                except Exception:
-                    pass
-
-        return candidates
-
-    def scan_unlocked_achievements(self, appid: str, game_dir: str = "") -> dict[str, int]:
-        """
-        Quét toàn bộ các nguồn emulator và trả về dict: { "ACH_ID": unlock_timestamp }
-        """
-        unlocked = {}
-        for fmt, file_path in self._get_candidate_save_files(str(appid or ""), game_dir):
-            if not os.path.isfile(file_path):
-                continue
-            try:
-                mtime_fallback = int(os.path.getmtime(file_path))
-                if fmt == "goldberg_json":
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        data = json.load(f)
-                    if isinstance(data, dict):
-                        for ach_id, info in data.items():
-                            if isinstance(info, dict):
-                                if info.get("earned") is True or info.get("unlocked") is True:
-                                    ts = int(info.get("earned_time") or info.get("time") or mtime_fallback)
-                                    unlocked[ach_id] = min(unlocked.get(ach_id, ts), ts)
-                            elif isinstance(info, (int, float)) and info > 0:
-                                unlocked[ach_id] = min(unlocked.get(ach_id, int(info)), int(info))
-                            elif info is True:
-                                unlocked[ach_id] = min(unlocked.get(ach_id, mtime_fallback), mtime_fallback)
-                    elif isinstance(data, list):
-                        for item in data:
-                            if isinstance(item, dict):
-                                ach_id = item.get("name") or item.get("id")
-                                if ach_id and (item.get("earned") is True or item.get("unlocked") is True):
-                                    ts = int(item.get("earned_time") or item.get("time") or mtime_fallback)
-                                    unlocked[ach_id] = min(unlocked.get(ach_id, ts), ts)
-
-                elif fmt == "tenoke_ini":
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        text = f.read()
-                    for match in re.finditer(r'"([^"]+)"\s*=\s*\{[^}]*unlocked\s*=\s*true(?:[^}]*time\s*=\s*(\d+))?', text, re.I):
-                        ach_id = match.group(1)
-                        ts = int(match.group(2)) if match.group(2) else mtime_fallback
-                        unlocked[ach_id] = min(unlocked.get(ach_id, ts), ts)
-
-                elif fmt == "ini":
-                    import configparser
-                    cp = configparser.ConfigParser(strict=False)
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        cp.read_file(f)
-                    for section in cp.sections():
-                        sec_lower = section.lower()
-                        if sec_lower in ("steamachievements", "achievements", "stats"):
-                            for k, v in cp.items(section):
-                                if v.strip().lower() in ("1", "true") and not k.isdigit():
-                                    unlocked[k] = min(unlocked.get(k, mtime_fallback), mtime_fallback)
-                            continue
-                        achieved_val = (
-                            cp.get(section, "Achieved", fallback=None)
-                            or cp.get(section, "achieved", fallback=None)
-                            or cp.get(section, "State", fallback="0")
-                        )
-                        if str(achieved_val).strip().lower() in ("1", "true"):
-                            ts_str = (
-                                cp.get(section, "UnlockTime", fallback=None)
-                                or cp.get(section, "Timestamp", fallback=None)
-                                or cp.get(section, "Time", fallback="0")
-                            )
-                            ts = int(ts_str) if str(ts_str).isdigit() and int(ts_str) > 0 else mtime_fallback
-                            unlocked[section] = min(unlocked.get(section, ts), ts)
-            except Exception:
-                continue
-
-        return unlocked
-
-    def get_or_fetch_schema(self, appid: str, game_dir: str = "", game_id: str = "") -> list[dict]:
-        """Lấy danh sách thành tựu gốc (Tên, Mô tả, Icon) từ Cache, thư mục game hoặc Steam Store API."""
-        if not appid and not game_id:
-            return []
-
-        # 0. Kiểm tra cache theo appid hoặc game_id (chỉ chấp nhận nếu có cách thực hiện / description)
-        for ckey in [appid, game_id]:
-            if not ckey:
-                continue
-            cache_file = os.path.join(self.schema_dir, f"{ckey}.json")
-            if os.path.isfile(cache_file):
-                try:
-                    with open(cache_file, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                        if data and isinstance(data, list) and any(bool(item.get("description")) for item in data):
-                            return data
-                except Exception:
-                    pass
-
-        schema_list = []
-
-        # 1. Nguồn 1: Quét trực tiếp file steam_settings/achievements.json có sẵn trong thư mục game lẻ (Offline 0s)
-        if game_dir and os.path.isdir(game_dir):
-            for pattern in ["**/steam_settings/achievements.json", "**/achievements.json"]:
-                for path in glob.glob(os.path.join(game_dir, pattern), recursive=True):
-                    try:
-                        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                            raw = json.load(f)
-                        if isinstance(raw, list):
-                            for item in raw:
-                                if not isinstance(item, dict):
-                                    continue
-                                ach_id = item.get("name") or item.get("id")
-                                if not ach_id:
-                                    continue
-                                disp_name = item.get("displayName", item.get("name", ""))
-                                if isinstance(disp_name, dict):
-                                    disp_name = disp_name.get("english", next(iter(disp_name.values()), ""))
-                                desc = item.get("description", "")
-                                if isinstance(desc, dict):
-                                    desc = desc.get("english", next(iter(desc.values()), ""))
-                                
-                                icon_val = item.get("icon", "")
-                                icongray_val = item.get("icongray", item.get("icon_gray", ""))
-                                if icon_val and not icon_val.startswith("http") and os.path.exists(os.path.join(os.path.dirname(path), icon_val)):
-                                    icon_val = os.path.abspath(os.path.join(os.path.dirname(path), icon_val))
-                                if icongray_val and not icongray_val.startswith("http") and os.path.exists(os.path.join(os.path.dirname(path), icongray_val)):
-                                    icongray_val = os.path.abspath(os.path.join(os.path.dirname(path), icongray_val))
-
-                                schema_list.append({
-                                    "id": ach_id,
-                                    "title": disp_name or ach_id,
-                                    "description": desc or "",
-                                    "icon": icon_val,
-                                    "icongray": icongray_val,
-                                    "hidden": bool(item.get("hidden", 0)),
-                                    "group": item.get("group", "")
-                                })
-                            if schema_list:
-                                break
-                    except Exception:
-                        pass
-                if schema_list:
-                    break
-
-        pct_map = {}
-        if appid and str(appid).isdigit():
-            try:
-                pct_url = f"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
-                raw_pct = steam_direct_request(pct_url, timeout=4.0)
-                if raw_pct:
-                    pct_data = json.loads(raw_pct.decode("utf-8", "ignore"))
-                    for p in pct_data.get("achievementpercentages", {}).get("achievements", []):
-                        pct_map[p["name"].lower()] = round(float(p.get("percent", 0)), 1)
-            except Exception:
-                pass
-
-        # 2. Nguồn 2: Steam Community SSR Data (Toàn bộ 100% Thành tựu + Cách thực hiện + DLC Packs - Chuẩn Achievement Watcher)
-        if not schema_list and appid and str(appid).isdigit():
-            try:
-                comm_url = f"https://steamcommunity.com/achievements/{appid}"
-                raw_comm = steam_direct_request(comm_url, timeout=5.0)
-                if raw_comm:
-                    html_text = raw_comm.decode("utf-8", "ignore")
-                    m = re.search(r'<script[^>]*id=["\']valve-ssr-data["\'][^>]*>(.*?)</script>', html_text, re.DOTALL)
-                    if m:
-                        root_data = json.loads(m.group(1).strip())
-                        query_data_raw = root_data.get("renderContext", {}).get("queryData", {})
-                        if isinstance(query_data_raw, str):
-                            query_data = json.loads(query_data_raw)
-                        else:
-                            query_data = query_data_raw or {}
-
-                        for q in query_data.get("queries", []):
-                            data_node = q.get("state", {}).get("data")
-                            if isinstance(data_node, dict) and "groups" in data_node:
-                                for g in data_node.get("groups", []):
-                                    group_title = g.get("name") or ""
-                                    for a in g.get("achievements", []):
-                                        ach_id = a.get("api_name")
-                                        if not ach_id:
-                                            continue
-                                        disp_name = a.get("name") or ach_id
-                                        desc = a.get("description") or ""
-                                        icon_url = a.get("icon_achieved") or ""
-                                        icongray_url = a.get("icon_unachieved") or icon_url
-                                        is_hidden = bool(a.get("hidden", False))
-                                        schema_list.append({
-                                            "id": ach_id,
-                                            "title": disp_name,
-                                            "description": desc,
-                                            "icon": icon_url,
-                                            "icongray": icongray_url,
-                                            "hidden": is_hidden,
-                                            "group": group_title,
-                                            "global_percent": pct_map.get(ach_id.lower(), None)
-                                        })
-            except Exception as e:
-                print(f"[AchievementManager] Steam Community SSR fetch error: {e}")
-
-        # 3. Nguồn 3: Nếu có Steam Web API Key
-        if not schema_list and self.steam_api_key and appid and str(appid).isdigit():
-            try:
-                url = f"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={self.steam_api_key}&appid={appid}&l=english"
-                raw_s = steam_direct_request(url, timeout=4.0)
-                if raw_s:
-                    data = json.loads(raw_s.decode("utf-8", "ignore"))
-                    raw_ach = data.get("game", {}).get("availableGameStats", {}).get("achievements", [])
-                    for a in raw_ach:
-                        ach_id = a.get("name")
-                        schema_list.append({
-                            "id": ach_id,
-                            "title": a.get("displayName", ach_id),
-                            "description": a.get("description", ""),
-                            "icon": a.get("icon", ""),
-                            "icongray": a.get("icongray", ""),
-                            "hidden": bool(a.get("hidden", 0)),
-                            "global_percent": pct_map.get(str(ach_id).lower(), None)
-                        })
-            except Exception:
-                pass
-
-        # 4. Nguồn 4: Fallback qua Steam Store API appdetails
-        if not schema_list and appid and str(appid).isdigit():
-            try:
-                details_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&filters=achievements"
-                raw_det = steam_direct_request(details_url, timeout=4.0)
-                if raw_det:
-                    det = json.loads(raw_det.decode("utf-8", "ignore"))
-                    ach_data = det.get(str(appid), {}).get("data", {}).get("achievements", {})
-                    highlighted = ach_data.get("highlighted", [])
-                    for a in highlighted:
-                        ach_name = a.get("name") or a.get("localized_name")
-                        icon_url = a.get("path")
-                        if not icon_url and a.get("icon"):
-                            icon_url = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{a['icon']}"
-                        schema_list.append({
-                            "id": a.get("name", ach_name),
-                            "title": a.get("localized_name") or ach_name,
-                            "description": "",
-                            "icon": icon_url or "",
-                            "icongray": "",
-                            "hidden": bool(a.get("hidden", 0)),
-                            "global_percent": pct_map.get(str(a.get("name", ach_name)).lower(), None)
-                        })
-            except Exception as e:
-                print(f"[AchievementManager] Store API fetch error: {e}")
-
-        # Gắn thêm tỷ lệ global_percent nếu chưa có
-        for s in schema_list:
-            if s.get("global_percent") is None:
-                s["global_percent"] = pct_map.get(str(s.get("id", "")).lower(), None)
-
-        # Lưu cache nếu lấy được schema có cách thực hiện
-        if schema_list:
-            save_key = appid or game_id
-            cache_file = os.path.join(self.schema_dir, f"{save_key}.json")
-            try:
-                with open(cache_file, "w", encoding="utf-8") as f:
-                    json.dump(schema_list, f, ensure_ascii=False, indent=2)
-            except OSError:
-                pass
-
-        return schema_list
-
-    def get_game_achievements_view(self, appid: str = "", game_dir: str = "", game_id: str = "") -> dict:
-        """Hàm trả dữ liệu hoàn chỉnh cho Frontend static/index.html hiển thị."""
-        effective_appid = str(appid or "").strip()
-        if not effective_appid and game_dir:
-            effective_appid = extract_local_steam_appid(game_dir) or ""
-        if not effective_appid and game_id:
-            cfg = load_user_config()
-            g_path = cfg.get(f"{game_id}_path")
-            if g_path:
-                effective_appid = extract_local_steam_appid(g_path) or ""
-            if not effective_appid:
-                effective_appid = self._resolve_appid_from_metadata(game_id)
-
-        schema = self.get_or_fetch_schema(effective_appid, game_dir, game_id)
-        unlocked_map = self.scan_unlocked_achievements(effective_appid, game_dir) if (effective_appid or game_dir) else {}
-
-        # Nếu chưa có schema nhưng file save có danh sách mã thành tựu đã mở
-        schema_ids = {str(item.get("id", "")).lower(): item for item in schema if item.get("id")}
-        for unlocked_id, u_ts in unlocked_map.items():
-            if unlocked_id.lower() not in schema_ids:
-                clean_title = re.sub(r"[_\-]+", " ", unlocked_id).title()
-                schema.append({
-                    "id": unlocked_id,
-                    "title": clean_title,
-                    "description": "Thành tựu đạt được trong khi chơi game",
-                    "icon": "",
-                    "icongray": "",
-                    "hidden": False
-                })
-
-        items = []
-        unlocked_count = 0
-        unlocked_lower = {k.lower(): v for k, v in unlocked_map.items()}
-
-        for ach in schema:
-            ach_id = ach.get("id", "")
-            unlock_ts = unlocked_lower.get(ach_id.lower())
-            is_unlocked = unlock_ts is not None
-            if is_unlocked:
-                unlocked_count += 1
-
-            unlock_str = None
-            if unlock_ts:
-                try:
-                    unlock_str = datetime.fromtimestamp(unlock_ts).strftime("%d/%m/%Y %H:%M")
-                except Exception:
-                    unlock_str = "Đã mở khóa"
-
-            items.append({
-                "id": ach_id,
-                "title": ach.get("title_vi") or ach.get("title") or ach_id,
-                "description": ach.get("description_vi") or ach.get("description") or "",
-                "icon": ach.get("icon") if is_unlocked else (ach.get("icongray") or ach.get("icon")),
-                "unlocked": is_unlocked,
-                "unlock_ts": unlock_ts or 0,
-                "unlock_time_str": unlock_str,
-                "global_percent": ach.get("global_percent", None),
-                "hidden": bool(ach.get("hidden", False)),
-                "group": ach.get("group", "")
-            })
-
-        # Sắp xếp: Thành tựu đã mở khóa lên trước (mới nhất xếp trên cùng)
-        items.sort(key=lambda x: (not x["unlocked"], -x["unlock_ts"]))
-        total = len(items)
-        percent = int(round((unlocked_count / total) * 100)) if total > 0 else 0
-
-        # Cập nhật cache trạng thái
-        cache_key = effective_appid or game_id
-        if cache_key:
-            with self.lock:
-                self.unlocked_cache[cache_key] = unlocked_map
-                self._progress_data[cache_key] = {
-                    "total": total,
-                    "unlocked_count": unlocked_count,
-                    "percent": percent,
-                    "last_updated": int(time.time())
-                }
-                self._save_progress()
-
-        return {
-            "appid": effective_appid,
-            "game_id": game_id,
-            "total": total,
-            "unlocked_count": unlocked_count,
-            "percent": percent,
-            "achievements": items
-        }
-
-    def check_for_new_unlocks(self, game_id: str, appid: str, game_dir: str = "") -> list[dict]:
-        """Kiểm tra thời gian thực xem có thành tựu nào vừa được mở khóa không."""
-        if not appid and not game_dir:
-            return []
-
-        effective_appid = str(appid or "").strip()
-        if not effective_appid and game_dir:
-            effective_appid = extract_local_steam_appid(game_dir) or ""
-
-        cache_key = effective_appid or game_id
-        if not cache_key:
-            return []
-
-        current_unlocked = self.scan_unlocked_achievements(effective_appid, game_dir)
-        if not current_unlocked:
-            return []
-
-        new_items = []
-        with self.lock:
-            prev_unlocked = self.unlocked_cache.get(cache_key)
-            if prev_unlocked is None:
-                self.unlocked_cache[cache_key] = current_unlocked
-                return []
-
-            schema = self.get_or_fetch_schema(effective_appid, game_dir, game_id)
-            schema_map = {str(item.get("id", "")).lower(): item for item in schema}
-
-            for ach_id, ts in current_unlocked.items():
-                if ach_id.lower() not in {k.lower(): v for k, v in prev_unlocked.items()}:
-                    meta = schema_map.get(ach_id.lower(), {})
-                    title = meta.get("title_vi") or meta.get("title") or re.sub(r"[_\-]+", " ", ach_id).title()
-                    desc = meta.get("description_vi") or meta.get("description") or "Mở khóa khi chơi game"
-                    icon = meta.get("icon") or ""
-
-                    item_info = {
-                        "game_id": game_id,
-                        "appid": effective_appid,
-                        "id": ach_id,
-                        "title": title,
-                        "description": desc,
-                        "icon": icon,
-                        "unlock_ts": ts
-                    }
-                    new_items.append(item_info)
-                    self.newly_unlocked_queue.append(item_info)
-                    log_startup(f"[AchievementTracker] 🏆 Chúc mừng! Mở khóa thành tựu mới: '{title}' ({ach_id})!")
-
-            self.unlocked_cache[cache_key] = current_unlocked
-
-        return new_items
-
-    def check_game_live_achievements(self, game_id: str, game_dir: str = "") -> list[dict]:
-        """Tự động phân giải appid và quét thành tựu mới mở khóa trong thời gian thực."""
-        appid = ""
-        if game_dir and os.path.isdir(game_dir):
-            appid = extract_local_steam_appid(game_dir) or ""
-        if not appid and game_id:
-            cfg = load_user_config()
-            g_path = cfg.get(f"{game_id}_path")
-            if g_path and os.path.isdir(g_path):
-                appid = extract_local_steam_appid(g_path) or ""
-            if not appid:
-                appid = self._resolve_appid_from_metadata(game_id)
-
-        return self.check_for_new_unlocks(game_id, appid, game_dir)
-
-    def pop_newly_unlocked(self) -> list[dict]:
-        """Lấy toàn bộ danh sách thành tựu mới để Frontend hiện Toast thông báo, sau đó xóa hàng đợi."""
-        with self.lock:
-            items = list(self.newly_unlocked_queue)
-            self.newly_unlocked_queue.clear()
-            return items
-
-
-ACHIEVEMENT_MGR = AchievementManager()
-
-
-def handle_game_exit_hook(game_id: str, game_dir: str):
-    """
-    Điểm móc nối tự động sau khi thoát game (Post-Exit Hook):
-    - Ghi log và đồng bộ trạng thái.
-    - Sẵn sàng kích hoạt: Đồng bộ Cloud Save & Quét Thành Tựu mới mở khóa.
-    - Tự động đóng gói Save + Thành tựu vào Hồ Sơ Di Động Hợp Nhất (PlayerProfile.congu_save).
-    """
-    log_startup(f"[PlaytimeTracker] Kích hoạt Post-Exit Hook cho '{game_id}' tại '{game_dir}'")
-    try:
-        if "ACHIEVEMENT_MGR" in globals() and ACHIEVEMENT_MGR:
-            ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
-    except Exception as e:
-        print(f"[AchievementTracker] Post-exit scan error: {e}")
-
-    try:
-        if "SAVE_VAULT" in globals() and SAVE_VAULT:
-            g_cfg = next((g for g in get_games() if g.get("id") == game_id), None)
-            if g_cfg:
-                vault = get_vault_instance()
-                vault.pack_game_to_vault(g_cfg, game_dir)
-                log_startup(f"[SaveVault] Đã tự động gom Save + Thành tựu của '{game_id}' vào Hồ Sơ Di Động (.congu_save)")
-    except Exception as e:
-        print(f"[SaveVault] Post-exit vault pack error: {e}")
-
-    try:
-        if "CLOUD_SYNC_MGR" in globals() and CLOUD_SYNC_MGR:
-            g_cfg = next((g for g in get_games() if g.get("id") == game_id), None)
-            if g_cfg:
-                CLOUD_SYNC_MGR.post_session_sync(game_id, game_dir, g_cfg)
-    except Exception as e:
-        print(f"[CloudSync] Post-exit sync hook error: {e}")
-
-PLAYTIME_MGR = PlaytimeManager(db_path=PLAYTIME_FILE, on_game_exit_callback=handle_game_exit_hook)
-
-from cloud_sync import CloudSyncManager, DEFAULT_CLIENT_ID, DEFAULT_CLIENT_SECRET
-CLOUD_SYNC_MGR = CloudSyncManager(APPDATA_DIR)
-
-from vault_manager import ConguSaveVault
-
-
-def load_user_config():
-    cfg = {"repo_dir": DEFAULT_REPO_DIR}
-    # Tự động di chuyển cấu hình cũ từ APP_DIR sang APPDATA_DIR nếu chưa có
-    legacy_config = os.path.join(APP_DIR, "user_config.json")
-    if not os.path.exists(CONFIG_JSON) and os.path.exists(legacy_config):
-        try:
-            with open(legacy_config, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-                cfg.update(saved)
-            save_user_config(cfg)
-            return cfg
-        except Exception:
-            pass
-
-    if os.path.exists(CONFIG_JSON):
-        try:
-            with open(CONFIG_JSON, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-                cfg.update(saved)
-        except Exception:
-            pass
-    return cfg
-
-def save_user_config(cfg):
-    try:
-        os.makedirs(os.path.dirname(CONFIG_JSON), exist_ok=True)
-        with open(CONFIG_JSON, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"Error saving config: {e}")
-
-def get_vault_instance() -> ConguSaveVault:
-    """Lấy thể hiện quản lý Hồ Sơ Di Động Hợp Nhất (PlayerProfile.congu_save)."""
-    global SAVE_VAULT
-    cfg = load_user_config()
-    custom_path = cfg.get("custom_vault_path")
-    if custom_path:
-        target = os.path.abspath(custom_path)
-    elif os.path.exists(os.path.join(APP_DIR, "PlayerProfile.congu_save")):
-        target = os.path.join(APP_DIR, "PlayerProfile.congu_save")
-    else:
-        target = os.path.join(APPDATA_DIR, "PlayerProfile.congu_save")
-
-    if "SAVE_VAULT" not in globals() or SAVE_VAULT is None or SAVE_VAULT.vault_path != target:
-        SAVE_VAULT = ConguSaveVault(target)
-    return SAVE_VAULT
-
-SAVE_VAULT = get_vault_instance()
-
-def get_games():
-    """Lấy danh sách các game từ games.json hoặc api_instance."""
-    if "api_instance" in globals() and api_instance:
-        try:
-            return api_instance.get_games()
-        except Exception:
-            pass
-    gp = get_active_games_json_path()
-    if os.path.exists(gp):
-        try:
-            with open(gp, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return []
 
 from community_cloud import CommunityCloudManager
 
@@ -1990,71 +647,27 @@ COMMUNITY_CLOUD_MGR = CommunityCloudManager(
     vault_getter=get_vault_instance,
     games_getter=get_games
 )
-def get_all_configured_game_paths():
-    """Lấy danh sách toàn bộ thư mục game đã được định danh trên máy."""
-    try:
-        cfg = load_user_config()
-        paths = {}
-        for k, v in cfg.items():
-            if k.endswith("_path") and v and os.path.isdir(v):
-                gid = k[:-5]
-                paths[gid] = v
-        return paths
-    except Exception:
-        return {}
+
+from controller_engine import ControllerEngine
+
+CONTROLLER_ENGINE = ControllerEngine(
+    tools_dir=os.path.join(APP_DIR, "tools") if os.path.exists(os.path.join(APP_DIR, "tools")) else "tools",
+    vault_getter=get_vault_instance
+)
+
+# Đồng bộ hóa callbacks cho Cloud Save & Achievements Engine
+configure_cloud_save_system(
+    config_getter=load_user_config,
+    custom_games_getter=load_custom_games if "load_custom_games" in globals() else None,
+    games_json_path_getter=get_active_games_json_path,
+    games_getter=get_games,
+    controller_engine=CONTROLLER_ENGINE,
+    log_fn=log_startup
+)
 
 # Tự động khởi động luồng quét ngầm nhận diện game mở từ Shortcut Desktop / Steam
 PLAYTIME_MGR.start_background_scanner(get_all_configured_game_paths)
 
-def load_user_data():
-    data = {"ratings": {}, "comments": {}, "bug_reports": [], "game_requests": [], "voted_requests": [], "machine_id": None}
-    if os.path.exists(USER_DATA_FILE):
-        try:
-            with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-                data.update(saved)
-        except Exception:
-            pass
-    import uuid
-    if not data.get("machine_id"):
-        data["machine_id"] = str(uuid.uuid4())
-        save_user_data(data)
-    if "voted_requests" not in data:
-        data["voted_requests"] = []
-    return data
-
-def save_user_data(data):
-    try:
-        with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"Error saving user data: {e}")
-
-def get_repo_dir():
-    cfg = load_user_config()
-    repo = cfg.get("repo_dir")
-    if repo and os.path.exists(repo):
-        return repo
-
-    # Smart auto-detection across mounted drives and local folders
-    candidates = [
-        DEFAULT_REPO_DIR,
-        FALLBACK_REPO_DIR,
-        os.path.join(APP_DIR, "..", "Viethoagame"),
-        os.path.join(APP_DIR, "mods"),
-    ]
-    for d in get_available_drives():
-        candidates.append(f"{d}:\\My Drive\\Viethoagame")
-        candidates.append(f"{d}:\\Google Drive\\Viethoagame")
-        candidates.append(f"{d}:\\Viethoagame")
-
-    for c in candidates:
-        if os.path.exists(c):
-            cfg["repo_dir"] = os.path.normpath(c)
-            save_user_config(cfg)
-            return cfg["repo_dir"]
-
-    return DEFAULT_REPO_DIR
 
 def find_mod_source_dir(mod_subfolder):
     """Find mod folder from active repo, default repo or fallback repos with resilient folder naming"""
@@ -2103,426 +716,30 @@ def find_mod_source_dir(mod_subfolder):
     primary = os.path.join(cfg.get("repo_dir", DEFAULT_REPO_DIR), mod_subfolder)
     return primary
 
-_LIBRARY_CACHE_LOCK = threading.Lock()
-_MOD_OP_LOCK = threading.Lock()  # Khóa đồng bộ chống xung đột đa luồng khi cài đặt, gỡ bỏ hoặc khôi phục mod
-_STEAM_LIBRARIES_CACHE = {"timestamp": 0.0, "data": []}
-_EPIC_GAMES_CACHE = {"timestamp": 0.0, "data": []}
-_GOG_GAMES_CACHE = {"timestamp": 0.0, "data": []}
-_STANDALONE_DIRS_CACHE = {"timestamp": 0.0, "data": []}
-_LIBRARY_CACHE_TTL = 60.0  # 60 giây TTL trong RAM để phản hồi tức thì
+# _MOD_OP_LOCK imported from core.installer_pipeline
 
-def invalidate_library_caches():
-    """Xóa trắng cache phát hiện thư viện game trong RAM để quét lại khi cần."""
-    with _LIBRARY_CACHE_LOCK:
-        _STEAM_LIBRARIES_CACHE["timestamp"] = 0.0
-        _EPIC_GAMES_CACHE["timestamp"] = 0.0
-        _GOG_GAMES_CACHE["timestamp"] = 0.0
-        _STANDALONE_DIRS_CACHE["timestamp"] = 0.0
-
-def get_available_drives():
-    """Lấy danh sách các phân vùng ổ đĩa đang gắn thực tế trên Windows (tránh quét ổ đĩa ảo hoặc đầu đọc thẻ trống)."""
-    try:
-        import ctypes
-        mask = ctypes.windll.kernel32.GetLogicalDrives()
-        drives = [chr(65 + i) for i in range(26) if (mask >> i) & 1]
-        return [d for d in drives if d not in ("A", "B")]
-    except Exception:
-        return [d for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
-
-def detect_steam_libraries(force_refresh=False):
-    """Detect all Steam library folders across drives on Windows with robust RAM caching (TTL 60s)"""
-    now = time.time()
-    with _LIBRARY_CACHE_LOCK:
-        if not force_refresh and (now - _STEAM_LIBRARIES_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _STEAM_LIBRARIES_CACHE["data"]:
-            return list(_STEAM_LIBRARIES_CACHE["data"])
-
-    libraries = []
-    potential_roots = [
-        r"C:\Program Files (x86)\Steam",
-        r"C:\Program Files\Steam",
-        r"E:\SteamLibrary",
-        r"D:\SteamLibrary",
-        r"E:\Steam",
-        r"D:\Steam",
-        r"F:\SteamLibrary",
-        r"G:\SteamLibrary",
-    ]
-    
-    # 1. Try reading from Windows registry
-    reg_keys = [
-        (r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
-        (r"SOFTWARE\Valve\Steam", "InstallPath"),
-        (r"Software\Valve\Steam", "SteamPath"),
-    ]
-    try:
-        import winreg
-        for subkey, valname in reg_keys:
-            try:
-                for hkey in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-                    try:
-                        k = winreg.OpenKey(hkey, subkey)
-                        steam_val, _ = winreg.QueryValueEx(k, valname)
-                        if steam_val:
-                            clean_val = steam_val.replace("/", "\\")
-                            if os.path.exists(clean_val) and clean_val not in potential_roots:
-                                potential_roots.insert(0, clean_val)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    # 2. Check mounted drives only (không quét mù 24 ổ đĩa)
-    for drive_letter in get_available_drives():
-        candidate_steam = f"{drive_letter}:\\SteamLibrary"
-        if candidate_steam not in potential_roots and os.path.exists(candidate_steam):
-            potential_roots.append(candidate_steam)
-
-    found_roots = [p for p in potential_roots if os.path.exists(p)]
-    for root in found_roots:
-        norm_root = os.path.normpath(root)
-        if norm_root not in libraries:
-            libraries.append(norm_root)
-        
-        # Parse libraryfolders.vdf
-        vdf = os.path.join(root, "steamapps", "libraryfolders.vdf")
-        if os.path.exists(vdf):
-            try:
-                with open(vdf, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-                matches = re.findall(r'"path"\s+"([^"]+)"', content)
-                for lib_path in matches:
-                    clean_p = os.path.normpath(lib_path.replace("\\\\", "\\"))
-                    if os.path.exists(clean_p) and clean_p not in libraries:
-                        libraries.append(clean_p)
-            except Exception as e:
-                print(f"Error reading libraryfolders.vdf: {e}")
-
-    with _LIBRARY_CACHE_LOCK:
-        _STEAM_LIBRARIES_CACHE["timestamp"] = now
-        _STEAM_LIBRARIES_CACHE["data"] = list(libraries)
-
-    return libraries
-
-def is_running_as_admin():
-    """Check if current process has Windows Administrator privileges."""
-    try:
-        import ctypes
-        return ctypes.windll.shell32.IsUserAnAdmin() != 0
-    except Exception:
-        return False
-
-def check_directory_writable(dir_path):
-    """
-    Check if a directory has write permissions for the current user.
-    Creates and removes a temporary test file (.congu_write_test) to reliably detect Windows ACL restrictions.
-    """
-    if not dir_path or not os.path.exists(dir_path):
-        return False
-    test_file = os.path.join(dir_path, f".congu_write_test_{os.getpid()}_{int(time.time())}.tmp")
-    try:
-        with open(test_file, "w") as f:
-            f.write("test")
-        os.remove(test_file)
-        return True
-    except (PermissionError, OSError):
-        return False
-
-def request_uac_elevation():
-    """
-    Relaunch current executable with Administrator rights via Windows ShellExecute 'runas'.
-    """
-    import ctypes
-    if getattr(sys, 'frozen', False):
-        exe = sys.executable
-        params = " ".join([f'"{arg}"' for arg in sys.argv[1:]])
-    else:
-        exe = sys.executable
-        script = os.path.abspath(sys.argv[0])
-        params = f'"{script}" ' + " ".join([f'"{arg}"' for arg in sys.argv[1:]])
-    try:
-        ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 1)
-        if ret > 32:
-            sys.exit(0)
-            return True
-    except Exception as e:
-        print(f"Failed to elevate UAC: {e}")
-    return False
-
-def detect_epic_games(force_refresh=False):
-    """Detect all installed Epic Games by parsing manifest .item files with RAM caching (TTL 60s)"""
-    now = time.time()
-    with _LIBRARY_CACHE_LOCK:
-        if not force_refresh and (now - _EPIC_GAMES_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _EPIC_GAMES_CACHE["data"]:
-            return list(_EPIC_GAMES_CACHE["data"])
-
-    epic_games = []
-    prog_data = os.environ.get("ProgramData", r"C:\ProgramData")
-    manifests_dir = os.path.join(prog_data, "Epic", "EpicGamesLauncher", "Data", "Manifests")
-    if os.path.exists(manifests_dir):
-        try:
-            for fname in os.listdir(manifests_dir):
-                if fname.endswith(".item"):
-                    item_path = os.path.join(manifests_dir, fname)
-                    try:
-                        with open(item_path, "r", encoding="utf-8", errors="ignore") as f:
-                            data = json.load(f)
-                        loc = data.get("InstallLocation")
-                        name = data.get("DisplayName", "")
-                        app_name = data.get("AppName", "")
-                        if loc and os.path.exists(loc):
-                            epic_games.append({
-                                "platform": "Epic Games",
-                                "name": name,
-                                "app_name": app_name,
-                                "path": os.path.normpath(loc)
-                            })
-                    except Exception:
-                        pass
-        except Exception as e:
-            print(f"Error reading Epic Games manifests: {e}")
-
-    with _LIBRARY_CACHE_LOCK:
-        _EPIC_GAMES_CACHE["timestamp"] = now
-        _EPIC_GAMES_CACHE["data"] = list(epic_games)
-
-    return epic_games
-
-def detect_gog_games(force_refresh=False):
-    """Detect all installed GOG Galaxy games from Windows Registry with RAM caching (TTL 60s)"""
-    now = time.time()
-    with _LIBRARY_CACHE_LOCK:
-        if not force_refresh and (now - _GOG_GAMES_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _GOG_GAMES_CACHE["data"]:
-            return list(_GOG_GAMES_CACHE["data"])
-
-    gog_games = []
-    try:
-        import winreg
-        gog_reg_roots = [
-            r"SOFTWARE\WOW6432Node\GOG.com\Games",
-            r"SOFTWARE\GOG.com\Games"
-        ]
-        for root_key in gog_reg_roots:
-            try:
-                k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, root_key)
-                num_subkeys, _, _ = winreg.QueryInfoKey(k)
-                for i in range(num_subkeys):
-                    try:
-                        subkey_name = winreg.EnumKey(k, i)
-                        sk = winreg.OpenKey(k, subkey_name)
-                        game_path, _ = winreg.QueryValueEx(sk, "path")
-                        game_name = ""
-                        try:
-                            game_name, _ = winreg.QueryValueEx(sk, "gameName")
-                        except Exception:
-                            pass
-                        if game_path and os.path.exists(game_path):
-                            gog_games.append({
-                                "platform": "GOG Galaxy",
-                                "name": game_name,
-                                "path": os.path.normpath(game_path)
-                            })
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-    except Exception as e:
-        print(f"Error reading GOG Galaxy registry: {e}")
-
-    with _LIBRARY_CACHE_LOCK:
-        _GOG_GAMES_CACHE["timestamp"] = now
-        _GOG_GAMES_CACHE["data"] = list(gog_games)
-
-    return gog_games
-
-def detect_standalone_game_dirs(force_refresh=False):
-    """Detect existing standalone game directories across mounted drives with RAM caching (TTL 60s)"""
-    now = time.time()
-    with _LIBRARY_CACHE_LOCK:
-        if not force_refresh and (now - _STANDALONE_DIRS_CACHE["timestamp"] < _LIBRARY_CACHE_TTL) and _STANDALONE_DIRS_CACHE["data"]:
-            return list(_STANDALONE_DIRS_CACHE["data"])
-
-    existing_bases = []
-    for drive_letter in get_available_drives():
-        candidate_bases = [
-            f"{drive_letter}:\\Games",
-            f"{drive_letter}:\\GOG Games",
-            f"{drive_letter}:\\Epic Games",
-            f"{drive_letter}:\\XboxGames",
-        ]
-        for base_dir in candidate_bases:
-            try:
-                if os.path.exists(base_dir):
-                    existing_bases.append(base_dir)
-            except Exception:
-                pass
-
-    with _LIBRARY_CACHE_LOCK:
-        _STANDALONE_DIRS_CACHE["timestamp"] = now
-        _STANDALONE_DIRS_CACHE["data"] = list(existing_bases)
-
-    return existing_bases
-
-def find_game_install_path(game_def, libraries, epic_games=None, gog_games=None, standalone_dirs=None):
-    """
-    Find the installation folder of a game across Steam, Epic Games, GOG Galaxy,
-    and standalone installation folders across drives (using cached discovery).
-    """
-    appid = game_def.get("steam_appid")
-    folder_names = game_def.get("default_folder_names", [game_def.get("title")])
-    gid = game_def.get("id", "").lower()
-    game_title = game_def.get("title", "").lower()
-    targets = [fn.lower() for fn in folder_names if fn] + [gid, game_title]
-
-    # 1. Check Steam libraries
-    for lib in libraries:
-        steamapps = os.path.join(lib, "steamapps")
-        
-        # Check by appmanifest_{appid}.acf
-        if appid:
-            manifest_file = os.path.join(steamapps, f"appmanifest_{appid}.acf")
-            if os.path.exists(manifest_file):
-                try:
-                    with open(manifest_file, "r", encoding="utf-8", errors="ignore") as f:
-                        txt = f.read()
-                    m = re.search(r'"installdir"\s+"([^"]+)"', txt)
-                    if m:
-                        candidate = os.path.join(steamapps, "common", m.group(1))
-                        if os.path.exists(candidate):
-                            return os.path.normpath(candidate)
-                except Exception:
-                    pass
-
-        # Check by common folder names in steamapps/common
-        common_dir = os.path.join(steamapps, "common")
-        if os.path.exists(common_dir):
-            for fname in folder_names:
-                if not fname:
-                    continue
-                candidate = os.path.join(common_dir, fname)
-                if os.path.exists(candidate):
-                    return os.path.normpath(candidate)
-
-    # 2. Check Epic Games Launcher manifests (dùng danh sách đã cache trong RAM)
-    epic_list = epic_games if epic_games is not None else detect_epic_games()
-    for ep in epic_list:
-        ep_name = ep.get("name", "").lower()
-        ep_app = ep.get("app_name", "").lower()
-        ep_path = ep.get("path", "")
-        ep_base = os.path.basename(ep_path).lower()
-        if any(t in ep_name or t in ep_app or t in ep_base for t in targets):
-            is_valid, resolved, _ = verify_and_resolve_game_path(game_def, ep_path)
-            if is_valid:
-                return resolved
-
-    # 3. Check GOG Galaxy registry entries (dùng danh sách đã cache trong RAM)
-    gog_list = gog_games if gog_games is not None else detect_gog_games()
-    for gog in gog_list:
-        gog_name = gog.get("name", "").lower()
-        gog_path = gog.get("path", "")
-        gog_base = os.path.basename(gog_path).lower()
-        if any(t in gog_name or t in gog_base for t in targets):
-            is_valid, resolved, _ = verify_and_resolve_game_path(game_def, gog_path)
-            if is_valid:
-                return resolved
-
-    # 4. Check common standalone game directories across mounted drives (dùng danh sách đã cache trong RAM)
-    bases_list = standalone_dirs if standalone_dirs is not None else detect_standalone_game_dirs()
-    for base_dir in bases_list:
-        for fname in folder_names:
-            if not fname:
-                continue
-            cand = os.path.join(base_dir, fname)
-            if os.path.exists(cand):
-                is_valid, resolved, _ = verify_and_resolve_game_path(game_def, cand)
-                if is_valid:
-                    return resolved
-
-    return None
-
-def verify_and_resolve_game_path(game_def, input_path):
-    """
-    Intelligently verify if input_path is a valid game directory for game_def.
-    Auto-resolves if user selected parent or child directory.
-    Returns: (is_valid: bool, resolved_path: str, message: str)
-    """
-    if not input_path or not os.path.exists(input_path):
-        return False, "", "Thư mục không tồn tại trên máy tính!"
-
-    clean_path = os.path.normpath(input_path)
-    exe_name = game_def.get("executable_name", "").lower()
-    folder_names = [f.lower() for f in game_def.get("default_folder_names", [])]
-    game_title = game_def.get("title", "").lower()
-    gid = game_def.get("id", "").lower()
-    viet_title = game_def.get("vietnamese_title", "tựa game này")
-    expected_exe = os.path.basename(game_def.get("executable_name", "file chạy game"))
-    
-    def check_folder(dir_path):
-        if not os.path.isdir(dir_path):
-            return False
-        # 1. Direct executable check
-        if exe_name:
-            if os.path.exists(os.path.join(dir_path, game_def.get("executable_name", ""))):
-                return True
-            base_exe = os.path.basename(exe_name)
-            if os.path.exists(os.path.join(dir_path, base_exe)):
-                return True
-            try:
-                for f in os.listdir(dir_path):
-                    if f.lower() == base_exe:
-                        return True
-            except Exception:
-                pass
-                
-        # 2. Check engine-specific folders
-        rel_install = game_def.get("relative_install_path", "")
-        if rel_install:
-            first_part = rel_install.split("/")[0].split("\\")[0]
-            if first_part and os.path.exists(os.path.join(dir_path, first_part)):
-                return True
-
-        # 3. Check for any exe matching title or id or folder names
-        try:
-            for f in os.listdir(dir_path):
-                if f.lower().endswith(".exe"):
-                    f_clean = re.sub(r'[^a-z0-9]', '', f.lower())
-                    for target in folder_names + [gid, game_title]:
-                        t_clean = re.sub(r'[^a-z0-9]', '', target)
-                        if t_clean and (t_clean in f_clean or f_clean in t_clean):
-                            return True
-        except Exception:
-            pass
-
-        return False
-
-    # A. Check directly in input_path
-    if check_folder(clean_path):
-        return True, clean_path, f"Đã xác nhận thư mục hợp lệ cho {viet_title}!"
-
-    # B. Auto-resolve: Parent directory (e.g. steamapps/common)
-    try:
-        subdirs = [os.path.join(clean_path, d) for d in os.listdir(clean_path) if os.path.isdir(os.path.join(clean_path, d))]
-        for sub in subdirs:
-            sub_name = os.path.basename(sub).lower()
-            if any(fn in sub_name or sub_name in fn for fn in folder_names) or (gid in sub_name):
-                if check_folder(sub):
-                    return True, sub, f"Đã tự động định vị đúng thư mục game: {os.path.basename(sub)}"
-            if check_folder(sub):
-                return True, sub, f"Đã tự động định vị đúng thư mục game: {os.path.basename(sub)}"
-    except Exception:
-        pass
-
-    # C. Auto-resolve: Subfolder
-    parent = os.path.dirname(clean_path)
-    if parent and parent != clean_path and check_folder(parent):
-        return True, parent, f"Đã tự động trỏ về thư mục gốc của game: {os.path.basename(parent)}"
-
-    parent2 = os.path.dirname(parent)
-    if parent2 and parent2 != parent and check_folder(parent2):
-        return True, parent2, f"Đã tự động trỏ về thư mục gốc của game: {os.path.basename(parent2)}"
-
-    return False, clean_path, f"Thư mục không hợp lệ! Không tìm thấy file chạy '{expected_exe}' của {viet_title}."
+# ==============================================================================
+# IMPORT MODULE QUÉT THƯ VIỆN GAME TỪ CORE/SCANNER.PY (CLEAN ARCHITECTURE)
+# ==============================================================================
+from core.scanner import (
+    _LIBRARY_CACHE_LOCK,
+    _STEAM_LIBRARIES_CACHE,
+    _EPIC_GAMES_CACHE,
+    _GOG_GAMES_CACHE,
+    _STANDALONE_DIRS_CACHE,
+    _LIBRARY_CACHE_TTL,
+    invalidate_library_caches,
+    get_available_drives,
+    is_running_as_admin,
+    check_directory_writable,
+    request_uac_elevation,
+    detect_steam_libraries,
+    detect_epic_games,
+    detect_gog_games,
+    detect_standalone_game_dirs,
+    find_game_install_path,
+    verify_and_resolve_game_path,
+)
 
 # ==============================================================================
 # COMMUNITY LOCALIZATION WISHLIST & VOTING (FIREBASE RTDB / LOCAL HYBRID)
@@ -3470,6 +1687,46 @@ class ModManagerAPI:
             # Gắn dữ liệu Theo Dõi Giờ Chơi (Playtime Tracker)
             g["playtime"] = PLAYTIME_MGR.get_game_stats(gid, game_path)
 
+        # Gộp các game ngoài do người dùng tự thêm (Non-Steam / Custom Games)
+        custom_games = load_custom_games()
+        for cg in custom_games:
+            cg_id = cg.get("id")
+            if not cg_id:
+                continue
+
+            cg_path = user_cfg.get(f"{cg_id}_path") or cg.get("game_root", "")
+            exe_name = cg.get("executable_name", "")
+            full_exe = os.path.join(cg_path, exe_name) if cg_path and exe_name else ""
+            is_found = os.path.isfile(full_exe) if full_exe else False
+
+            cg["game_path"] = cg_path
+            cg["is_game_found"] = is_found
+            cg["is_custom_game"] = True
+            cg["status_code"] = "INSTALLED" if is_found else "GAME_MISSING"
+            cg["status_label"] = "GAME TỰ THÊM" if is_found else "CHƯA CÓ GAME"
+            cg["is_mod_installed"] = True
+            cg["is_writable"] = True
+            cg["requires_admin"] = False
+            cg["latest_version"] = "Tự thêm"
+            cg["current_version"] = "Tự thêm"
+            cg["has_update"] = False
+
+            # Local Cover Poster
+            safe_cg_id = re.sub(r"[^\w\-]", "_", cg_id)
+            cover_jpg = os.path.join(COVERS_DIR, f"{safe_cg_id}.jpg")
+            cover_png = os.path.join(COVERS_DIR, f"{safe_cg_id}.png")
+            if os.path.exists(cover_jpg) and os.path.getsize(cover_jpg) > 1000:
+                cg["local_cover"] = f"/api/covers/{safe_cg_id}.jpg?t={int(os.path.getmtime(cover_jpg))}"
+            elif os.path.exists(cover_png) and os.path.getsize(cover_png) > 500:
+                cg["local_cover"] = f"/api/covers/{safe_cg_id}.png?t={int(os.path.getmtime(cover_png))}"
+            else:
+                cg["local_cover"] = cg.get("cover_url", "")
+
+            # Gắn playtime stats
+            cg["playtime"] = PLAYTIME_MGR.get_game_stats(cg_id, cg_path)
+
+            games.append(cg)
+
         if cfg_changed:
             save_user_config(user_cfg)
 
@@ -4187,2198 +2444,54 @@ class ModManagerAPI:
             "games": self.get_games()
         }
 
-    def _backup_file_inplace(self, game_id, original_abs_path, relative_in_game, return_details=False):
-        """
-        In-Place Atomic Backup with Anti-Crash Steam/Epic Update Detection:
-        Directly renames the original game file to {file}.congu_bak within the game directory.
-        Takes 0 seconds (zero disk copy I/O) and 0 extra bytes on drive C:!
-        If Steam/Epic updated the game since previous modding, deletes the obsolete .congu_bak
-        and creates a fresh backup of the updated game file.
-        """
-        relative_in_game = _norm_rel(relative_in_game)
-        if not os.path.exists(original_abs_path) and not os.path.exists(f"{original_abs_path}.congu_bak"):
-            return (None, False) if return_details else None
-
-        bak_file = f"{original_abs_path}.congu_bak"
-        is_ini = original_abs_path.lower().endswith(('.ini', '.cfg', '.conf'))
-        created_new_bak = False
-
-        # Load manifest to detect Steam/Epic update
-        game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-        os.makedirs(game_backup_dir, exist_ok=True)
-        manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
-        manifest = {"game_id": game_id, "backup_type": "inplace", "timestamp": datetime.now().isoformat(), "files": []}
-        if os.path.exists(manifest_path):
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-            except Exception:
-                pass
-
-        tracked_item = next((it for it in manifest.get("files", []) if _norm_rel(it.get("relative_in_game")) == relative_in_game), None)
-
-        # Check if existing .congu_bak is stale because Steam/Epic updated the game
-        if os.path.exists(bak_file) and os.path.exists(original_abs_path):
-            modded_hash = tracked_item.get("modded_sha256") if tracked_item else None
-            if modded_hash:
-                curr_hash = compute_file_sha256(original_abs_path)
-                if curr_hash and curr_hash.lower() != modded_hash.lower():
-                    # Steam/Epic updated the game file!
-                    print(f"[Smart Update Detection] Tệp '{relative_in_game}' đã được Steam/Epic cập nhật mới (không khớp bản mod cũ). Đang xóa .congu_bak cũ để tạo bản backup mới.")
-                    try:
-                        os.remove(bak_file)
-                    except Exception:
-                        pass
-
-        orig_hash = None
-        orig_size = 0
-        orig_mtime = 0
-
-        # Bẫy A: Cài đè lần 2 không bao giờ ghi đè lên .congu_bak đã có
-        if not os.path.exists(bak_file):
-            if os.path.exists(original_abs_path):
-                orig_hash = compute_file_sha256(original_abs_path)
-                orig_size = os.path.getsize(original_abs_path)
-                orig_mtime = os.path.getmtime(original_abs_path)
-                # Bẫy B: Nếu là file cấu hình .ini, dùng COPY để file gốc vẫn tồn tại cho patch_ini làm việc
-                if is_ini:
-                    try:
-                        shutil.copy2(original_abs_path, bak_file)
-                        created_new_bak = True
-                    except Exception as e:
-                        print(f"Error creating INI backup copy: {e}")
-                else:
-                    # File dữ liệu nặng sắp bị ghi đè: dùng RENAME (os.replace) nhanh và tức thì
-                    try:
-                        os.replace(original_abs_path, bak_file)
-                        created_new_bak = True
-                    except Exception:
-                        try:
-                            os.rename(original_abs_path, bak_file)
-                            created_new_bak = True
-                        except Exception:
-                            try:
-                                shutil.copy2(original_abs_path, bak_file)
-                                if os.path.isdir(original_abs_path):
-                                    shutil.rmtree(original_abs_path, ignore_errors=True)
-                                else:
-                                    os.remove(original_abs_path)
-                                created_new_bak = True
-                            except Exception as e2:
-                                print(f"Error creating in-place backup: {e2}")
-        else:
-            # bak_file ĐÃ TỒN TẠI (cài đè lần 2): TUYỆT ĐỐI GIỮ NGUYÊN FILE GỐC .congu_bak!
-            orig_hash = tracked_item.get("original_sha256") if tracked_item else compute_file_sha256(bak_file)
-            orig_size = os.path.getsize(bak_file) if os.path.exists(bak_file) else 0
-            orig_mtime = os.path.getmtime(bak_file) if os.path.exists(bak_file) else 0
-            # Dọn dẹp original_abs_path cũ (là bản mod từ lần cài 1) để chuẩn bị chép mod mới
-            if not is_ini and os.path.exists(original_abs_path):
-                try:
-                    if os.path.isdir(original_abs_path):
-                        shutil.rmtree(original_abs_path, ignore_errors=True)
-                    else:
-                        os.remove(original_abs_path)
-                except Exception:
-                    pass
-
-        # Record tiny manifest in AppData for tracking & UI has_safe_backup state (only ~500 bytes JSON)
-        file_record = {
-            "relative_in_game": relative_in_game,
-            "target_file": original_abs_path,
-            "backup_file": bak_file,
-            "size_bytes": os.path.getsize(bak_file) if os.path.exists(bak_file) else 0,
-            "original_sha256": orig_hash,
-            "original_size": orig_size,
-            "original_mtime": orig_mtime
-        }
-        existing_idx = next((i for i, f in enumerate(manifest.get("files", [])) if _norm_rel(f.get("relative_in_game")) == relative_in_game), -1)
-        if existing_idx >= 0:
-            manifest["files"][existing_idx].update(file_record)
-        else:
-            manifest.setdefault("files", []).append(file_record)
-
-        try:
-            with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(manifest, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error saving backup manifest: {e}")
-
-        if return_details:
-            return bak_file, created_new_bak
-        return bak_file
+    # ==============================================================================
+    # BACKUP, ROLLBACK & INSTALLER PIPELINE (DELEGATED TO CORE MODULES)
+    # ==============================================================================
+    def _backup_file_inplace(self, game_id, original_abs_path, relative_in_game="", return_details=False):
+        return backup_file_inplace(game_id, original_abs_path, relative_in_game=relative_in_game, return_details=return_details)
 
     def _load_backup_manifest(self, game_id):
-        """Tải manifest sao lưu an toàn của game từ AppData"""
-        if not game_id:
-            return {}
-        manifest_path = os.path.join(BACKUP_ROOT, game_id, "backup_manifest.json")
-        if os.path.exists(manifest_path):
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"[Manifest Load Warning] Lỗi đọc backup_manifest.json cho {game_id}: {e}")
-        return {"game_id": game_id, "backup_type": "inplace", "files": []}
+        return load_backup_manifest(game_id)
 
     def _record_preexisting_environment(self, game_id, game_path):
-        """
-        Ghi nhận môi trường tiền tồn tại của game (Mục 1.5 - BepInEx & Unity Protection).
-        Kiểm tra xem trước lúc cài mod Việt hóa, thư mục game đã có sẵn winhttp.dll và BepInEx hay chưa.
-        Đặc biệt: Nếu manifest đã từng lưu giá trị bool, TUYỆT ĐỐI giữ nguyên để không bị sai lệch khi cài đè lần 2.
-        """
-        if not game_id or not game_path or not os.path.exists(game_path):
-            return False, False
-        game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-        os.makedirs(game_backup_dir, exist_ok=True)
-        manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
-        manifest = self._load_backup_manifest(game_id)
-
-        # 1. winhttp.dll check
-        winhttp_preexisting = manifest.get("winhttp_preexisting")
-        if winhttp_preexisting is None:
-            w_file = os.path.join(game_path, "winhttp.dll")
-            w_bak = os.path.join(game_path, "winhttp.dll.congu_bak")
-            winhttp_preexisting = bool(os.path.exists(w_file) or os.path.exists(w_bak))
-            manifest["winhttp_preexisting"] = winhttp_preexisting
-
-        # 2. BepInEx folder check
-        bepinex_preexisting = manifest.get("bepinex_preexisting")
-        if bepinex_preexisting is None:
-            b_dir = os.path.join(game_path, "BepInEx")
-            b_bak = os.path.join(game_path, "BepInEx.congu_bak")
-            bepinex_preexisting = bool(os.path.isdir(b_dir) or os.path.isdir(b_bak))
-            manifest["bepinex_preexisting"] = bepinex_preexisting
-
-        # 3. Doorstop files check
-        doorstop_preexisting = manifest.get("doorstop_preexisting")
-        if doorstop_preexisting is None:
-            d_cfg = os.path.join(game_path, "doorstop_config.ini")
-            d_ver = os.path.join(game_path, ".doorstop_version")
-            doorstop_preexisting = bool(os.path.exists(d_cfg) or os.path.exists(d_ver))
-            manifest["doorstop_preexisting"] = doorstop_preexisting
-
-        try:
-            with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(manifest, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"[Pre-existing Guard Warning] Lỗi lưu manifest cho {game_id}: {e}")
-
-        return winhttp_preexisting, bepinex_preexisting
+        return record_preexisting_environment(game_id, game_path)
 
     def _record_backup_manifest(self, game_id, backed_up_files):
-        """Record backed-up files in manifest for UI tracking and restoration"""
-        if not backed_up_files:
-            return
-        game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-        os.makedirs(game_backup_dir, exist_ok=True)
-        manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
-        manifest = {"game_id": game_id, "backup_type": "inplace", "timestamp": datetime.now().isoformat(), "files": []}
-        if os.path.exists(manifest_path):
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-            except Exception:
-                pass
-        for item in backed_up_files:
-            rel = _norm_rel(item.get("relative_in_game"))
-            item["relative_in_game"] = rel
-            existing_idx = next((i for i, f in enumerate(manifest.get("files", [])) if _norm_rel(f.get("relative_in_game")) == rel), -1)
-            if existing_idx >= 0:
-                manifest["files"][existing_idx].update(item)
-            else:
-                manifest.setdefault("files", []).append(item)
-        try:
-            with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(manifest, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error saving backup manifest: {e}")
+        return record_backup_manifest(game_id, backed_up_files)
 
-    def _record_modded_state(self, game_id, target_file, relative_in_game):
-        """Record the post-installation hash & size of a modded file to detect future Steam/Epic updates"""
-        if not target_file or not os.path.exists(target_file):
-            return
-        game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-        manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
-        if not os.path.exists(manifest_path):
-            return
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest = json.load(f)
-            updated = False
-            rel_norm = _norm_rel(relative_in_game)
-            for it in manifest.get("files", []):
-                if _norm_rel(it.get("relative_in_game")) == rel_norm or it.get("target_file") == target_file:
-                    it["modded_sha256"] = compute_file_sha256(target_file)
-                    it["modded_size"] = os.path.getsize(target_file)
-                    it["modded_mtime"] = os.path.getmtime(target_file)
-                    updated = True
-            if updated:
-                with open(manifest_path, "w", encoding="utf-8") as f:
-                    json.dump(manifest, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error updating modded state in manifest: {e}")
-
-    def _backup_file_to_appdata(self, game_id, original_abs_path, relative_in_game):
-        """Backward-compatibility alias pointing to in-place backup"""
-        return self._backup_file_inplace(game_id, original_abs_path, relative_in_game)
+    def _record_modded_state(self, game_id, target_file, relative_in_game=""):
+        return record_modded_state(game_id, target_file, relative_in_game=relative_in_game)
 
     def _restore_files_inplace(self, game_id, game_path):
-        """
-        In-Place Restore with Anti-Crash Steam/Epic Protection:
-        Deletes modded files and renames {file}.congu_bak back to original names.
-        If file was already updated or verified by Steam/Epic (hash doesn't match modded_sha256),
-        preserves the clean game file and cleans up the stale backup to prevent crashes!
-        """
-        restored_any = False
-        game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-        manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
-
-        manifest = {}
-        if os.path.exists(manifest_path):
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-            except Exception:
-                manifest = {}
-
-        # 1. Process files tracked in manifest
-        files = manifest.get("files", [])
-        for item in files:
-            rel = _norm_rel(item.get("relative_in_game"))
-            if not rel or not game_path:
-                continue
-            try:
-                target_file = validate_safe_path(game_path, rel, allow_base_itself=False)
-                bak_file = f"{target_file}.congu_bak"
-            except Exception as se:
-                print(f"[Restore Safe Guard] Bỏ qua đường dẫn không an toàn trong manifest: {rel} ({se})")
-                continue
-
-            if bak_file and os.path.exists(bak_file):
-                try:
-                    # Check if target_file was already updated by Steam/Epic
-                    is_still_modded = True
-                    modded_hash = item.get("modded_sha256")
-                    if modded_hash and target_file and os.path.exists(target_file):
-                        curr_hash = compute_file_sha256(target_file)
-                        if curr_hash and curr_hash.lower() != modded_hash.lower():
-                            # Steam/Epic updated the game!
-                            print(f"[Anti-Crash] Tệp '{rel}' không khớp bản mod (Steam/Epic đã cập nhật/xác minh). Giữ nguyên tệp game sạch và xóa backup cũ.")
-                            is_still_modded = False
-                            try:
-                                os.remove(bak_file)
-                            except Exception:
-                                pass
-                            continue
-
-                    if is_still_modded:
-                        if target_file and os.path.exists(target_file):
-                            try:
-                                os.remove(target_file)
-                            except Exception:
-                                pass
-                        os.rename(bak_file, target_file)
-                        restored_any = True
-                except Exception as e:
-                    print(f"Error restoring in-place backup {bak_file}: {e}")
-
-            # Legacy AppData file restore (if file was physically copied to AppData in older versions)
-            b_legacy = item.get("backup_file", "")
-            if b_legacy and not os.path.isabs(b_legacy):
-                legacy_appdata_file = os.path.join(game_backup_dir, b_legacy)
-                if os.path.exists(legacy_appdata_file) and target_file and not os.path.exists(target_file):
-                    try:
-                        os.makedirs(os.path.dirname(target_file), exist_ok=True)
-                        shutil.copy2(legacy_appdata_file, target_file)
-                        restored_any = True
-                    except Exception as e:
-                        print(f"Error restoring legacy AppData backup: {e}")
-
-        # Check for folder in-place backup (e.g. Fallout Tactics core/locale.congu_bak)
-        if game_path and os.path.exists(game_path):
-            locale_bak = os.path.join(game_path, "core", "locale.congu_bak")
-            orig_locale = os.path.join(game_path, "core", "locale")
-            if os.path.exists(locale_bak):
-                try:
-                    if os.path.exists(orig_locale):
-                        shutil.rmtree(orig_locale, ignore_errors=True)
-                    os.rename(locale_bak, orig_locale)
-                    restored_any = True
-                except Exception as e:
-                    print(f"Error restoring in-place locale folder: {e}")
-
-            legacy_core = os.path.join(game_backup_dir, "core_locale")
-            if os.path.exists(legacy_core):
-                try:
-                    if os.path.exists(orig_locale):
-                        shutil.rmtree(orig_locale, ignore_errors=True)
-                    shutil.copytree(legacy_core, orig_locale)
-                    restored_any = True
-                except Exception as e:
-                    print(f"Error restoring legacy core_locale: {e}")
-
-        # Clean up manifest file or preserve preexisting flags
-        cleaned_manifest = {
-            "game_id": game_id,
-            "backup_type": "inplace",
-            "files": []
-        }
-        has_preexisting_flags = False
-        for flag in ("winhttp_preexisting", "bepinex_preexisting", "doorstop_preexisting"):
-            if flag in manifest:
-                cleaned_manifest[flag] = manifest[flag]
-                has_preexisting_flags = True
-
-        if has_preexisting_flags:
-            try:
-                os.makedirs(game_backup_dir, exist_ok=True)
-                with open(manifest_path, "w", encoding="utf-8") as f:
-                    json.dump(cleaned_manifest, f, ensure_ascii=False, indent=2)
-            except Exception as e:
-                print(f"[Manifest Update Warning] Lỗi lưu manifest bảo tồn cờ tiền tồn tại: {e}")
-        else:
-            if os.path.exists(manifest_path):
-                try:
-                    os.remove(manifest_path)
-                except Exception:
-                    pass
-
-        # 4. Clean up AppData backup dir to free drive C: space (giữ lại backup_manifest.json nếu có cờ bảo vệ)
-        if os.path.exists(game_backup_dir):
-            try:
-                for entry in os.listdir(game_backup_dir):
-                    if entry == "backup_manifest.json" and has_preexisting_flags:
-                        continue
-                    entry_path = os.path.join(game_backup_dir, entry)
-                    if os.path.isdir(entry_path):
-                        shutil.rmtree(entry_path, ignore_errors=True)
-                    else:
-                        try:
-                            os.remove(entry_path)
-                        except Exception:
-                            pass
-                if not os.listdir(game_backup_dir):
-                    os.rmdir(game_backup_dir)
-            except Exception as e:
-                print(f"[AppData Cleanup Warning] {e}")
-
-        return restored_any
-
-    def _restore_files_from_appdata(self, game_id, game_path):
-        """Backward-compatibility alias pointing to in-place restore"""
-        return self._restore_files_inplace(game_id, game_path)
+        return restore_files_inplace(game_id, game_path)
 
     def _patch_ini_file(self, file_path, section, key, value, encoding="utf-8"):
-        """
-        Robust INI modification that preserves existing comments, whitespace, and formatting.
-        Creates parent directories and the file if it does not yet exist.
-        """
-        dir_name = os.path.dirname(file_path)
-        if dir_name:
-            os.makedirs(dir_name, exist_ok=True)
-
-        bak_file = f"{file_path}.congu_bak"
-        # Bẫy cấu hình (Mục 1.3): Tự phục hồi file .ini nếu trước đó bị lệnh backup đổi tên làm mất!
-        if not os.path.exists(file_path) and os.path.exists(bak_file):
-            try:
-                shutil.copy2(bak_file, file_path)
-                print(f"[Smart Self-Healing INI] File '{os.path.basename(file_path)}' không tồn tại nhưng phát hiện bản sao lưu '{os.path.basename(bak_file)}'. Đã tự động chép ngược nội dung để bảo toàn cấu hình gốc trước khi sửa.")
-            except Exception as e:
-                print(f"[Smart Self-Healing INI Warning] Không thể sao chép từ {bak_file}: {e}")
-
-        content = ""
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, "r", encoding=encoding, errors="replace") as f:
-                    content = f.read()
-            except Exception:
-                with open(file_path, "r", encoding="latin-1", errors="replace") as f:
-                    content = f.read()
-
-        lines = content.splitlines(keepends=True) if content else []
-        out_lines = []
-        in_target_section = False if section else True
-        section_found = False if section else True
-        key_replaced = False
-
-        sec_header = f"[{section.strip().lower()}]" if section else ""
-        key_prefix = key.strip().lower()
-
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("[") and stripped.endswith("]"):
-                current_sec = stripped.lower()
-                if in_target_section and not key_replaced:
-                    out_lines.append(f"{key}={value}\n")
-                    key_replaced = True
-
-                if sec_header and current_sec == sec_header:
-                    in_target_section = True
-                    section_found = True
-                else:
-                    in_target_section = False if section else True
-                out_lines.append(line)
-                continue
-
-            if in_target_section and not key_replaced:
-                if "=" in line:
-                    k, sep, v = line.partition("=")
-                    if k.strip().lower() == key_prefix:
-                        indent = len(line) - len(line.lstrip())
-                        out_lines.append(f"{line[:indent]}{key}={value}\n")
-                        key_replaced = True
-                        continue
-            out_lines.append(line)
-
-        if in_target_section and not key_replaced:
-            if out_lines and not out_lines[-1].endswith("\n"):
-                out_lines.append("\n")
-            out_lines.append(f"{key}={value}\n")
-            key_replaced = True
-        elif not section_found:
-            if out_lines and not out_lines[-1].endswith("\n"):
-                out_lines.append("\n")
-            out_lines.append(f"\n[{section}]\n{key}={value}\n")
-            key_replaced = True
-
-        with open(file_path, "w", encoding=encoding, errors="replace") as f:
-            f.write("".join(out_lines))
-        return True
+        return patch_ini_file(file_path, section=section, key=key, value=value, encoding=encoding)
 
     def _execute_pipeline_step(self, game_id, game_path, source_mod_dir, step, operation="install"):
-        """
-        Executes a single atomic data-driven action step.
-        Supported actions:
-        - backup: in-place rename of target to target.congu_bak
-        - copy_file: copy single file from source_mod_dir to game_path
-        - copy_folder: recursive copy of directory from source_mod_dir to game_path
-        - extract_all / extract_zip: extract archive into game_path
-        - patch_ini: in-place backup and update section/key/value in ini file
-        - delete: delete file or directory in game_path
-        - rename: rename file/folder in game_path
-        - restore_backup: restore target.congu_bak to target
-        """
-        action = step.get("action", "").lower().strip()
-
-        if action == "backup":
-            target_rel = _norm_rel(step.get("target"))
-            if not target_rel:
-                raise ValueError("Step 'backup' missing required 'target' field")
-            target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
-            is_ini = target_rel.lower().endswith(('.ini', '.cfg', '.conf'))
-            created_new_bak = False
-            has_tx_tmp = False
-            bak_abs = f"{target_abs}.congu_bak"
-            tx_tmp_abs = f"{target_abs}.congu_tx_tmp"
-
-            if os.path.exists(target_abs):
-                if not os.path.exists(bak_abs):
-                    bak_res, created_new_bak = self._backup_file_inplace(game_id, target_abs, target_rel, return_details=True)
-                else:
-                    # Đã có .congu_bak -> target_abs là bản mod v1.0. Lưu tạm tx_tmp để rollback nếu v1.1 lỗi!
-                    if not is_ini:
-                        try:
-                            if os.path.isdir(target_abs):
-                                shutil.copytree(target_abs, tx_tmp_abs, dirs_exist_ok=True)
-                                shutil.rmtree(target_abs, ignore_errors=True)
-                            else:
-                                shutil.copy2(target_abs, tx_tmp_abs)
-                                os.remove(target_abs)
-                            has_tx_tmp = True
-                        except Exception as e:
-                            print(f"[Auto-Backup Tx-Tmp Warning] backup {target_abs}: {e}")
-
-            return {
-                "action": "backup",
-                "target": target_rel,
-                "is_ini": is_ini,
-                "created_new_bak": created_new_bak,
-                "has_tx_tmp": has_tx_tmp,
-                "tx_tmp": tx_tmp_abs
-            }
-
-        elif action == "restore_backup":
-            target_rel = _norm_rel(step.get("target"))
-            if not target_rel:
-                raise ValueError("Step 'restore_backup' missing required 'target' field")
-            target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
-            bak_abs = f"{target_abs}.congu_bak"
-            if os.path.exists(bak_abs):
-                # Anti-crash check: if target_abs already updated by Steam/Epic, do NOT overwrite!
-                manifest_path = os.path.join(BACKUP_ROOT, game_id, "backup_manifest.json")
-                modded_hash = None
-                if os.path.exists(manifest_path):
-                    try:
-                        with open(manifest_path, "r", encoding="utf-8") as mf:
-                            m_data = json.load(mf)
-                            for it in m_data.get("files", []):
-                                if _norm_rel(it.get("relative_in_game")) == target_rel:
-                                    modded_hash = it.get("modded_sha256")
-                                    break
-                    except Exception:
-                        pass
-
-                if modded_hash and os.path.exists(target_abs):
-                    curr_hash = compute_file_sha256(target_abs)
-                    if curr_hash and curr_hash.lower() != modded_hash.lower():
-                        print(f"[Anti-Crash] Tệp '{target_rel}' không phải file mod (Steam/Epic đã cập nhật). Bỏ qua restore để tránh crash.")
-                        try:
-                            os.remove(bak_abs)
-                        except Exception:
-                            pass
-                        return {"action": "restore_backup", "target": target_rel, "skipped": True}
-
-                if os.path.exists(target_abs):
-                    try:
-                        if os.path.isdir(target_abs):
-                            shutil.rmtree(target_abs, ignore_errors=True)
-                        else:
-                            os.remove(target_abs)
-                    except Exception:
-                        pass
-                os.rename(bak_abs, target_abs)
-            return {"action": "restore_backup", "target": target_rel}
-
-        elif action == "copy_file":
-            src_rel = step.get("source")
-            dst_rel = _norm_rel(step.get("destination") or step.get("target") or src_rel)
-            if not src_rel:
-                raise ValueError("Step 'copy_file' missing required 'source' field")
-            if source_mod_dir:
-                src_abs = validate_safe_path(source_mod_dir, src_rel, allow_base_itself=False)
-            else:
-                src_abs = src_rel
-            if not os.path.exists(src_abs) and source_mod_dir:
-                nested_src = os.path.join(source_mod_dir, "Mod_Files", os.path.basename(src_rel))
-                if os.path.exists(nested_src):
-                    src_abs = nested_src
-            if not os.path.exists(src_abs):
-                if step.get("optional", False):
-                    return None
-                raise FileNotFoundError(f"Mod file not found: {src_rel}")
-            dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=False)
-            existed_before = os.path.exists(dst_abs)
-            created_new_bak = False
-            has_tx_tmp = False
-            bak_abs = f"{dst_abs}.congu_bak"
-            tx_tmp_abs = f"{dst_abs}.congu_tx_tmp"
-
-            # Auto-Backup ngầm: Cứ hễ đích đến đã tồn tại file trước khi chép đè, tự động tạo .congu_bak nếu chưa có
-            if existed_before and os.path.isfile(dst_abs) and operation == "install":
-                if not os.path.exists(bak_abs):
-                    try:
-                        os.makedirs(os.path.dirname(bak_abs), exist_ok=True)
-                        os.rename(dst_abs, bak_abs)
-                        created_new_bak = True
-                        orig_hash = compute_file_sha256(bak_abs)
-                        self._record_backup_manifest(game_id, [{
-                            "relative_in_game": dst_rel,
-                            "target_file": dst_abs,
-                            "backup_file": bak_abs,
-                            "size_bytes": os.path.getsize(bak_abs),
-                            "original_sha256": orig_hash,
-                            "original_size": os.path.getsize(bak_abs),
-                            "original_mtime": os.path.getmtime(bak_abs)
-                        }])
-                    except Exception as e:
-                        print(f"[Auto-Backup Warning] copy_file {dst_abs}: {e}")
-                else:
-                    # bak_abs đã tồn tại -> dst_abs là bản mod trước đó. Lưu tx_tmp để rollback nếu v1.1 lỗi!
-                    try:
-                        shutil.copy2(dst_abs, tx_tmp_abs)
-                        has_tx_tmp = True
-                    except Exception as e:
-                        print(f"[Tx-Tmp Warning] copy_file {dst_abs}: {e}")
-
-            os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-            shutil.copy2(src_abs, dst_abs)
-            if operation == "install":
-                self._record_modded_state(game_id, dst_abs, dst_rel)
-            return {
-                "action": "copy_file",
-                "target": dst_rel,
-                "destination": dst_rel,
-                "existed_before": existed_before,
-                "created_new_bak": created_new_bak,
-                "has_tx_tmp": has_tx_tmp,
-                "tx_tmp": tx_tmp_abs
-            }
-
-        elif action == "patch_binary":
-            target_rel = _norm_rel(step.get("target"))
-            patch_rel = step.get("patch") or step.get("source")
-            if not target_rel or not patch_rel:
-                raise ValueError("Step 'patch_binary' missing required 'target' or 'patch' field")
-
-            target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
-            bak_abs = f"{target_abs}.congu_bak"
-
-            if source_mod_dir:
-                patch_abs = validate_safe_path(source_mod_dir, patch_rel, allow_base_itself=False)
-            else:
-                patch_abs = patch_rel
-
-            if not os.path.exists(patch_abs) and source_mod_dir:
-                nested_patch = os.path.join(source_mod_dir, "Mod_Files", os.path.basename(patch_rel))
-                if os.path.exists(nested_patch):
-                    patch_abs = nested_patch
-
-            if not os.path.exists(patch_abs):
-                if step.get("optional", False):
-                    return None
-                raise FileNotFoundError(f"Patch file not found: {patch_rel}")
-
-            # 1. Xác định tệp nguồn để vá (Hỗ trợ cài đè/cập nhật bản dịch nếu target đã bị mod)
-            expected_orig_sha = step.get("original_sha256")
-            source_file_for_patch = None
-            created_new_bak = False
-
-            target_exists = os.path.exists(target_abs)
-            bak_exists = os.path.exists(bak_abs)
-
-            if not target_exists and not bak_exists:
-                raise FileNotFoundError(f"Original game file to patch not found: {target_rel}")
-
-            if expected_orig_sha:
-                norm_expected = expected_orig_sha.lower().strip()
-                # A. Kiểm tra nếu tệp đích hiện tại khớp mã băm gốc
-                if target_exists:
-                    actual_target_sha = compute_file_sha256(target_abs)
-                    if actual_target_sha and actual_target_sha.lower() == norm_expected:
-                        source_file_for_patch = target_abs
-
-                # B. Nếu tệp đích không khớp (đã cài mod trước đó), kiểm tra tệp sao lưu .congu_bak
-                if not source_file_for_patch and bak_exists:
-                    actual_bak_sha = compute_file_sha256(bak_abs)
-                    if actual_bak_sha and actual_bak_sha.lower() == norm_expected:
-                        source_file_for_patch = bak_abs
-                        print(f"[patch_binary] Phát hiện cài đè/cập nhật: Tệp '{target_rel}' đã mod trước đó. Sử dụng '{os.path.basename(bak_abs)}' làm nguồn vá.")
-
-                # C. Nếu cả tệp hiện tại lẫn tệp sao lưu đều không khớp, báo lỗi phiên bản game
-                if not source_file_for_patch:
-                    t_sha = compute_file_sha256(target_abs) if target_exists else "Missing"
-                    b_sha = compute_file_sha256(bak_abs) if bak_exists else "Missing"
-                    raise SecurityError(
-                        f"Lỗi toàn vẹn tệp gốc '{target_rel}': Mã băm không khớp! "
-                        f"(Dự kiến: {expected_orig_sha}, Thực tế tệp đích: {t_sha}, Tệp .congu_bak: {b_sha}). "
-                        f"Game có thể đã cập nhật bản mới hoặc bị sửa đổi trước đó."
-                    )
-            else:
-                if bak_exists:
-                    source_file_for_patch = bak_abs
-                elif target_exists:
-                    source_file_for_patch = target_abs
-                else:
-                    raise FileNotFoundError(f"Original game file to patch not found: {target_rel}")
-
-            # 2. Auto-backup tệp gốc trước khi vá (sao chép để giữ lại file nguồn cho bspatch nếu chưa có bak)
-            has_tx_tmp = False
-            tx_tmp_abs = f"{target_abs}.congu_tx_tmp"
-            if not os.path.exists(bak_abs) and os.path.exists(target_abs):
-                try:
-                    os.makedirs(os.path.dirname(bak_abs), exist_ok=True)
-                    shutil.copy2(target_abs, bak_abs)
-                    created_new_bak = True
-                    orig_hash = compute_file_sha256(bak_abs)
-                    self._record_backup_manifest(game_id, [{
-                        "relative_in_game": target_rel,
-                        "target_file": target_abs,
-                        "backup_file": bak_abs,
-                        "size_bytes": os.path.getsize(bak_abs),
-                        "original_sha256": orig_hash,
-                        "original_size": os.path.getsize(bak_abs),
-                        "original_mtime": os.path.getmtime(bak_abs)
-                    }])
-                except Exception as e:
-                    print(f"[Auto-Backup Warning] patch_binary {target_abs}: {e}")
-            elif os.path.exists(bak_abs) and os.path.exists(target_abs):
-                # bak_abs đã tồn tại -> target_abs là bản mod trước đó. Lưu tx_tmp để rollback nếu v1.1 lỗi!
-                try:
-                    shutil.copy2(target_abs, tx_tmp_abs)
-                    has_tx_tmp = True
-                except Exception as e:
-                    print(f"[Tx-Tmp Warning] patch_binary {target_abs}: {e}")
-
-            # 3. Áp dụng bản vá từ source_file_for_patch ra file tạm an toàn
-            tmp_patched_file = f"{target_abs}.congu_patching_{os.getpid()}.tmp"
-            try:
-                apply_binary_patch(source_file_for_patch, tmp_patched_file, patch_abs)
-
-                # 4. Kiểm tra patched_sha256 nếu có
-                expected_patched_sha = step.get("patched_sha256")
-                if expected_patched_sha:
-                    actual_patched_sha = compute_file_sha256(tmp_patched_file)
-                    if actual_patched_sha and actual_patched_sha.lower() != expected_patched_sha.lower().strip():
-                        raise SecurityError(
-                            f"Lỗi kiểm tra sau vá tệp '{target_rel}': Mã băm không khớp! "
-                            f"(Dự kiến: {expected_patched_sha}, Thực tế: {actual_patched_sha})."
-                        )
-
-                # 5. Thay thế nguyên tử ghi đè lên target_abs
-                os.replace(tmp_patched_file, target_abs)
-            finally:
-                if os.path.exists(tmp_patched_file):
-                    try:
-                        os.remove(tmp_patched_file)
-                    except Exception:
-                        pass
-
-            if operation == "install":
-                self._record_modded_state(game_id, target_abs, target_rel)
-
-            return {
-                "action": "patch_binary",
-                "target": target_rel,
-                "created_new_bak": created_new_bak,
-                "existed_before": True,
-                "has_tx_tmp": has_tx_tmp,
-                "tx_tmp": tx_tmp_abs
-            }
-
-        elif action == "copy_folder":
-            src_rel = step.get("source")
-            dst_rel = _norm_rel(step.get("destination", src_rel))
-            if not src_rel:
-                raise ValueError("Step 'copy_folder' missing required 'source' field")
-            if source_mod_dir:
-                src_abs = validate_safe_path(source_mod_dir, src_rel, allow_base_itself=True)
-            else:
-                src_abs = src_rel
-            if not os.path.exists(src_abs):
-                if step.get("optional", False):
-                    return None
-                raise FileNotFoundError(f"Mod directory not found: {src_rel}")
-            dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=True)
-            os.makedirs(dst_abs, exist_ok=True)
-            copied_files = []
-            backup_records = []
-            for root, dirs, files in os.walk(src_abs):
-                for f in files:
-                    s_file = os.path.join(root, f)
-                    rel_sub = os.path.relpath(s_file, src_abs)
-                    d_file = validate_safe_path(game_path, os.path.join(dst_rel, rel_sub), allow_base_itself=False)
-                    d_rel = _norm_rel(os.path.relpath(d_file, game_path))
-                    existed = os.path.exists(d_file)
-                    created_new_bak = False
-                    has_tx_tmp = False
-                    b_file = f"{d_file}.congu_bak"
-                    tx_file = f"{d_file}.congu_tx_tmp"
-
-                    # Auto-Backup ngầm trước khi chép đè
-                    if existed and os.path.isfile(d_file) and operation == "install":
-                        if not os.path.exists(b_file):
-                            try:
-                                os.makedirs(os.path.dirname(b_file), exist_ok=True)
-                                os.rename(d_file, b_file)
-                                created_new_bak = True
-                                orig_hash = compute_file_sha256(b_file)
-                                backup_records.append({
-                                    "relative_in_game": d_rel,
-                                    "target_file": d_file,
-                                    "backup_file": b_file,
-                                    "size_bytes": os.path.getsize(b_file),
-                                    "original_sha256": orig_hash,
-                                    "original_size": os.path.getsize(b_file),
-                                    "original_mtime": os.path.getmtime(b_file)
-                                })
-                            except Exception as e:
-                                print(f"[Auto-Backup Folder Warning] {d_file}: {e}")
-                        else:
-                            # .congu_bak đã tồn tại -> d_file là bản mod v1.0. Lưu tx_tmp để rollback nếu v1.1 lỗi!
-                            try:
-                                shutil.copy2(d_file, tx_file)
-                                has_tx_tmp = True
-                            except Exception as e:
-                                print(f"[Tx-Tmp Folder Warning] {d_file}: {e}")
-
-                    os.makedirs(os.path.dirname(d_file), exist_ok=True)
-                    shutil.copy2(s_file, d_file)
-                    copied_files.append((d_rel, existed, created_new_bak, has_tx_tmp))
-
-            # Ghi danh sách backup vào manifest trước
-            if backup_records:
-                self._record_backup_manifest(game_id, backup_records)
-
-            # Sau đó mới cập nhật modded_sha256, modded_size, modded_mtime
-            if operation == "install":
-                for item in copied_files:
-                    d_rel = item[0]
-                    d_abs = validate_safe_path(game_path, d_rel, allow_base_itself=False)
-                    self._record_modded_state(game_id, d_abs, d_rel)
-
-            return {"action": "copy_folder", "target": dst_rel, "destination": dst_rel, "copied_files": copied_files}
-
-        elif action in ("extract_all", "extract_zip"):
-            src_rel = step.get("source", "")
-            dst_rel = _norm_rel(step.get("destination", ""))
-            if source_mod_dir and src_rel:
-                src_abs = validate_safe_path(source_mod_dir, src_rel, allow_base_itself=False)
-            else:
-                src_abs = source_mod_dir
-            dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=True)
-            os.makedirs(dst_abs, exist_ok=True)
-            import zipfile
-            extracted_files = []
-            backup_records = []
-            if os.path.isfile(src_abs) and zipfile.is_zipfile(src_abs):
-                with zipfile.ZipFile(src_abs, 'r') as zf:
-                    for member in zf.namelist():
-                        if not member.endswith("/"):
-                            # Anti Zip-Slip: validate member target against game_path
-                            target_dest = validate_safe_path(dst_abs, member, allow_base_itself=False)
-                            t_rel = _norm_rel(os.path.relpath(target_dest, game_path))
-                            existed = os.path.exists(target_dest)
-                            created_new_bak = False
-                            has_tx_tmp = False
-                            b_file = f"{target_dest}.congu_bak"
-                            tx_file = f"{target_dest}.congu_tx_tmp"
-
-                            # Auto-Backup ngầm trước khi trích xuất đè
-                            if existed and os.path.isfile(target_dest) and operation == "install":
-                                if not os.path.exists(b_file):
-                                    try:
-                                        os.makedirs(os.path.dirname(b_file), exist_ok=True)
-                                        os.rename(target_dest, b_file)
-                                        created_new_bak = True
-                                        orig_hash = compute_file_sha256(b_file)
-                                        backup_records.append({
-                                            "relative_in_game": t_rel,
-                                            "target_file": target_dest,
-                                            "backup_file": b_file,
-                                            "size_bytes": os.path.getsize(b_file),
-                                            "original_sha256": orig_hash,
-                                            "original_size": os.path.getsize(b_file),
-                                            "original_mtime": os.path.getmtime(b_file)
-                                        })
-                                    except Exception as e:
-                                        print(f"[Auto-Backup Extract Warning] {target_dest}: {e}")
-                                else:
-                                    try:
-                                        shutil.copy2(target_dest, tx_file)
-                                        has_tx_tmp = True
-                                    except Exception as e:
-                                        print(f"[Tx-Tmp Extract Warning] {target_dest}: {e}")
-
-                            os.makedirs(os.path.dirname(target_dest), exist_ok=True)
-                            with zf.open(member, "r") as s_in, open(target_dest, "wb") as d_out:
-                                shutil.copyfileobj(s_in, d_out, length=65536)
-
-                            extracted_files.append((t_rel, existed, created_new_bak, has_tx_tmp))
-            elif os.path.isdir(src_abs):
-                for root, dirs, files in os.walk(src_abs):
-                    for f in files:
-                        s_file = os.path.join(root, f)
-                        rel_sub = os.path.relpath(s_file, src_abs)
-                        d_file = validate_safe_path(game_path, os.path.join(dst_rel, rel_sub), allow_base_itself=False)
-                        d_rel = _norm_rel(os.path.relpath(d_file, game_path))
-                        existed = os.path.exists(d_file)
-                        created_new_bak = False
-                        has_tx_tmp = False
-                        b_file = f"{d_file}.congu_bak"
-                        tx_file = f"{d_file}.congu_tx_tmp"
-
-                        if existed and os.path.isfile(d_file) and operation == "install":
-                            if not os.path.exists(b_file):
-                                try:
-                                    os.makedirs(os.path.dirname(b_file), exist_ok=True)
-                                    os.rename(d_file, b_file)
-                                    created_new_bak = True
-                                    orig_hash = compute_file_sha256(b_file)
-                                    backup_records.append({
-                                        "relative_in_game": d_rel,
-                                        "target_file": d_file,
-                                        "backup_file": b_file,
-                                        "size_bytes": os.path.getsize(b_file),
-                                        "original_sha256": orig_hash,
-                                        "original_size": os.path.getsize(b_file),
-                                        "original_mtime": os.path.getmtime(b_file)
-                                    })
-                                except Exception as e:
-                                    print(f"[Auto-Backup Extract Dir Warning] {d_file}: {e}")
-                            else:
-                                try:
-                                    shutil.copy2(d_file, tx_file)
-                                    has_tx_tmp = True
-                                except Exception as e:
-                                    print(f"[Tx-Tmp Extract Dir Warning] {d_file}: {e}")
-
-                        os.makedirs(os.path.dirname(d_file), exist_ok=True)
-                        shutil.copy2(s_file, d_file)
-                        extracted_files.append((d_rel, existed, created_new_bak, has_tx_tmp))
-            else:
-                if not step.get("optional", False):
-                    raise FileNotFoundError(f"Archive file not found: {src_rel}")
-
-            # Ghi danh sách backup vào manifest trước
-            if backup_records:
-                self._record_backup_manifest(game_id, backup_records)
-
-            # Sau đó mới cập nhật modded_sha256, modded_size, modded_mtime
-            if operation == "install":
-                for item in extracted_files:
-                    t_rel = item[0]
-                    t_abs = validate_safe_path(game_path, t_rel, allow_base_itself=False)
-                    self._record_modded_state(game_id, t_abs, t_rel)
-
-            return {"action": "extract_all", "target": dst_rel, "extracted_files": extracted_files}
-
-        elif action == "patch_ini":
-            file_rel = _norm_rel(step.get("file") or step.get("target"))
-            if not file_rel:
-                raise ValueError("Step 'patch_ini' missing required 'file' or 'target' field")
-            file_abs = validate_safe_path(game_path, file_rel, allow_base_itself=False)
-            bak_file = f"{file_abs}.congu_bak"
-            created_new_bak = False
-            has_tx_tmp = False
-            tx_tmp_abs = f"{file_abs}.congu_tx_tmp"
-
-            # Bẫy cấu hình (Mục 1.3): Tự phục hồi file .ini nếu trước đó bị lệnh backup đổi tên làm mất!
-            if not os.path.exists(file_abs) and os.path.exists(bak_file):
-                try:
-                    shutil.copy2(bak_file, file_abs)
-                    print(f"[Smart Self-Healing] File '{file_rel}' không tồn tại nhưng có sẵn '{bak_file}' do bước backup trước đó tạo ra. Đã tự động chép ngược từ .congu_bak để giữ nguyên cấu hình gốc trước khi patch.")
-                except Exception as e:
-                    print(f"[Smart Self-Healing Warning] Lỗi khôi phục {file_abs} từ backup: {e}")
-
-            if os.path.exists(file_abs) and not os.path.exists(bak_file):
-                try:
-                    shutil.copy2(file_abs, bak_file)
-                    created_new_bak = True
-                except Exception as e:
-                    print(f"Error creating INI backup: {e}")
-            elif os.path.exists(file_abs) and os.path.exists(bak_file):
-                try:
-                    shutil.copy2(file_abs, tx_tmp_abs)
-                    has_tx_tmp = True
-                except Exception as e:
-                    print(f"Error creating INI tx_tmp: {e}")
-
-            if os.path.exists(bak_file):
-                orig_hash = compute_file_sha256(bak_file)
-                self._record_backup_manifest(game_id, [{
-                    "relative_in_game": file_rel,
-                    "target_file": file_abs,
-                    "backup_file": bak_file,
-                    "size_bytes": os.path.getsize(bak_file),
-                    "original_sha256": orig_hash,
-                    "original_size": os.path.getsize(bak_file),
-                    "original_mtime": os.path.getmtime(bak_file)
-                }])
-
-            self._patch_ini_file(
-                file_abs,
-                section=step.get("section"),
-                key=step.get("key"),
-                value=step.get("value"),
-                encoding=step.get("encoding", "utf-8")
-            )
-            if operation == "install":
-                self._record_modded_state(game_id, file_abs, file_rel)
-            return {
-                "action": "patch_ini",
-                "target": file_rel,
-                "file": file_rel,
-                "created_new_bak": created_new_bak,
-                "has_tx_tmp": has_tx_tmp,
-                "tx_tmp": tx_tmp_abs
-            }
-
-        elif action in ("delete", "delete_file"):
-            target_rel = step.get("target")
-            if not target_rel:
-                raise ValueError("Step 'delete' missing required 'target' field")
-            target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
-
-            # Mục 1.5: Kiểm tra môi trường BepInEx tiền tồn tại khi gỡ cài đặt
-            if operation == "uninstall":
-                manifest = self._load_backup_manifest(game_id)
-                target_norm = target_rel.replace("\\", "/").strip().lower()
-
-                # Bảo vệ winhttp.dll và các tệp Doorstop loader
-                if manifest.get("winhttp_preexisting", False):
-                    if target_norm in ("winhttp.dll", "doorstop_config.ini", ".doorstop_version") or target_norm.endswith("/winhttp.dll"):
-                        print(f"[BepInEx Protection] Bỏ qua xóa '{target_rel}' vì tệp đã có sẵn trước khi cài Việt hóa (bảo tồn loader mod của người chơi).")
-                        return {"action": "delete", "target": target_rel, "skipped": True, "reason": "winhttp_preexisting"}
-
-                # Bảo vệ thư mục BepInEx chung của người chơi
-                if manifest.get("bepinex_preexisting", False):
-                    if target_norm in ("bepinex", "bepinex/core", "bepinex/plugins", "bepinex/patchers", "bepinex/config"):
-                        print(f"[BepInEx Protection] Bỏ qua xóa thư mục '{target_rel}' vì người chơi đã có sẵn mod BepInEx từ trước.")
-                        return {"action": "delete", "target": target_rel, "skipped": True, "reason": "bepinex_preexisting"}
-
-            if os.path.exists(target_abs):
-                if os.path.isdir(target_abs):
-                    shutil.rmtree(target_abs, ignore_errors=True)
-                else:
-                    try:
-                        os.remove(target_abs)
-                    except Exception:
-                        pass
-            return {"action": "delete", "target": target_rel}
-
-        elif action == "rename":
-            src_rel = step.get("source")
-            dst_rel = step.get("destination")
-            if not src_rel or not dst_rel:
-                raise ValueError("Step 'rename' requires both 'source' and 'destination'")
-            src_abs = validate_safe_path(game_path, src_rel, allow_base_itself=False)
-            dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=False)
-
-            # Mục 1.5: Kiểm tra môi trường BepInEx tiền tồn tại khi gỡ cài đặt
-            if operation == "uninstall":
-                manifest = self._load_backup_manifest(game_id)
-                src_norm = src_rel.replace("\\", "/").strip().lower()
-                if manifest.get("winhttp_preexisting", False):
-                    if src_norm == "winhttp.dll" or src_norm.endswith("/winhttp.dll"):
-                        print(f"[BepInEx Protection] Bỏ qua đổi tên '{src_rel}' vì winhttp.dll đã có sẵn trước khi cài Việt hóa (bảo tồn loader mod của người chơi).")
-                        return {"action": "rename", "source_orig": src_rel, "target": dst_rel, "skipped": True, "reason": "winhttp_preexisting"}
-
-            if os.path.exists(src_abs):
-                if os.path.exists(dst_abs):
-                    if os.path.isdir(dst_abs):
-                        shutil.rmtree(dst_abs, ignore_errors=True)
-                    else:
-                        try:
-                            os.remove(dst_abs)
-                        except Exception:
-                            pass
-                os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-                os.rename(src_abs, dst_abs)
-            return {"action": "rename", "source_orig": src_rel, "target": dst_rel}
-
-        else:
-            raise ValueError(f"Unsupported pipeline action: '{action}'")
-
-        return True
+        return execute_pipeline_step(game_id, game_path, source_mod_dir, step, operation=operation)
 
     def execute_action_pipeline(self, game_id, game_path, source_mod_dir, steps, operation="install", progress_range=(50, 90), uninstall_steps=None):
-        """
-        Executes an ordered list of atomic actions with granular progress tracking.
-        Includes Transaction Rollback to restore pristine game files if any step fails.
-        """
-        total = len(steps)
-        if total == 0:
-            return True
-
-        p_start, p_end = progress_range
-        p_span = max(1, p_end - p_start)
-        executed_journal = []
-        tx_temp_files = []
-
-        try:
-            for idx, step in enumerate(steps):
-                action = step.get("action", "unknown")
-                desc = step.get("description")
-                if not desc:
-                    if action == "backup":
-                        desc = f"Sao lưu tệp gốc: {os.path.basename(step.get('target', ''))}"
-                    elif action == "restore_backup":
-                        desc = f"Khôi phục tệp gốc: {os.path.basename(step.get('target', ''))}"
-                    elif action == "copy_file":
-                        desc = f"Sao chép tệp: {os.path.basename(step.get('source', ''))}"
-                    elif action == "copy_folder":
-                        desc = f"Cài đặt thư mục: {os.path.basename(step.get('source', ''))}"
-                    elif action == "patch_binary":
-                        desc = f"Vá nhị phân tệp: {os.path.basename(step.get('target', ''))}"
-                    elif action == "patch_ini":
-                        desc = f"Cấu hình file: {os.path.basename(step.get('file', ''))} [{step.get('section', '')}]"
-                    elif action == "delete":
-                        desc = f"Xóa tệp dư thừa: {os.path.basename(step.get('target', ''))}"
-                    elif action == "rename":
-                        desc = f"Đổi tên tệp: {os.path.basename(step.get('source', ''))}"
-                    elif action in ("extract_all", "extract_zip"):
-                        desc = f"Giải nén gói dữ liệu vào {step.get('destination', '')}"
-                    else:
-                        desc = f"Thực thi hành động: {action}"
-
-                pct = p_start + int((idx / total) * p_span)
-                set_progress(pct, f"[{idx+1}/{total}] {desc}...", status="running", game_id=game_id, operation=operation)
-
-                try:
-                    journal_entry = self._execute_pipeline_step(game_id, game_path, source_mod_dir, step, operation=operation)
-                    if operation == "install" and isinstance(journal_entry, dict):
-                        executed_journal.append(journal_entry)
-                        if journal_entry.get("has_tx_tmp") and journal_entry.get("tx_tmp"):
-                            tx_temp_files.append(journal_entry["tx_tmp"])
-                        if journal_entry.get("copied_files"):
-                            for c_item in journal_entry["copied_files"]:
-                                if len(c_item) == 4 and c_item[3]:
-                                    f_abs = validate_safe_path(game_path, c_item[0], allow_base_itself=False)
-                                    tx_temp_files.append(f"{f_abs}.congu_tx_tmp")
-                        if journal_entry.get("extracted_files"):
-                            for e_item in journal_entry["extracted_files"]:
-                                if len(e_item) == 4 and e_item[3]:
-                                    f_abs = validate_safe_path(game_path, e_item[0], allow_base_itself=False)
-                                    tx_temp_files.append(f"{f_abs}.congu_tx_tmp")
-                except Exception as e:
-                    err_msg = f"Lỗi tại bước {idx+1}/{total} ({action}): {str(e)}"
-                    print(f"[Pipeline Error] {err_msg}")
-
-                    if operation == "install":
-                        set_progress(0, f"Sự cố tại bước {idx+1}: Đang kích hoạt Transaction Rollback...", status="running", game_id=game_id, operation=operation)
-
-                        journal_failed_entries = []
-                        # 1. Reverse executed actions (Lớp 1)
-                        for executed_step in reversed(executed_journal):
-                            try:
-                                act = executed_step.get("action")
-                                # Mục 1.4: Ưu tiên hoàn nguyên về bản mod v1.0 từ .congu_tx_tmp (bảo toàn nguyên vẹn .congu_bak gốc tiếng Anh)
-                                has_tx_tmp = executed_step.get("has_tx_tmp", False)
-                                tx_tmp_abs = executed_step.get("tx_tmp")
-                                target_rel = executed_step.get("target") or executed_step.get("destination") or executed_step.get("file")
-                                if has_tx_tmp and tx_tmp_abs and os.path.exists(tx_tmp_abs) and target_rel:
-                                    target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
-                                    if os.path.exists(target_abs):
-                                        try:
-                                            if os.path.isdir(target_abs):
-                                                shutil.rmtree(target_abs, ignore_errors=True)
-                                            else:
-                                                os.remove(target_abs)
-                                        except Exception:
-                                            pass
-                                    try:
-                                        os.replace(tx_tmp_abs, target_abs)
-                                        print(f"[Pipeline Rollback] Đã hoàn nguyên '{target_rel}' về phiên bản mod v1.0 từ .congu_tx_tmp.")
-                                        continue
-                                    except Exception as e_tx:
-                                        print(f"[Pipeline Rollback Tx-Tmp Warning] {e_tx}")
-
-                                if act == "backup":
-                                    t_rel = executed_step.get("target")
-                                    created_new = executed_step.get("created_new_bak", True)
-                                    if t_rel:
-                                        t_abs = validate_safe_path(game_path, t_rel, allow_base_itself=False)
-                                        b_abs = f"{t_abs}.congu_bak"
-                                        if os.path.exists(b_abs):
-                                            if os.path.exists(t_abs):
-                                                try:
-                                                    if os.path.isdir(t_abs):
-                                                        shutil.rmtree(t_abs, ignore_errors=True)
-                                                    else:
-                                                        os.remove(t_abs)
-                                                except Exception:
-                                                    pass
-                                            if created_new:
-                                                try:
-                                                    os.replace(b_abs, t_abs)
-                                                except Exception:
-                                                    shutil.copy2(b_abs, t_abs)
-                                                    try:
-                                                        os.remove(b_abs)
-                                                    except Exception:
-                                                        pass
-                                            else:
-                                                # Overwrite/reinstall: keep .congu_bak intact!
-                                                shutil.copy2(b_abs, t_abs)
-
-                                elif act in ("copy_file", "delete", "patch_binary"):
-                                    dst_rel = executed_step.get("target", executed_step.get("destination"))
-                                    existed_before = executed_step.get("existed_before", False)
-                                    created_new = executed_step.get("created_new_bak", False)
-                                    if dst_rel:
-                                        d_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=False)
-                                        b_abs = f"{d_abs}.congu_bak"
-                                        if created_new and os.path.exists(b_abs):
-                                            if os.path.exists(d_abs):
-                                                try:
-                                                    os.remove(d_abs)
-                                                except Exception:
-                                                    pass
-                                            try:
-                                                os.replace(b_abs, d_abs)
-                                            except Exception:
-                                                shutil.copy2(b_abs, d_abs)
-                                                try:
-                                                    os.remove(b_abs)
-                                                except Exception:
-                                                    pass
-                                        elif existed_before and os.path.exists(b_abs):
-                                            shutil.copy2(b_abs, d_abs)
-                                        elif not existed_before:
-                                            if os.path.exists(d_abs) and not os.path.exists(b_abs):
-                                                try:
-                                                    os.remove(d_abs)
-                                                except Exception:
-                                                    pass
-
-                                elif act == "copy_folder":
-                                    copied_files = executed_step.get("copied_files", [])
-                                    for item in copied_files:
-                                        if len(item) == 4:
-                                            f_rel, existed, created_new, f_has_tx = item
-                                        elif len(item) == 3:
-                                            f_rel, existed, created_new = item
-                                            f_has_tx = False
-                                        else:
-                                            f_rel, existed = item
-                                            created_new = False
-                                            f_has_tx = False
-                                        f_abs = validate_safe_path(game_path, f_rel, allow_base_itself=False)
-                                        b_abs = f"{f_abs}.congu_bak"
-                                        f_tx = f"{f_abs}.congu_tx_tmp"
-
-                                        if f_has_tx and os.path.exists(f_tx):
-                                            if os.path.exists(f_abs):
-                                                try:
-                                                    os.remove(f_abs)
-                                                except Exception:
-                                                    pass
-                                            try:
-                                                os.replace(f_tx, f_abs)
-                                                continue
-                                            except Exception:
-                                                pass
-
-                                        if created_new and os.path.exists(b_abs):
-                                            if os.path.exists(f_abs):
-                                                try:
-                                                    os.remove(f_abs)
-                                                except Exception:
-                                                    pass
-                                            try:
-                                                os.replace(b_abs, f_abs)
-                                            except Exception:
-                                                shutil.copy2(b_abs, f_abs)
-                                                try:
-                                                    os.remove(b_abs)
-                                                except Exception:
-                                                    pass
-                                        elif existed and os.path.exists(b_abs):
-                                            shutil.copy2(b_abs, f_abs)
-                                        elif not existed:
-                                            if os.path.exists(f_abs) and not os.path.exists(b_abs):
-                                                try:
-                                                    os.remove(f_abs)
-                                                except Exception:
-                                                    pass
-
-                                elif act in ("extract_all", "extract_zip"):
-                                    extracted_files = executed_step.get("extracted_files", [])
-                                    for item in extracted_files:
-                                        if len(item) == 4:
-                                            f_rel, existed, created_new, f_has_tx = item
-                                        elif len(item) == 3:
-                                            f_rel, existed, created_new = item
-                                            f_has_tx = False
-                                        else:
-                                            f_rel, existed = item
-                                            created_new = False
-                                            f_has_tx = False
-                                        f_abs = validate_safe_path(game_path, f_rel, allow_base_itself=False)
-                                        b_abs = f"{f_abs}.congu_bak"
-                                        f_tx = f"{f_abs}.congu_tx_tmp"
-
-                                        if f_has_tx and os.path.exists(f_tx):
-                                            if os.path.exists(f_abs):
-                                                try:
-                                                    os.remove(f_abs)
-                                                except Exception:
-                                                    pass
-                                            try:
-                                                os.replace(f_tx, f_abs)
-                                                continue
-                                            except Exception:
-                                                pass
-
-                                        if created_new and os.path.exists(b_abs):
-                                            if os.path.exists(f_abs):
-                                                try:
-                                                    os.remove(f_abs)
-                                                except Exception:
-                                                    pass
-                                            try:
-                                                os.replace(b_abs, f_abs)
-                                            except Exception:
-                                                shutil.copy2(b_abs, f_abs)
-                                                try:
-                                                    os.remove(b_abs)
-                                                except Exception:
-                                                    pass
-                                        elif existed and os.path.exists(b_abs):
-                                            shutil.copy2(b_abs, f_abs)
-                                        elif not existed:
-                                            if os.path.exists(f_abs) and not os.path.exists(b_abs):
-                                                try:
-                                                    os.remove(f_abs)
-                                                except Exception:
-                                                    pass
-
-                                elif act == "patch_ini":
-                                    f_rel = executed_step.get("file") or executed_step.get("target")
-                                    created_new = executed_step.get("created_new_bak", True)
-                                    if f_rel:
-                                        f_abs = validate_safe_path(game_path, f_rel, allow_base_itself=False)
-                                        b_abs = f"{f_abs}.congu_bak"
-                                        if os.path.exists(b_abs):
-                                            try:
-                                                shutil.copy2(b_abs, f_abs)
-                                                if created_new:
-                                                    try:
-                                                        os.remove(b_abs)
-                                                    except Exception:
-                                                        pass
-                                            except Exception:
-                                                pass
-
-                                elif act == "rename":
-                                    s_orig = executed_step.get("source_orig")
-                                    t_dst = executed_step.get("target")
-                                    if s_orig and t_dst:
-                                        s_abs = validate_safe_path(game_path, s_orig, allow_base_itself=False)
-                                        t_abs = validate_safe_path(game_path, t_dst, allow_base_itself=False)
-                                        if os.path.exists(t_abs):
-                                            try:
-                                                os.replace(t_abs, s_abs)
-                                            except Exception:
-                                                pass
-
-                            except Exception as rb_e:
-                                print(f"[Rollback Warning] Lỗi khi đảo ngược bước {executed_step}: {rb_e}")
-                                journal_failed_entries.append((executed_step, str(rb_e)))
-
-                        if not journal_failed_entries:
-                            print("[Rollback] Lớp 1 (Reverse Journal) hoàn nguyên 100% thành công!")
-                        else:
-                            print(f"[Rollback Warning] Lớp 1 hoàn nguyên xong với {len(journal_failed_entries)} cảnh báo.")
-
-                    raise RuntimeError(
-                        f"{err_msg}. Hệ thống đã tự động kích hoạt Transaction Rollback: toàn bộ tệp tin game đã được hoàn nguyên 100% về trạng thái ổn định trước khi cài đặt!"
-                    ) from e
-
-        finally:
-            for tx_f in tx_temp_files:
-                if os.path.exists(tx_f):
-                    try:
-                        if os.path.isdir(tx_f):
-                            shutil.rmtree(tx_f, ignore_errors=True)
-                        else:
-                            os.remove(tx_f)
-                    except Exception:
-                        pass
-
-        return True
+        return execute_action_pipeline(game_id, game_path, source_mod_dir, steps, operation=operation, progress_range=progress_range, uninstall_steps=uninstall_steps)
 
     def install_mod(self, game_id, force=False):
-        """Install Vietnamese mod package into game directory with in-place safe backup and progress"""
-        if not _MOD_OP_LOCK.acquire(blocking=False):
-            return {
-                "success": False,
-                "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
-            }
-        try:
-            return self._install_mod_impl(game_id, force=force)
-        finally:
-            _MOD_OP_LOCK.release()
+        return install_mod(game_id, force=force, get_games_func=self.get_games)
 
     def _install_mod_impl(self, game_id, force=False):
-        import security
-        set_progress(10, "Đang kiểm tra thư mục cài đặt...", status="running", game_id=game_id, operation="install")
-
-        with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
-            games = {g["id"]: g for g in json.load(f)}
-
-        if game_id not in games:
-            set_progress(0, "Không tìm thấy thông tin game!", status="error", game_id=game_id)
-            return {"success": False, "message": "Không tìm thấy thông tin game!"}
-
-        g = games[game_id]
-        cfg = load_user_config()
-        game_path = cfg.get(f"{game_id}_path")
-
-        if not game_path or not os.path.exists(game_path):
-            set_progress(0, "Chưa chọn thư mục game!", status="error", game_id=game_id)
-            return {"success": False, "message": "Chưa tìm thấy thư mục cài đặt game. Vui lòng bấm 'Chọn thư mục' trước!"}
-
-        is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g, game_path)
-        if not is_valid:
-            set_progress(0, f"Thư mục không hợp lệ! {val_msg}", status="error", game_id=game_id)
-            return {"success": False, "message": f"Không thể cài đặt: {val_msg} Vui lòng bấm 'Chọn Thư Mục' để chọn đúng thư mục game!"}
-        
-        if resolved_path and resolved_path != game_path:
-            game_path = resolved_path
-            cfg[f"{game_id}_path"] = game_path
-            save_user_config(cfg)
-
-        # Ghi nhận môi trường tiền tồn tại của game (Mục 1.5: BepInEx & winhttp.dll protection)
-        self._record_preexisting_environment(game_id, game_path)
-
-        # 0. Write Permission Check (Program Files / Windows UAC restriction)
-        if not is_running_as_admin() and not check_directory_writable(game_path):
-            msg = (
-                f"Thư mục cài đặt '{os.path.basename(game_path)}' đang bị khóa quyền ghi bởi Windows (thường do nằm trong 'Program Files'). "
-                f"Vui lòng bấm 'Khởi động quyền Admin' để cấp quyền ghi tệp."
-            )
-            set_progress(0, msg, status="error", game_id=game_id)
-            return {
-                "success": False,
-                "requires_admin": True,
-                "message": msg
-            }
-
-        # 1. Process Check: verify game executable or crash handlers are not running
-        is_running, proc_name = check_game_running(g, game_path)
-        if is_running:
-            msg = f"Phát hiện tiến trình '{proc_name}' của {g['vietnamese_title']} đang chạy! Vui lòng thoát game trước khi cài đặt để tránh xung đột khóa tệp tin (WinError 32)."
-            set_progress(0, msg, status="error", game_id=game_id)
-            return {
-                "success": False,
-                "is_game_running": True,
-                "running_process": proc_name,
-                "message": msg
-            }
-
-        # 2. Game Version / Hash & Size Mismatch Verification (Detect Game Update Mismatch)
-        verify_cfg = g.get("original_file_verification")
-        if verify_cfg and not force:
-            rel_chk = verify_cfg.get("target_relative")
-            target_chk = os.path.join(game_path, rel_chk)
-            bak_chk = f"{target_chk}.congu_bak"
-            file_to_eval = bak_chk if os.path.exists(bak_chk) else target_chk
-            if os.path.exists(file_to_eval):
-                exp_sz = verify_cfg.get("expected_size")
-                exp_sha = verify_cfg.get("expected_sha256")
-                act_sz = os.path.getsize(file_to_eval)
-                mismatch = False
-                if exp_sz and act_sz != exp_sz:
-                    mismatch = True
-                elif exp_sha:
-                    act_sha = calculate_sha256(file_to_eval)
-                    if act_sha != exp_sha:
-                        mismatch = True
-                if mismatch:
-                    msg = (
-                        f"CẢNH BÁO LỆCH PHIÊN BẢN: Tệp gốc '{os.path.basename(rel_chk)}' của {g['vietnamese_title']} "
-                        f"có kích thước/mã băm khác với bản chuẩn của nhóm dịch ({act_sz:,} bytes thay vì {exp_sz:,} bytes). "
-                        f"Game trên Steam có thể đã được cập nhật phiên bản mới. Việc cài đặt đè có thể gây lỗi văng game (Crash). "
-                        f"Bạn có chắc chắn muốn tiếp tục cài đặt không?"
-                    )
-                    set_progress(0, "Cảnh báo: Phiên bản game không khớp với bản dịch!", status="error", game_id=game_id)
-                    return {
-                        "success": False,
-                        "warning_mismatch": True,
-                        "message": msg
-                    }
-
-        mod_subfolder = g.get("mod_subfolder", "")
-        source_mod_dir = find_mod_source_dir(mod_subfolder)
-
-        # Check if source_mod_dir exists on local drive
-        local_found = os.path.exists(source_mod_dir)
-        cache_dir = os.path.join(APPDATA_DIR, "cache", game_id)
-        cached_source = os.path.join(cache_dir, mod_subfolder) if (mod_subfolder and os.path.exists(os.path.join(cache_dir, mod_subfolder))) else cache_dir
-
-        def check_has_mod_files(chk_dir):
-            if not os.path.exists(chk_dir):
-                return False
-            mtype = g.get("mod_type", "pak")
-            if mtype == "pak":
-                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", ""))) or os.path.exists(os.path.join(chk_dir, "Mod_Files", g.get("target_pak_name", "")))
-            elif mtype == "unity_assets":
-                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", "")))
-            elif mtype == "wad":
-                return os.path.exists(os.path.join(chk_dir, "HotlineMiami_GL.wad"))
-            elif mtype == "bepinex_language":
-                return os.path.exists(os.path.join(chk_dir, "winhttp.dll")) or os.path.exists(os.path.join(chk_dir, "BepInEx"))
-            elif mtype == "folder_copy":
-                return os.path.exists(os.path.join(chk_dir, "core", "locale")) or os.path.exists(os.path.join(chk_dir, "core", "gui", "font"))
-            elif mtype == "ini_and_exe":
-                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", "")))
-            elif mtype == "witcher3_mod":
-                return os.path.exists(os.path.join(chk_dir, g.get("mod_file", "")))
-            return False
-
-        existing_congu = os.path.join(cache_dir, "mod_package.congu")
-        if not (os.path.exists(existing_congu) and security.is_congu_package(existing_congu)):
-            cand_files = []
-            if g.get("mod_file"):
-                cand_files.append(g["mod_file"])
-            dl_url = g.get("download_url", "")
-            if dl_url:
-                cand_files.append(os.path.basename(dl_url.split("?")[0]))
-            cand_files.append(f"{game_id}.congu")
-            cand_files.append(f"{g.get('title', '').replace(' ', '_')}_Viethoa.congu")
-            cand_files.append(f"{g.get('title', '').replace(' ', '')}_Viethoa.congu")
-
-            active_repo = get_repo_dir()
-            exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-            repo_dirs = [
-                active_repo,
-                DEFAULT_REPO_DIR,
-                FALLBACK_REPO_DIR,
-                os.path.join(USER_DOCS_DIR, "Viethoagame"),
-                os.path.join(USER_DOCS_DIR, "antigravity google", "Viethoagame"),
-                APP_DIR,
-                os.path.join(APP_DIR, "mods"),
-                os.path.join(exe_dir, "mods"),
-                exe_dir
-            ]
-            if source_mod_dir:
-                repo_dirs.insert(0, source_mod_dir)
-
-            cand_list = []
-            seen_cand = set()
-            for r in repo_dirs:
-                if not r or not os.path.exists(r):
-                    continue
-                for fname in cand_files:
-                    cp = os.path.join(r, fname)
-                    if cp not in seen_cand:
-                        seen_cand.add(cp)
-                        cand_list.append(cp)
-                try:
-                    for entry in os.scandir(r):
-                        if entry.is_dir():
-                            for fname in cand_files:
-                                cp = os.path.join(entry.path, fname)
-                                if cp not in seen_cand:
-                                    seen_cand.add(cp)
-                                    cand_list.append(cp)
-                        elif entry.name.lower().endswith(".congu"):
-                            if entry.path not in seen_cand:
-                                seen_cand.add(entry.path)
-                                cand_list.append(entry.path)
-                except Exception:
-                    pass
-
-            for cand in cand_list:
-                if cand and os.path.isfile(cand) and security.is_congu_package(cand):
-                    existing_congu = cand
-                    break
-
-        if not local_found and os.path.exists(existing_congu) and security.is_congu_package(existing_congu):
-            expected_sha = g.get("congu_sha256") or g.get("sha256")
-            if not expected_sha or security.verify_package_checksum(existing_congu, expected_sha):
-                set_progress(25, "Đã tìm thấy gói bảo mật CỔ NGỮ trên thiết bị...", status="running", game_id=game_id)
-                def on_sec_progress(pct, msg):
-                    set_progress(pct, msg, status="running", game_id=game_id, operation="install")
-
-                sec_ticket = security.create_session_ticket()
-                try:
-                    sec_res = security.execute_secure_install(
-                        congu_path=existing_congu,
-                        game_path=game_path,
-                        install_steps=g.get("install_steps"),
-                        game_def=g,
-                        expected_sha256=expected_sha,
-                        auth_ticket=sec_ticket,
-                        progress_callback=on_sec_progress
-                    )
-                    if sec_res.get("backed_up_files"):
-                        self._record_backup_manifest(game_id, sec_res["backed_up_files"])
-                        for bf in sec_res["backed_up_files"]:
-                            self._record_modded_state(game_id, bf.get("target_file"), bf.get("relative_in_game"))
-
-                    set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
-                    return {
-                        "success": True,
-                        "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Bảo mật C-Extension)",
-                        "games": self.get_games()
-                    }
-                except Exception as sec_err:
-                    err_msg = str(sec_err)
-                    print(f"[Security Install Error] {err_msg}")
-                    set_progress(0, f"Lỗi cài đặt: {err_msg}", status="error", game_id=game_id)
-                    return {
-                        "success": False,
-                        "message": err_msg,
-                        "rollback_completed": True
-                    }
-
-        if not local_found:
-            # 1. First check if valid mod package is already present in cache
-            if check_has_mod_files(cached_source):
-                source_mod_dir = cached_source
-                set_progress(15, "Đã tìm thấy gói Việt Hóa trong bộ nhớ tạm (Cache)...", status="running", game_id=game_id)
-            else:
-                # 2. Gather download candidates: Primary CDN (GitHub Releases) -> Mirror / Drive -> Custom
-                download_candidates = []
-                if g.get("download_url"):
-                    download_candidates.append(("GitHub Cloud CDN (Siêu tốc)", g["download_url"]))
-                if g.get("mirror_url"):
-                    download_candidates.append(("Mirror Dự Phòng", g["mirror_url"]))
-                if g.get("drive_url") and g.get("drive_url") != g.get("mirror_url"):
-                    download_candidates.append(("Google Drive Mirror", g["drive_url"]))
-                custom_url = cfg.get(f"{game_id}_download_url")
-                if custom_url and custom_url not in [c[1] for c in download_candidates]:
-                    download_candidates.append(("Link Tùy Chỉnh Cá Nhân", custom_url))
-
-                if not download_candidates:
-                    set_progress(0, "Chưa tìm thấy bản mod local và chưa có link tải Cloud!", status="error", game_id=game_id)
-                    return {"success": False, "message": f"Không tìm thấy thư mục mod tại {source_mod_dir} và tựa game chưa được cấu hình link tải Cloud!"}
-
-                os.makedirs(cache_dir, exist_ok=True)
-
-                download_success = False
-                last_err = ""
-
-                for source_name, dl_url in download_candidates:
-                    ext = ".congu" if dl_url.lower().endswith(".congu") else ".zip"
-                    cache_archive = os.path.join(cache_dir, f"mod_package{ext}")
-                    
-                    set_progress(15, f"Đang kết nối Cloud: {source_name}...", status="running", game_id=game_id)
-
-                    def on_dl_progress(d, t, pct, spd):
-                        mb_d = d / (1024 * 1024)
-                        mb_t = t / (1024 * 1024) if t > 0 else 0
-                        spd_mb = spd / 1024
-                        msg = f"Đang tải ({source_name}): {pct}% ({mb_d:.1f}/{mb_t:.1f} MB - {spd_mb:.1f} MB/s)" if t > 0 else f"Đang tải: {mb_d:.1f} MB ({spd_mb:.1f} MB/s)"
-                        set_progress(15 + int(pct * 0.40), msg, status="running", game_id=game_id)
-
-                    try:
-                        download_file_with_progress(dl_url, cache_archive, on_dl_progress)
-
-                        # Support both encrypted .congu packages and legacy zip
-                        import security
-                        import zipfile
-                        if security.is_congu_package(cache_archive):
-                            expected_sha = g.get("congu_sha256") or g.get("sha256")
-                            set_progress(58, "Đang bảo mật C-Extension: Cài đặt trực tiếp vào game...", status="running", game_id=game_id)
-                            def on_sec_progress(pct, msg):
-                                set_progress(pct, msg, status="running", game_id=game_id, operation="install")
-
-                            sec_ticket = security.create_session_ticket()
-                            try:
-                                sec_res = security.execute_secure_install(
-                                    congu_path=cache_archive,
-                                    game_path=game_path,
-                                    install_steps=g.get("install_steps"),
-                                    game_def=g,
-                                    expected_sha256=expected_sha,
-                                    auth_ticket=sec_ticket,
-                                    progress_callback=on_sec_progress
-                                )
-
-                                if sec_res.get("backed_up_files"):
-                                    self._record_backup_manifest(game_id, sec_res["backed_up_files"])
-                                    for bf in sec_res["backed_up_files"]:
-                                        self._record_modded_state(game_id, bf.get("target_file"), bf.get("relative_in_game"))
-
-                                set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
-                                return {
-                                    "success": True,
-                                    "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Bảo mật C-Extension)",
-                                    "games": self.get_games()
-                                }
-                            except Exception as sec_err:
-                                err_msg = str(sec_err)
-                                print(f"[Security Install Error] {err_msg}")
-                                set_progress(0, f"Lỗi cài đặt: {err_msg}", status="error", game_id=game_id)
-                                return {
-                                    "success": False,
-                                    "message": err_msg,
-                                    "rollback_completed": True
-                                }
-                        elif zipfile.is_zipfile(cache_archive):
-                            set_progress(62, "Đang giải nén gói Việt Hóa...", status="running", game_id=game_id)
-                            with zipfile.ZipFile(cache_archive, 'r') as zf:
-                                for member in zf.namelist():
-                                    if member.endswith("/") or member.endswith("\\"):
-                                        continue
-                                    # Anti Zip-Slip: validate member target against cache_dir
-                                    target_dest = validate_safe_path(cache_dir, member, allow_base_itself=False)
-                                    os.makedirs(os.path.dirname(target_dest), exist_ok=True)
-                                    with zf.open(member, "r") as s_in, open(target_dest, "wb") as d_out:
-                                        shutil.copyfileobj(s_in, d_out, length=65536)
-
-                        source_mod_dir = cache_dir
-                        if mod_subfolder and os.path.exists(os.path.join(cache_dir, mod_subfolder)):
-                            source_mod_dir = os.path.join(cache_dir, mod_subfolder)
-
-                        download_success = True
-                        break
-                    except Exception as dl_err:
-                        last_err = str(dl_err)
-                        print(f"Error downloading/decrypting from {source_name}: {dl_err}")
-                        if os.path.exists(cache_archive):
-                            try:
-                                os.remove(cache_archive)
-                            except Exception:
-                                pass
-
-                if not download_success:
-                    set_progress(0, f"Lỗi tải từ Cloud: {last_err}", status="error", game_id=game_id)
-                    return {"success": False, "message": f"Không thể tải bản Việt Hóa từ Cloud: {last_err}"}
-
-        # Data-Driven Action Pipeline Execution
-        install_steps = g.get("install_steps")
-        if install_steps and isinstance(install_steps, list) and len(install_steps) > 0:
-            try:
-                set_progress(30, f"Đang thực thi quy trình cài đặt Data-Driven ({len(install_steps)} bước)...", status="running", game_id=game_id)
-                self.execute_action_pipeline(
-                    game_id,
-                    game_path,
-                    source_mod_dir,
-                    install_steps,
-                    operation="install",
-                    progress_range=(30, 95),
-                    uninstall_steps=g.get("uninstall_steps")
-                )
-                set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
-                return {
-                    "success": True,
-                    "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Data-Driven Pipeline)",
-                    "games": self.get_games()
-                }
-            except Exception as pe:
-                set_progress(0, f"Lỗi khi thực thi Pipeline: {str(pe)}", status="error", game_id=game_id)
-                return {
-                    "success": False,
-                    "message": f"Lỗi khi cài đặt (Pipeline): {str(pe)}",
-                    "rollback_completed": True
-                }
-
-        mtype = g.get("mod_type", "pak")
-
-        try:
-            set_progress(30, "Đang tạo bản sao lưu tại chỗ tức thời (.congu_bak)...", status="running", game_id=game_id)
-
-            # 1. PAK TYPE (Unreal Engine: Preludes, Backbone, Ravenous Devils)
-            if mtype == "pak":
-                source_pak = os.path.join(source_mod_dir, g["mod_file"])
-                if not os.path.exists(source_pak):
-                    # Check nested mod folder
-                    nested = os.path.join(source_mod_dir, "Mod_Files", g["target_pak_name"])
-                    if os.path.exists(nested):
-                        source_pak = nested
-                
-                target_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=True)
-                os.makedirs(target_dir, exist_ok=True)
-                target_pak = validate_safe_path(game_path, os.path.join(g["relative_install_path"], g["target_pak_name"]), allow_base_itself=False)
-                
-                set_progress(60, "Đang sao chép gói ngôn ngữ Việt hóa Unreal Engine...", status="running", game_id=game_id)
-                shutil.copy2(source_pak, target_pak)
-
-            # 2. UNITY ASSETS (TOEM, Forever Ago, Erra Exordium)
-            elif mtype == "unity_assets":
-                source_assets = os.path.join(source_mod_dir, g["mod_file"])
-                target_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=True)
-                rel_file = os.path.join(g["relative_install_path"], g["target_pak_name"])
-                target_assets = validate_safe_path(game_path, rel_file, allow_base_itself=False)
-
-                # Safe in-place backup (.congu_bak)
-                if os.path.exists(target_assets):
-                    self._backup_file_inplace(game_id, target_assets, rel_file)
-
-                set_progress(60, "Đang cài đặt tài sản ngôn ngữ & font chữ Unity...", status="running", game_id=game_id)
-                shutil.copy2(source_assets, target_assets)
-
-                # Process additional files (e.g., Assembly-CSharp.dll for Forever Ago)
-                add_files = g.get("additional_files", [])
-                for af in add_files:
-                    src_af = os.path.join(source_mod_dir, af["src"])
-                    dst_af = validate_safe_path(game_path, af["dst"], allow_base_itself=False)
-                    if os.path.exists(src_af):
-                        if os.path.exists(dst_af):
-                            self._backup_file_inplace(game_id, dst_af, af["dst"])
-                        os.makedirs(os.path.dirname(dst_af), exist_ok=True)
-                        shutil.copy2(src_af, dst_af)
-
-            # 3. WAD (Hotline Miami)
-            elif mtype == "wad":
-                target_wad = validate_safe_path(game_path, g["target_pak_name"], allow_base_itself=False)
-                if os.path.exists(target_wad):
-                    self._backup_file_inplace(game_id, target_wad, g["target_pak_name"])
-
-                set_progress(60, "Đang nạp file WAD và font neon...", status="running", game_id=game_id)
-                shutil.copy2(os.path.join(source_mod_dir, "HotlineMiami_GL.wad"), target_wad)
-                bin_src = os.path.join(source_mod_dir, "hotline_localization.bin")
-                if os.path.exists(bin_src):
-                    bin_dst = validate_safe_path(game_path, "hotline_localization.bin", allow_base_itself=False)
-                    shutil.copy2(bin_src, bin_dst)
-
-            # 4. BEPINEX LANGUAGE (Risk of Rain 2)
-            elif mtype == "bepinex_language":
-                items_to_copy = ["BepInEx", "Risk of Rain 2_Data", "winhttp.dll", "doorstop_config.ini", ".doorstop_version"]
-                set_progress(60, "Đang thiết lập BepInEx & gói ngôn ngữ tiếng Việt...", status="running", game_id=game_id)
-                for item in items_to_copy:
-                    src_item = os.path.join(source_mod_dir, item)
-                    dst_item = validate_safe_path(game_path, item, allow_base_itself=False)
-                    if os.path.exists(src_item):
-                        if os.path.isdir(src_item):
-                            shutil.copytree(src_item, dst_item, dirs_exist_ok=True)
-                        else:
-                            shutil.copy2(src_item, dst_item)
-
-            # 5. FOLDER COPY (Fallout Tactics)
-            elif mtype == "folder_copy":
-                orig_locale = validate_safe_path(game_path, os.path.join("core", "locale"), allow_base_itself=False)
-                locale_bak = f"{orig_locale}.congu_bak"
-                if os.path.exists(orig_locale) and not os.path.exists(locale_bak):
-                    try:
-                        os.rename(orig_locale, locale_bak)
-                    except Exception as e:
-                        try:
-                            shutil.copytree(orig_locale, locale_bak)
-                            shutil.rmtree(orig_locale, ignore_errors=True)
-                        except Exception as e2:
-                            print(f"Error in-place backing up locale folder: {e2}")
-
-                set_progress(60, "Đang cài đặt bộ font và 57 chiến dịch tiếng Việt...", status="running", game_id=game_id)
-                font_src = os.path.join(source_mod_dir, "core", "gui", "font")
-                font_dst = validate_safe_path(game_path, os.path.join("core", "gui", "font"), allow_base_itself=False)
-                if os.path.exists(font_src):
-                    os.makedirs(font_dst, exist_ok=True)
-                    shutil.copytree(font_src, font_dst, dirs_exist_ok=True)
-
-                locale_src = os.path.join(source_mod_dir, "core", "locale")
-                if os.path.exists(locale_src):
-                    os.makedirs(orig_locale, exist_ok=True)
-                    shutil.copytree(locale_src, orig_locale, dirs_exist_ok=True)
-
-            # 6. INI AND EXE (Loop Hero)
-            elif mtype == "ini_and_exe":
-                exe_name = os.path.basename(g.get("executable_name", "Loop Hero.exe"))
-                target_exe = validate_safe_path(game_path, exe_name, allow_base_itself=False)
-                source_exe = os.path.join(source_mod_dir, exe_name)
-                if os.path.exists(target_exe):
-                    self._backup_file_inplace(game_id, target_exe, exe_name)
-                if os.path.exists(source_exe):
-                    shutil.copy2(source_exe, target_exe)
-
-                target_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=True)
-                os.makedirs(target_dir, exist_ok=True)
-                rel_ini = os.path.join(g["relative_install_path"], g["target_pak_name"])
-                target_ini = validate_safe_path(game_path, rel_ini, allow_base_itself=False)
-                source_ini = os.path.join(source_mod_dir, g["mod_file"])
-                if os.path.exists(target_ini):
-                    self._backup_file_inplace(game_id, target_ini, rel_ini)
-                if os.path.exists(source_ini):
-                    shutil.copy2(source_ini, target_ini)
-
-                # Fonts
-                target_font = validate_safe_path(game_path, "fonts/Roboto-Bold.ttf", allow_base_itself=False)
-                source_font = os.path.join(source_mod_dir, "fonts", "Roboto-Bold.ttf")
-                if os.path.exists(target_font):
-                    self._backup_file_inplace(game_id, target_font, "fonts/Roboto-Bold.ttf")
-                if os.path.exists(source_font):
-                    os.makedirs(os.path.dirname(target_font), exist_ok=True)
-                    shutil.copy2(source_font, target_font)
-
-            # 7. WITCHER 3 MOD
-            elif mtype == "witcher3_mod":
-                set_progress(50, "Đang nạp file ngôn ngữ w3strings...", status="running", game_id=game_id)
-                source_w3strings = os.path.join(source_mod_dir, g["mod_file"])
-                target_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=True)
-                os.makedirs(target_dir, exist_ok=True)
-                target_w3strings = validate_safe_path(game_path, os.path.join(g["relative_install_path"], g["target_pak_name"]), allow_base_itself=False)
-                if os.path.exists(source_w3strings):
-                    shutil.copy2(source_w3strings, target_w3strings)
-
-                # Patch xml.bundle for Vietnamese font
-                bundle_rel = g.get("bundle_patch_rel", "content/content0/bundles/xml.bundle")
-                source_bundle = os.path.join(source_mod_dir, bundle_rel)
-                target_bundle = validate_safe_path(game_path, bundle_rel, allow_base_itself=False)
-                if os.path.exists(target_bundle):
-                    self._backup_file_inplace(game_id, target_bundle, bundle_rel)
-                if os.path.exists(source_bundle):
-                    shutil.copy2(source_bundle, target_bundle)
-
-            set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
-            return {
-                "success": True,
-                "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Đã sao lưu gốc tại chỗ .congu_bak)",
-                "games": self.get_games()
-            }
-        except Exception as e:
-            try:
-                self._restore_files_inplace(game_id, game_path)
-            except Exception:
-                pass
-            set_progress(0, f"Lỗi khi cài đặt: {str(e)}", status="error", game_id=game_id)
-            return {
-                "success": False,
-                "message": f"Lỗi khi cài đặt: {str(e)} (Đã tự động hoàn nguyên tệp tin gốc .congu_bak)",
-                "rollback_completed": True
-            }
+        return install_mod_impl(game_id, force=force, get_games_func=self.get_games)
 
     def uninstall_mod(self, game_id):
-        """Safely remove the mod, restoring the game to pristine English from in-place .congu_bak safe backup"""
-        if not _MOD_OP_LOCK.acquire(blocking=False):
-            return {
-                "success": False,
-                "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
-            }
-        try:
-            return self._uninstall_mod_impl(game_id)
-        finally:
-            _MOD_OP_LOCK.release()
+        return uninstall_mod(game_id, get_games_func=self.get_games)
 
     def _uninstall_mod_impl(self, game_id):
-        set_progress(20, "Đang gỡ bỏ bản Việt hóa...", status="running", game_id=game_id, operation="uninstall")
-
-        with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
-            games = {g["id"]: g for g in json.load(f)}
-
-        if game_id not in games:
-            set_progress(0, "Không tìm thấy game!", status="error", game_id=game_id)
-            return {"success": False, "message": "Không tìm thấy thông tin game!"}
-
-        g = games[game_id]
-        cfg = load_user_config()
-        game_path = cfg.get(f"{game_id}_path")
-
-        if not game_path:
-            set_progress(0, "Chưa chọn thư mục game!", status="error", game_id=game_id)
-            return {"success": False, "message": "Chưa xác định đường dẫn game!"}
-
-        # 1. Process Check: verify game executable or crash handlers are not running
-        is_running, proc_name = check_game_running(g, game_path)
-        if is_running:
-            msg = f"Phát hiện tiến trình '{proc_name}' của {g['vietnamese_title']} đang chạy! Vui lòng thoát game trước khi gỡ cài đặt để tránh xung đột khóa tệp tin (WinError 32)."
-            set_progress(0, msg, status="error", game_id=game_id)
-            return {
-                "success": False,
-                "is_game_running": True,
-                "running_process": proc_name,
-                "message": msg
-            }
-
-        # 1b. Write Permission Check (Program Files / Windows UAC restriction)
-        if not is_running_as_admin() and not check_directory_writable(game_path):
-            msg = (
-                f"Thư mục cài đặt '{os.path.basename(game_path)}' đang bị khóa quyền ghi bởi Windows (thường do nằm trong 'Program Files'). "
-                f"Vui lòng bấm 'Khởi động quyền Admin' để cấp quyền ghi tệp."
-            )
-            set_progress(0, msg, status="error", game_id=game_id)
-            return {
-                "success": False,
-                "requires_admin": True,
-                "message": msg
-            }
-
-        # Data-Driven Action Pipeline Execution
-        uninstall_steps = g.get("uninstall_steps")
-        if uninstall_steps and isinstance(uninstall_steps, list) and len(uninstall_steps) > 0:
-            try:
-                set_progress(30, f"Đang thực thi quy trình gỡ bỏ Data-Driven ({len(uninstall_steps)} bước)...", status="running", game_id=game_id, operation="uninstall")
-                self.execute_action_pipeline(game_id, game_path, source_mod_dir="", steps=uninstall_steps, operation="uninstall", progress_range=(30, 90))
-                # Also clean up manifest & legacy appdata backup
-                self._restore_files_inplace(game_id, game_path)
-                set_progress(100, "Đã khôi phục game về nguyên bản tiếng Anh thành công!", status="success", game_id=game_id)
-                return {
-                    "success": True,
-                    "message": f"Đã gỡ bỏ bản Việt hóa cho {g['vietnamese_title']}. Game đã trở về tiếng Anh gốc an toàn 100%!",
-                    "games": self.get_games()
-                }
-            except Exception as pe:
-                set_progress(0, f"Lỗi khi gỡ bỏ Pipeline: {str(pe)}", status="error", game_id=game_id)
-                return {"success": False, "message": f"Lỗi khi gỡ mod (Pipeline): {str(pe)}"}
-
-        mtype = g.get("mod_type", "pak")
-
-        try:
-            # 1.5 Tải trước manifest sao lưu để bảo vệ các cờ môi trường tiền tồn tại (winhttp, bepinex...)
-            manifest_data = self._load_backup_manifest(game_id)
-
-            # 2. Restore from In-Place Backup (.congu_bak) & legacy AppData backup
-            restored = self._restore_files_inplace(game_id, game_path)
-
-            # 3. Cleanup mod specific files
-            if mtype == "pak":
-                target_pak = validate_safe_path(game_path, os.path.join(g["relative_install_path"], g["target_pak_name"]), allow_base_itself=False)
-                if os.path.exists(target_pak):
-                    os.remove(target_pak)
-
-            elif mtype == "unity_assets":
-                # Fallback to local backup if AppData was not used
-                if not restored:
-                    target_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=True)
-                    target_assets = validate_safe_path(game_path, os.path.join(g["relative_install_path"], g["target_pak_name"]), allow_base_itself=False)
-                    backup_file = os.path.join(target_dir, g.get("backup_file", "resources.assets.original_backup"))
-                    if os.path.exists(backup_file):
-                        shutil.copy2(backup_file, target_assets)
-                        os.remove(backup_file)
-
-            elif mtype == "wad":
-                if not restored:
-                    target_wad = validate_safe_path(game_path, g["target_pak_name"], allow_base_itself=False)
-                    backup_wad = os.path.join(game_path, g.get("backup_file", "HotlineMiami_GL_original.wad"))
-                    if os.path.exists(backup_wad):
-                        shutil.copy2(backup_wad, target_wad)
-                        os.remove(backup_wad)
-                bin_file = validate_safe_path(game_path, "hotline_localization.bin", allow_base_itself=False)
-                if os.path.exists(bin_file):
-                    os.remove(bin_file)
-
-            elif mtype == "bepinex_language":
-                lang_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=False)
-                if os.path.exists(lang_dir):
-                    shutil.rmtree(lang_dir, ignore_errors=True)
-
-                # Mục 1.5: BepInEx Safe Uninstall Guard
-                winhttp_pre = manifest_data.get("winhttp_preexisting", False)
-                if not winhttp_pre:
-                    winhttp = validate_safe_path(game_path, "winhttp.dll", allow_base_itself=False)
-                    if os.path.exists(winhttp):
-                        os.rename(winhttp, os.path.join(game_path, "winhttp.dll.disabled"))
-                else:
-                    print("[BepInEx Protection] winhttp.dll đã có sẵn trước khi cài Việt hóa. Giữ nguyên tệp loader cho các mod gameplay khác của người chơi!")
-
-            elif mtype == "folder_copy":
-                game_backup_dir = os.path.join(BACKUP_ROOT, game_id, "core_locale")
-                orig_locale = validate_safe_path(game_path, os.path.join("core", "locale"), allow_base_itself=False)
-                if os.path.exists(game_backup_dir):
-                    if os.path.exists(orig_locale):
-                        shutil.rmtree(orig_locale, ignore_errors=True)
-                    shutil.copytree(game_backup_dir, orig_locale)
-                    shutil.rmtree(os.path.join(BACKUP_ROOT, game_id), ignore_errors=True)
-
-            elif mtype == "ini_and_exe":
-                if not restored:
-                    exe_name = os.path.basename(g.get("executable_name", "Loop Hero.exe"))
-                    target_exe = validate_safe_path(game_path, exe_name, allow_base_itself=False)
-                    backup_exe = os.path.join(game_path, f"{exe_name}.orig")
-                    if os.path.exists(backup_exe):
-                        shutil.copy2(backup_exe, target_exe)
-                        os.remove(backup_exe)
-
-                    target_dir = validate_safe_path(game_path, g["relative_install_path"], allow_base_itself=True)
-                    rel_ini = os.path.join(g["relative_install_path"], g["target_pak_name"])
-                    target_ini = validate_safe_path(game_path, rel_ini, allow_base_itself=False)
-                    backup_ini = os.path.join(game_path, g.get("backup_file", os.path.join(g["relative_install_path"], f"{g['target_pak_name']}.orig")))
-                    if os.path.exists(backup_ini):
-                        shutil.copy2(backup_ini, target_ini)
-                        os.remove(backup_ini)
-
-            elif mtype == "witcher3_mod":
-                mod_folder = validate_safe_path(game_path, os.path.join("Mods", "modVietHoa"), allow_base_itself=False)
-                if os.path.exists(mod_folder):
-                    shutil.rmtree(mod_folder, ignore_errors=True)
-                if not restored:
-                    bundle_rel = g.get("bundle_patch_rel", "content/content0/bundles/xml.bundle")
-                    target_bundle = validate_safe_path(game_path, bundle_rel, allow_base_itself=False)
-                    backup_bundle = os.path.join(game_path, g.get("backup_file", "content/content0/bundles/xml.bundle.orig"))
-                    if os.path.exists(backup_bundle):
-                        shutil.copy2(backup_bundle, target_bundle)
-                        os.remove(backup_bundle)
-
-            set_progress(100, "Đã khôi phục game về nguyên bản tiếng Anh thành công!", status="success", game_id=game_id)
-            return {
-                "success": True,
-                "message": f"Đã gỡ bỏ bản Việt hóa cho {g['vietnamese_title']}. Game đã trở về tiếng Anh gốc an toàn 100%!",
-                "games": self.get_games()
-            }
-        except Exception as e:
-            set_progress(0, f"Lỗi khi gỡ mod: {str(e)}", status="error", game_id=game_id)
-            return {"success": False, "message": f"Lỗi khi gỡ mod: {str(e)}"}
+        return uninstall_mod_impl(game_id, get_games_func=self.get_games)
 
     def emergency_restore_game(self, game_id):
-        """
-        Khôi phục gốc khẩn cấp / Sửa lỗi game (Emergency Deep Restore):
-        Chỉ chạy khi người dùng chủ động bấm yêu cầu trên UI.
-        Quét đệ quy toàn bộ thư mục game để tìm mọi file .congu_bak và khôi phục về file gốc ban đầu.
-        """
-        if not _MOD_OP_LOCK.acquire(blocking=False):
-            return {
-                "success": False,
-                "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
-            }
-        try:
-            return self._emergency_restore_game_impl(game_id)
-        finally:
-            _MOD_OP_LOCK.release()
-
-    def _emergency_restore_game_impl(self, game_id):
-        set_progress(10, "Đang bắt đầu quét khôi phục gốc khẩn cấp...", status="running", game_id=game_id, operation="restore")
-        try:
-            with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
-                games = {g["id"]: g for g in json.load(f)}
-            if game_id not in games:
-                return {"success": False, "message": "Không tìm thấy thông tin game!"}
-
-            g = games[game_id]
-            cfg = load_user_config()
-            game_path = cfg.get(f"{game_id}_path")
-            if not game_path or not os.path.exists(game_path):
-                return {"success": False, "message": "Thư mục cài đặt game không tồn tại hoặc chưa được chọn!"}
-
-            set_progress(30, "Đang quét sâu tìm tệp tin sao lưu (.congu_bak)...", status="running", game_id=game_id, operation="restore")
-
-            restored_count = 0
-            error_count = 0
-
-            # Quét đệ quy tìm mọi file .congu_bak
-            for root, dirs, files in os.walk(game_path):
-                for f in files:
-                    if f.endswith(".congu_bak"):
-                        bak_abs = os.path.join(root, f)
-                        orig_abs = bak_abs[:-10]  # Bỏ đuôi '.congu_bak'
-                        try:
-                            if os.path.exists(orig_abs):
-                                if os.path.isdir(orig_abs):
-                                    shutil.rmtree(orig_abs, ignore_errors=True)
-                                else:
-                                    os.remove(orig_abs)
-                            os.rename(bak_abs, orig_abs)
-                            restored_count += 1
-                        except Exception as e:
-                            print(f"[Emergency Restore Error] {bak_abs}: {e}")
-                            error_count += 1
-
-            set_progress(80, "Đang dọn dẹp bộ nhớ đệm và thiết lập lại trạng thái...", status="running", game_id=game_id, operation="restore")
-
-            # Dọn dẹp backup manifest trong AppData nhưng giữ lại cờ tiền tồn tại
-            game_backup_dir = os.path.join(BACKUP_ROOT, game_id)
-            manifest_path = os.path.join(game_backup_dir, "backup_manifest.json")
-            manifest = self._load_backup_manifest(game_id)
-            cleaned_manifest = {"game_id": game_id, "backup_type": "inplace", "files": []}
-            has_preexisting_flags = False
-            for flag in ("winhttp_preexisting", "bepinex_preexisting", "doorstop_preexisting"):
-                if flag in manifest:
-                    cleaned_manifest[flag] = manifest[flag]
-                    has_preexisting_flags = True
-
-            if has_preexisting_flags:
-                try:
-                    with open(manifest_path, "w", encoding="utf-8") as f:
-                        json.dump(cleaned_manifest, f, ensure_ascii=False, indent=2)
-                except Exception:
-                    pass
-                if os.path.exists(game_backup_dir):
-                    try:
-                        for entry in os.listdir(game_backup_dir):
-                            if entry == "backup_manifest.json":
-                                continue
-                            ep = os.path.join(game_backup_dir, entry)
-                            if os.path.isdir(ep):
-                                shutil.rmtree(ep, ignore_errors=True)
-                            else:
-                                try:
-                                    os.remove(ep)
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass
-            else:
-                if os.path.exists(game_backup_dir):
-                    try:
-                        shutil.rmtree(game_backup_dir, ignore_errors=True)
-                    except Exception:
-                        pass
-
-            # Cập nhật trạng thái cấu hình
-            cfg[f"{game_id}_status"] = "not_installed"
-            save_user_config(cfg)
-
-            set_progress(100, f"Đã hoàn thành khôi phục khẩn cấp {restored_count} tệp tin gốc!", status="success", game_id=game_id)
-            msg = f"Đã khôi phục thành công {restored_count} tệp tin gốc (.congu_bak) cho game {g['vietnamese_title']}!"
-            if error_count > 0:
-                msg += f" (Gặp sự cố ở {error_count} tệp)"
-
-            return {
-                "success": True,
-                "restored_count": restored_count,
-                "message": msg,
-                "games": self.get_games()
-            }
-        except Exception as e:
-            set_progress(0, f"Lỗi khôi phục khẩn cấp: {str(e)}", status="error", game_id=game_id)
-            return {"success": False, "message": f"Lỗi khôi phục khẩn cấp: {str(e)}"}
+        return emergency_restore_game(game_id, get_games_func=self.get_games)
 
     def launch_game(self, game_id):
         """Khởi chạy game độc lập (Detached Process) và kích hoạt luồng theo dõi đếm giờ chuẩn xác."""
-        with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
-            games = {g["id"]: g for g in json.load(f)}
+        games = {g["id"]: g for g in self.get_games()}
 
         if game_id not in games:
             return {"success": False, "status": "error", "message": "Không tìm thấy game!"}
@@ -6446,12 +2559,23 @@ class ModManagerAPI:
         launched = False
         launch_protocol = "executable"
 
+        # Controller Engine Pre-Launch: Chuẩn bị wrapper xinput hoặc virtual keyboard mapper nếu bật
+        child_env = os.environ.copy()
+        try:
+            if "CONTROLLER_ENGINE" in globals() and CONTROLLER_ENGINE and candidate_exe:
+                c_res = CONTROLLER_ENGINE.prepare_game_launch(game_id, candidate_exe, custom_env=child_env)
+                if c_res.get("enabled"):
+                    log_startup(f"[ControllerEngine] Đã kích hoạt giả lập tay cầm ({c_res.get('mode')}) cho '{game_id}'")
+        except Exception as e:
+            print(f"[ControllerEngine Pre-Launch Error]: {e}")
+
         # Ưu tiên mở trực tiếp qua file .exe nếu tìm thấy (hỗ trợ cả game modded, crack, GOG, Epic, Steam)
         if candidate_exe and os.path.isfile(candidate_exe):
             try:
                 subprocess.Popen(
                     [candidate_exe],
                     cwd=os.path.dirname(candidate_exe),
+                    env=child_env,
                     creationflags=creation_flags,
                     close_fds=True
                 )
@@ -6811,6 +2935,324 @@ class ModManagerAPI:
         """Check for application updates"""
         return check_app_update()
 
+    def browse_custom_game_exe(self):
+        """Mở hộp thoại cho người dùng chọn file .exe của game ngoài."""
+        chosen_file = None
+        if self.window:
+            try:
+                file_types = ('Executable Files (*.exe)', 'All files (*.*)')
+                res = self.window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types)
+                if res and len(res) > 0:
+                    chosen_file = res[0]
+            except Exception as e:
+                print(f"[!] PyWebView file dialog error: {e}")
+
+        if not chosen_file:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                chosen_file = filedialog.askopenfilename(
+                    title="Chọn file thực thi (.exe) của game bạn muốn thêm",
+                    filetypes=[("Executable Files", "*.exe"), ("All files", "*.*")]
+                )
+                root.destroy()
+            except Exception:
+                pass
+
+        if chosen_file and os.path.isfile(chosen_file):
+            return {"success": True, "exe_path": chosen_file}
+        return {"success": False, "message": "Chưa chọn file thực thi nào."}
+
+    def detect_custom_game(self, exe_path: str):
+        """Tự động phân tích và nhận diện game qua CustomGameDetector."""
+        try:
+            from custom_game_detector import CustomGameDetector
+            detected = CustomGameDetector.detect_from_exe(exe_path, covers_dir=COVERS_DIR)
+            return {"success": True, "game": detected}
+        except Exception as e:
+            return {"success": False, "error": str(e), "message": f"Lỗi khi nhận diện game: {e}"}
+
+    def save_custom_game(self, game_data: dict):
+        """Lưu hoặc cập nhật một custom game vào danh sách."""
+        if not game_data or not game_data.get("id"):
+            return {"success": False, "message": "Thông tin game không hợp lệ!"}
+
+        gid = game_data["id"]
+        c_games = load_custom_games()
+        idx = next((i for i, g in enumerate(c_games) if g.get("id") == gid), -1)
+        if idx >= 0:
+            c_games[idx] = game_data
+        else:
+            c_games.append(game_data)
+
+        ok = save_custom_games(c_games)
+        if ok:
+            cfg = load_user_config()
+            cfg[f"{gid}_path"] = game_data.get("game_root", "")
+            save_user_config(cfg)
+
+            try:
+                vault = get_vault_instance()
+                vault.pack_game_to_vault(game_data, game_data.get("game_root", ""))
+            except Exception as e:
+                print(f"[CustomGames Vault Warning]: {e}")
+
+            return {
+                "success": True,
+                "message": f"Đã thêm game '{game_data.get('title')}' vào thư viện CỔ NGỮ!",
+                "game": game_data,
+                "games": self.get_games()
+            }
+        return {"success": False, "message": "Không thể lưu game vào custom_games.json"}
+
+    def delete_custom_game(self, game_id: str):
+        """Xóa game ngoài khỏi thư viện."""
+        c_games = load_custom_games()
+        filtered = [g for g in c_games if g.get("id") != game_id]
+        if len(filtered) == len(c_games):
+            return {"success": False, "message": "Không tìm thấy game tự thêm để xóa!"}
+
+        ok = save_custom_games(filtered)
+        if ok:
+            cfg = load_user_config()
+            cfg.pop(f"{game_id}_path", None)
+            save_user_config(cfg)
+            return {
+                "success": True,
+                "message": "Đã xóa game khỏi thư viện CỔ NGỮ!",
+                "games": self.get_games()
+            }
+        return {"success": False, "message": "Không thể cập nhật danh sách game."}
+
+    def set_custom_game_appid(self, game_id: str, steam_appid: str):
+        """Cập nhật Steam AppID cho custom game, tự tạo steam_appid.txt và kéo thành tựu về."""
+        steam_appid = str(steam_appid or "").strip()
+        c_games = load_custom_games()
+        target = None
+        for g in c_games:
+            if g.get("id") == game_id:
+                target = g
+                break
+        if not target:
+            return {"success": False, "message": "Không tìm thấy game tự thêm này!"}
+
+        target["steam_appid"] = steam_appid
+        game_root = target.get("game_root", "")
+
+        # 1. Tự động tạo / cập nhật file steam_appid.txt trong thư mục game nếu thư mục tồn tại
+        if game_root and os.path.isdir(game_root) and steam_appid:
+            try:
+                txt_path = os.path.join(game_root, "steam_appid.txt")
+                with open(txt_path, "w", encoding="utf-8") as f:
+                    f.write(f"{steam_appid}\n")
+            except Exception as e:
+                print(f"[SetAppID Warning] Lỗi ghi steam_appid.txt: {e}")
+
+        # 2. Cập nhật vị trí lưu thành tựu theo emulator
+        if steam_appid:
+            if "vault_config" not in target:
+                target["vault_config"] = {}
+            target["vault_config"]["achievement_locations"] = [
+                {"emu": "goldberg", "path": f"{{APPDATA}}/Goldberg SteamEmu Saves/{steam_appid}/achievements.json"},
+                {"emu": "codex", "path": f"{{PUBLIC_DOCS}}/Steam/CODEX/{steam_appid}/achievements.ini"},
+                {"emu": "rune", "path": f"{{PUBLIC_DOCS}}/Steam/RUNE/{steam_appid}/achievements.ini"}
+            ]
+
+        # 3. Lưu lại custom_games.json
+        save_custom_games(c_games)
+
+        # 4. Tải schema thành tựu về ngay
+        ach_view = {}
+        if steam_appid and "ACHIEVEMENT_MGR" in globals():
+            ach_view = ACHIEVEMENT_MGR.get_game_achievements_view(appid=steam_appid, game_dir=game_root, game_id=game_id)
+
+        return {
+            "success": True,
+            "message": f"Đã gắn Steam AppID {steam_appid} thành công! Tìm thấy {ach_view.get('total', 0)} thành tựu.",
+            "steam_appid": steam_appid,
+            "achievements_count": ach_view.get("total", 0),
+            "games": self.get_games()
+        }
+
+    # =========================================================================
+    # HYDRA SOURCES & TORRENT DOWNLOAD ENGINE APIS
+    # =========================================================================
+    def get_hydra_sources(self):
+        """Lấy danh sách các nguồn Hydra đã cấu hình kèm thống kê cache."""
+        try:
+            sources = HYDRA_MGR.get_sources()
+            stats = HYDRA_MGR.get_cache_stats()
+            return {"success": True, "sources": sources, "stats": stats}
+        except Exception as e:
+            return {"success": False, "error": str(e), "sources": [], "stats": {}}
+
+    def add_hydra_sources(self, urls):
+        """Thêm một hoặc nhiều URL nguồn Hydra và tự động kích hoạt đồng bộ nền."""
+        try:
+            res = HYDRA_MGR.add_sources(urls)
+            HYDRA_MGR.start_async_sync()
+            return {"success": True, "added": res, "sources": HYDRA_MGR.get_sources()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def remove_hydra_source(self, url):
+        """Xóa một nguồn Hydra."""
+        try:
+            ok = HYDRA_MGR.remove_source(url)
+            return {"success": ok, "sources": HYDRA_MGR.get_sources()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def sync_hydra_sources(self, force=False):
+        """Kích hoạt đồng bộ hóa tất cả các nguồn Hydra."""
+        try:
+            HYDRA_MGR.start_async_sync(force=force)
+            return {"success": True, "message": "Đang đồng bộ hóa nguồn trong nền..."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def browse_and_import_hydra_json(self):
+        """Mở hộp thoại chọn file .json của Hydra từ máy và nạp vào hệ thống."""
+        try:
+            selected_files = HYDRA_MGR.browse_local_json_files()
+            if not selected_files:
+                return {"success": False, "cancelled": True, "message": "Đã hủy chọn file."}
+            res = HYDRA_MGR.import_local_json_files(selected_files)
+            stats = HYDRA_MGR.get_cache_stats()
+            return {
+                "success": True,
+                "message": f"Đã nạp thành công {res['imported_files']} file nguồn ({res['imported_repacks']} bản repack)!",
+                "details": res,
+                "stats": stats
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def search_game_downloads(self, game_id="", query_title="", steam_appid=""):
+        """Tìm kiếm các bản game Repack/Torrent khớp với game từ các nguồn Hydra."""
+        try:
+            if not query_title and game_id:
+                all_games = self.get_games()
+                g = next((x for x in all_games if x.get("id") == game_id), None)
+                if g:
+                    query_title = g.get("name") or g.get("display_name") or g.get("id")
+                    if not steam_appid:
+                        steam_appid = g.get("steam_appid", "")
+
+            results = HYDRA_MGR.search_download_links_for_game(
+                game_title=query_title,
+                game_id=game_id,
+                steam_appid=steam_appid
+            )
+            return {
+                "success": True,
+                "game_id": game_id,
+                "query": query_title,
+                "total": len(results),
+                "results": results
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "results": []}
+
+    def search_catalogue_games(self, query="", limit=50):
+        """
+        Tìm kiếm danh mục Game tổng thể từ các nguồn Repack (Catalogue Engine)
+        Gom nhóm các bản Repack rời rạc theo Game Title và đối chiếu bản dịch Cổ Ngữ.
+        """
+        try:
+            games = HYDRA_MGR.search_catalogue_games(query=query, limit=limit)
+            all_viet_games = self.get_games() or []
+            
+            # Tạo map tra cứu tựa game có Việt Hóa
+            viet_names = {}
+            for vg in all_viet_games:
+                v_title = (vg.get("name") or vg.get("display_name") or vg.get("id") or "").lower()
+                clean_v = re.sub(r"[:\-_–—+~#&!?,./|\\]", " ", v_title)
+                clean_v = re.sub(r"\s+", " ", clean_v).strip()
+                if clean_v:
+                    viet_names[clean_v] = vg.get("id")
+
+            for g in games:
+                c_title = g.get("title", "").lower()
+                clean_c = re.sub(r"[:\-_–—+~#&!?,./|\\]", " ", c_title)
+                clean_c = re.sub(r"\s+", " ", clean_c).strip()
+                if clean_c in viet_names:
+                    g["has_viet_mod"] = True
+                    g["viet_mod_game_id"] = viet_names[clean_c]
+                else:
+                    for vn_k, vn_id in viet_names.items():
+                        if vn_k and (vn_k in clean_c or clean_c in vn_k):
+                            g["has_viet_mod"] = True
+                            g["viet_mod_game_id"] = vn_id
+                            break
+
+            return {
+                "success": True,
+                "total": len(games),
+                "query": query,
+                "games": games
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "games": []}
+
+    def start_torrent_download(self, uri, title="", save_dir=None):
+        """Bắt đầu tải game bằng aria2c (Magnet / Torrent / HTTP link)."""
+        try:
+            res = TORRENT_MGR.add_download(uri=uri, title=title, save_dir=save_dir)
+            return res
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_torrent_downloads_status(self):
+        """Lấy tiến độ realtime của tất cả các tiến trình tải về."""
+        try:
+            downloads = TORRENT_MGR.get_all_downloads_status()
+            return {"success": True, "downloads": downloads}
+        except Exception as e:
+            return {"success": False, "error": str(e), "downloads": []}
+
+    def pause_torrent_download(self, gid):
+        """Tạm dừng tải task theo GID."""
+        try:
+            return TORRENT_MGR.pause_download(gid)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def resume_torrent_download(self, gid):
+        """Tiếp tục tải task theo GID."""
+        try:
+            return TORRENT_MGR.resume_download(gid)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def cancel_torrent_download(self, gid, delete_files=False):
+        """Hủy tải task theo GID."""
+        try:
+            return TORRENT_MGR.cancel_download(gid, delete_files=delete_files)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def open_external_torrent(self, uri):
+        """Mở magnet link bằng phần mềm torrent mặc định của máy (qBittorrent, BitTorrent...)."""
+        try:
+            return TORRENT_MGR.open_external_torrent(uri)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def open_torrent_folder(self, folder_path=None):
+        """Mở thư mục chứa file tải về trên Windows Explorer."""
+        try:
+            target = folder_path if folder_path and os.path.exists(folder_path) else TORRENT_MGR.default_download_dir
+            if os.path.exists(target):
+                os.startfile(target)
+                return {"success": True, "path": target}
+            return {"success": False, "message": "Thư mục không tồn tại."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def quit_app(self):
         """Immediately and cleanly terminate the application"""
         if INSTALL_PROGRESS.get("status") == "running":
@@ -6835,14 +3277,28 @@ class ModManagerAPI:
         except Exception:
             pass
 
-        # 3. Hủy cửa sổ giao diện ngay lập tức
+        # 3. Dọn dẹp sạch sẽ mọi file wrapper giả lập tay cầm nếu còn sót
+        try:
+            if "CONTROLLER_ENGINE" in globals() and CONTROLLER_ENGINE:
+                CONTROLLER_ENGINE.cleanup_all()
+        except Exception:
+            pass
+
+        # 3.1. Dừng triệt để aria2c daemon nếu đang chạy
+        try:
+            if "TORRENT_MGR" in globals() and TORRENT_MGR:
+                TORRENT_MGR.stop_daemon()
+        except Exception:
+            pass
+
+        # 4. Hủy cửa sổ giao diện ngay lập tức
         if self.window:
             try:
                 self.window.destroy()
             except Exception:
                 pass
 
-        # 4. Thoát tiến trình ngay lập tức
+        # 5. Thoát tiến trình ngay lập tức
         def _instant_exit():
             time.sleep(0.05)
             os._exit(0)
@@ -7005,6 +3461,14 @@ def serve_app_icon():
 @server_app.route("/static/<filepath:path>")
 def serve_static(filepath):
     return static_file(filepath, root=STATIC_DIR)
+
+@server_app.route("/css/<filepath:path>")
+def serve_css(filepath):
+    return static_file(filepath, root=os.path.join(STATIC_DIR, "css"))
+
+@server_app.route("/js/<filepath:path>")
+def serve_js(filepath):
+    return static_file(filepath, root=os.path.join(STATIC_DIR, "js"))
 
 @server_app.route("/assets/<filepath:path>")
 def serve_assets(filepath):
@@ -7814,6 +4278,300 @@ def api_community_cloud_config():
     data = request.json or {}
     server_url = data.get("server_url", "")
     res = COMMUNITY_CLOUD_MGR.set_server_url(server_url)
+    return json.dumps(res, ensure_ascii=False)
+
+
+# =========================================================================
+# GAMEPAD EMULATION & STEAM INPUT FOR OFFLINE GAMES (CẤP ĐỘ 3)
+# =========================================================================
+@server_app.route("/api/gamepad/controllers", method="GET")
+def api_gamepad_controllers():
+    """Liệt kê tất cả các tay cầm đang kết nối (PlayStation, Xbox, Switch, DirectInput)."""
+    response.content_type = "application/json"
+    try:
+        controllers = CONTROLLER_ENGINE.detect_controllers()
+        return json.dumps({"success": True, "controllers": controllers}, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e), "controllers": []}, ensure_ascii=False)
+
+
+@server_app.route("/api/gamepad/config/<game_id>", method="GET")
+def api_gamepad_get_config(game_id):
+    """Lấy cấu hình giả lập tay cầm cho game (từ Hồ Sơ .congu_save)."""
+    response.content_type = "application/json"
+    try:
+        cfg = CONTROLLER_ENGINE.get_game_gamepad_config(game_id)
+        return json.dumps({"success": True, "config": cfg}, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+
+@server_app.route("/api/gamepad/config", method="POST")
+def api_gamepad_save_config():
+    """Lưu cấu hình giả lập tay cầm cho game vào thẳng Hồ Sơ .congu_save."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    config = data.get("config", {})
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "message": "game_id không được để trống!"}, ensure_ascii=False)
+    try:
+        ok = CONTROLLER_ENGINE.save_game_gamepad_config(game_id, config)
+        return json.dumps({
+            "success": ok,
+            "message": "Đã lưu cấu hình tay cầm vào Hồ Sơ .congu_save!" if ok else "Không thể lưu cấu hình."
+        }, ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+
+@server_app.route("/api/gamepad/test_vibration", method="POST")
+def api_gamepad_test_vibration():
+    """Rung thử nghiệm tay cầm để người dùng kiểm tra phản hồi xúc giác."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    ctrl_idx = int(data.get("controller_index", 0))
+    duration = float(data.get("duration_sec", 0.5))
+    try:
+        ok = CONTROLLER_ENGINE.test_vibration(ctrl_idx, duration)
+        return json.dumps({
+            "success": ok,
+            "message": "Đã kích hoạt rung tay cầm!" if ok else "Tay cầm không hỗ trợ rung XInput hoặc chưa kết nối."
+        }, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+
+# =========================================================================
+# NON-STEAM & CUSTOM GAMES AUTO-DISCOVERY PIPELINE (THÊM GAME NGOÀI)
+# =========================================================================
+@server_app.route("/api/custom_games/browse_exe", method="POST")
+def api_custom_games_browse_exe():
+    """Mở hộp thoại chọn file .exe của game ngoài."""
+    response.content_type = "application/json"
+    res = api_instance.browse_custom_game_exe()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/custom_games/detect", method="POST")
+def api_custom_games_detect():
+    """Tự động phân tích và nhận diện game ngoài qua 4 phễu thông minh."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    exe_path = data.get("exe_path", "")
+    if not exe_path:
+        response.status = 400
+        return json.dumps({"success": False, "message": "Đường dẫn file .exe không được để trống!"}, ensure_ascii=False)
+    res = api_instance.detect_custom_game(exe_path)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/custom_games/save", method="POST")
+def api_custom_games_save():
+    """Lưu game ngoài vào danh sách thư viện CỔ NGỮ."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_data = data.get("game_data", {})
+    if not game_data:
+        response.status = 400
+        return json.dumps({"success": False, "message": "Dữ liệu game không được để trống!"}, ensure_ascii=False)
+    res = api_instance.save_custom_game(game_data)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/custom_games/delete", method="POST")
+def api_custom_games_delete():
+    """Xóa game ngoài khỏi thư viện."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "message": "game_id không được để trống!"}, ensure_ascii=False)
+    res = api_instance.delete_custom_game(game_id)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/custom_games/set_appid", method="POST")
+def api_custom_games_set_appid():
+    """Cập nhật Steam AppID cho game tự thêm và tải schema thành tựu."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    steam_appid = str(data.get("steam_appid", "")).strip()
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "message": "game_id không được để trống!"}, ensure_ascii=False)
+    res = api_instance.set_custom_game_appid(game_id, steam_appid)
+    return json.dumps(res, ensure_ascii=False)
+
+
+# =========================================================================
+# HYDRA REPACK SOURCES & TORRENT DOWNLOAD ENGINE REST APIS
+# =========================================================================
+@server_app.route("/api/hydra/sources", method="GET")
+def api_hydra_sources():
+    """Lấy danh sách các nguồn Hydra và thống kê cache."""
+    response.content_type = "application/json"
+    res = api_instance.get_hydra_sources()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/hydra/sources/add", method="POST")
+def api_hydra_sources_add():
+    """Thêm nguồn Hydra mới."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    urls = data.get("urls") or data.get("url")
+    if not urls:
+        response.status = 400
+        return json.dumps({"success": False, "message": "URL nguồn không được để trống!"}, ensure_ascii=False)
+    res = api_instance.add_hydra_sources(urls)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/hydra/sources/remove", method="POST")
+def api_hydra_sources_remove():
+    """Xóa một nguồn Hydra."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    url = data.get("url", "")
+    if not url:
+        response.status = 400
+        return json.dumps({"success": False, "message": "URL nguồn không được để trống!"}, ensure_ascii=False)
+    res = api_instance.remove_hydra_source(url)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/hydra/sources/sync", method="POST")
+def api_hydra_sources_sync():
+    """Đồng bộ các nguồn Hydra."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    force = bool(data.get("force", False))
+    res = api_instance.sync_hydra_sources(force=force)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/hydra/sources/import_local", method="POST")
+def api_hydra_sources_import_local():
+    """Mở hộp thoại chọn file .json từ máy tính và nạp vào cache."""
+    response.content_type = "application/json"
+    res = api_instance.browse_and_import_hydra_json()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/hydra/catalogue/search", method=["GET", "POST"])
+def api_hydra_catalogue_search():
+    """Tìm kiếm danh mục game và link tải theo từng nguồn Repack."""
+    response.content_type = "application/json"
+    if request.method == "POST":
+        data = request.json or {}
+    else:
+        data = dict(request.query)
+    query = data.get("query", "").strip()
+    limit = int(data.get("limit", 50))
+    res = api_instance.search_catalogue_games(query=query, limit=limit)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/hydra/search", method="POST")
+def api_hydra_search():
+    """Tìm kiếm link tải game theo game_id hoặc tên game."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    query_title = data.get("title", "")
+    steam_appid = str(data.get("steam_appid", "")).strip()
+    res = api_instance.search_game_downloads(game_id=game_id, query_title=query_title, steam_appid=steam_appid)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/start", method="POST")
+def api_torrent_start():
+    """Bắt đầu tải file qua aria2c."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    uri = data.get("uri", "")
+    title = data.get("title", "")
+    save_dir = data.get("save_dir", None)
+    if not uri:
+        response.status = 400
+        return json.dumps({"success": False, "message": "URI tải về không được để trống!"}, ensure_ascii=False)
+    res = api_instance.start_torrent_download(uri=uri, title=title, save_dir=save_dir)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/status", method="GET")
+def api_torrent_status():
+    """Lấy trạng thái tất cả các download."""
+    response.content_type = "application/json"
+    res = api_instance.get_torrent_downloads_status()
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/pause", method="POST")
+def api_torrent_pause():
+    """Tạm dừng một tác vụ tải."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    gid = data.get("gid", "")
+    if not gid:
+        response.status = 400
+        return json.dumps({"success": False, "message": "GID không được để trống!"}, ensure_ascii=False)
+    res = api_instance.pause_torrent_download(gid)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/resume", method="POST")
+def api_torrent_resume():
+    """Tiếp tục một tác vụ tải."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    gid = data.get("gid", "")
+    if not gid:
+        response.status = 400
+        return json.dumps({"success": False, "message": "GID không được để trống!"}, ensure_ascii=False)
+    res = api_instance.resume_torrent_download(gid)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/cancel", method="POST")
+def api_torrent_cancel():
+    """Hủy một tác vụ tải."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    gid = data.get("gid", "")
+    delete_files = bool(data.get("delete_files", False))
+    if not gid:
+        response.status = 400
+        return json.dumps({"success": False, "message": "GID không được để trống!"}, ensure_ascii=False)
+    res = api_instance.cancel_torrent_download(gid, delete_files=delete_files)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/open_external", method="POST")
+def api_torrent_open_external():
+    """Mở link qua ứng dụng Torrent bên ngoài."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    uri = data.get("uri", "")
+    if not uri:
+        response.status = 400
+        return json.dumps({"success": False, "message": "URI không được để trống!"}, ensure_ascii=False)
+    res = api_instance.open_external_torrent(uri)
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/torrent/open_folder", method="POST")
+def api_torrent_open_folder():
+    """Mở thư mục chứa file tải về."""
+    response.content_type = "application/json"
+    data = request.json or {}
+    folder_path = data.get("folder_path", None)
+    res = api_instance.open_torrent_folder(folder_path)
     return json.dumps(res, ensure_ascii=False)
 
 
