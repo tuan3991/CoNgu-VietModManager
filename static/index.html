@@ -437,6 +437,11 @@
             </div>
 
             <div class="flex items-center space-x-2">
+              <!-- Nút Yêu thích game (trạng thái & icon do syncFavoriteDetailButton() cập nhật) -->
+              <button id="detailFavoriteBtn" onclick="toggleFavorite(activeModalGameId)" class="fav-heart-btn pixel-btn px-2.5 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#FF2A85] text-xs flex items-center space-x-1.5" title="Yêu thích / Bỏ yêu thích" aria-pressed="false">
+                <i data-lucide="heart" class="fav-heart-icon w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline font-bold">Yêu Thích</span>
+              </button>
               <button onclick="openAvatarPicker(activeModalGameId)" class="pixel-btn px-2.5 py-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#00F0FF] text-xs flex items-center space-x-1.5" title="Đổi ảnh bìa từ Steam Store hoặc ảnh trên máy">
                 <i data-lucide="image-plus" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
                 <span class="hidden sm:inline font-bold">Đổi Ảnh Bìa</span>

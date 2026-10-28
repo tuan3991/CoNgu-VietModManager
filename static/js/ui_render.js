@@ -74,6 +74,80 @@
     }
 
     // -------------------------------------------------------------
+    // Yêu thích game (Favorites): helper render nút trái tim
+    // -------------------------------------------------------------
+    function isGameFavorite(game) {
+      // Backend chưa sẵn sàng (is_favorite undefined) => coi như chưa yêu thích
+      return !!(game && game.is_favorite);
+    }
+
+    // Nút tim trên một dòng game ở sidebar: đã thích -> luôn hiện, chưa thích -> hiện khi hover dòng
+    function sidebarFavoriteButtonHtml(game) {
+      const isFav = isGameFavorite(game);
+      const justToggled = (typeof favoriteJustToggledId !== 'undefined' && favoriteJustToggledId === game.id);
+      const heartClasses = isFav
+        ? 'fav-heart-icon w-3 h-3 text-[#FF2A85] fill-[#FF2A85]'
+        : 'fav-heart-icon w-3 h-3 text-slate-500';
+      return `
+        <button
+          type="button"
+          onclick="event.stopPropagation(); toggleFavorite('${game.id}')"
+          ondblclick="event.stopPropagation()"
+          class="fav-heart-btn ${isFav ? 'is-favorite opacity-100' : 'opacity-0 group-hover:opacity-100'}${justToggled ? ' just-toggled' : ''} p-0.5 rounded-[2px] flex items-center justify-center cursor-pointer shrink-0"
+          title="Yêu thích / Bỏ yêu thích"
+          aria-label="Yêu thích / Bỏ yêu thích"
+          aria-pressed="${isFav ? 'true' : 'false'}"
+        >
+          <i data-lucide="heart" class="${heartClasses}"></i>
+        </button>
+      `;
+    }
+
+    // Nút tim dạng badge tròn ở góc trên-phải poster (lưới trang chủ)
+    function gridFavoriteButtonHtml(game) {
+      const isFav = isGameFavorite(game);
+      const justToggled = (typeof favoriteJustToggledId !== 'undefined' && favoriteJustToggledId === game.id);
+      const heartClasses = isFav
+        ? 'fav-heart-icon w-3.5 h-3.5 text-[#FF2A85] fill-[#FF2A85]'
+        : 'fav-heart-icon w-3.5 h-3.5 text-slate-500';
+      return `
+        <button
+          type="button"
+          onclick="event.stopPropagation(); toggleFavorite('${game.id}')"
+          class="fav-heart-btn fav-heart-badge ${isFav ? 'is-favorite opacity-100' : 'opacity-0 group-hover:opacity-100'}${justToggled ? ' just-toggled' : ''} absolute top-2 right-2 z-30 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
+          title="Yêu thích / Bỏ yêu thích"
+          aria-label="Yêu thích / Bỏ yêu thích"
+          aria-pressed="${isFav ? 'true' : 'false'}"
+        >
+          <i data-lucide="heart" class="${heartClasses}"></i>
+        </button>
+      `;
+    }
+
+    // Đồng bộ nút tim ở thanh công cụ trang chi tiết game (viewGameDetail)
+    function syncFavoriteDetailButton() {
+      const btn = document.getElementById('detailFavoriteBtn');
+      if (!btn) return;
+
+      const game = gamesList.find(g => g.id === activeModalGameId);
+      const isFav = isGameFavorite(game);
+      const justToggled = (typeof favoriteJustToggledId !== 'undefined' && favoriteJustToggledId === activeModalGameId);
+
+      btn.className = `fav-heart-btn pixel-btn px-2.5 py-1.5 text-xs flex items-center space-x-1.5 ${
+        isFav
+          ? 'is-favorite bg-[#FF2A85]/15 text-[#FF2A85] border border-[#FF2A85] hover:bg-[#FF2A85]/30'
+          : 'bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] hover:border-[#FF2A85]'
+      }${justToggled ? ' just-toggled' : ''}`;
+      btn.title = isFav ? 'Bỏ khỏi Yêu thích' : 'Thêm vào Yêu thích';
+      btn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+      btn.innerHTML = `
+        <i data-lucide="heart" class="fav-heart-icon w-3.5 h-3.5 ${isFav ? 'text-[#FF2A85] fill-[#FF2A85]' : 'text-slate-400'}"></i>
+        <span class="hidden sm:inline font-bold">${isFav ? 'Đã Yêu Thích' : 'Yêu Thích'}</span>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // -------------------------------------------------------------
     // Steam-Style Game Library Sidebar System
     // -------------------------------------------------------------
     function renderSidebar() {
@@ -104,11 +178,18 @@
         });
       }
 
-      // 4. Sort
+      // 4. Sort: game YÊU THÍCH luôn xếp trước (cả A-Z và Gần đây), sau đó mới tới tiêu chí cũ
+      const favoriteFirst = (a, b) => (isGameFavorite(b) ? 1 : 0) - (isGameFavorite(a) ? 1 : 0);
       if (sidebarSort === 'az') {
-        list.sort((a, b) => (a.title || a.vietnamese_title || '').localeCompare(b.title || b.vietnamese_title || ''));
+        list.sort((a, b) => {
+          const byFavorite = favoriteFirst(a, b);
+          if (byFavorite !== 0) return byFavorite;
+          return (a.title || a.vietnamese_title || '').localeCompare(b.title || b.vietnamese_title || '');
+        });
       } else if (sidebarSort === 'recent') {
         list.sort((a, b) => {
+          const byFavorite = favoriteFirst(a, b);
+          if (byFavorite !== 0) return byFavorite;
           const ta = (a.playtime && a.playtime.last_played) || 0;
           const tb = (b.playtime && b.playtime.last_played) || 0;
           return tb - ta;
@@ -139,9 +220,13 @@
         return;
       }
 
-      const groupInstalled = list.filter(g => g.status_code === 'INSTALLED');
-      const groupDetected = list.filter(g => g.status_code === 'NOT_INSTALLED' || g.status_code === 'UPDATE_DETECTED');
-      const groupMissing = list.filter(g => g.status_code === 'GAME_MISSING');
+      // Nhóm YÊU THÍCH luôn ở trên cùng; các game đã thích không lặp lại ở những nhóm bên dưới
+      const groupFavorite = list.filter(g => isGameFavorite(g));
+      const remainingList = list.filter(g => !isGameFavorite(g));
+
+      const groupInstalled = remainingList.filter(g => g.status_code === 'INSTALLED');
+      const groupDetected = remainingList.filter(g => g.status_code === 'NOT_INSTALLED' || g.status_code === 'UPDATE_DETECTED');
+      const groupMissing = remainingList.filter(g => g.status_code === 'GAME_MISSING');
 
       const isHomeActive = !activeModalGameId && !activeSidebarGameId;
       let html = `
@@ -227,6 +312,7 @@
                     <i data-lucide="play" class="w-3 h-3 fill-[#00FF9D]"></i>
                   </button>
                 ` : ''}
+                ${sidebarFavoriteButtonHtml(game)}
               </div>
             </div>
           `;
@@ -238,6 +324,9 @@
         `;
         return s;
       }
+
+      // Nhóm YÊU THÍCH nằm ngay dưới dòng "Trang Chủ Kho Game" và chỉ hiện khi có game đã thích
+      html += buildGroup('★ YÊU THÍCH', groupFavorite, 'star', 'text-[#FF2A85]');
 
       if (sidebarFilter === 'installed') {
         html += buildGroup('Đã Cài Việt Hóa', groupInstalled, 'check-circle-2', 'text-[#00FF9D]');
@@ -629,7 +718,8 @@
       const container = document.getElementById('gamesGrid');
       container.innerHTML = '';
 
-      let filtered = gamesList;
+      // Sao chép mảng để không làm thay đổi thứ tự gốc của gamesList khi sort
+      let filtered = Array.isArray(gamesList) ? [...gamesList] : [];
 
       // 1. Status Filter
       if (activeFilter === 'installed') {
@@ -680,6 +770,9 @@
         });
       }
 
+      // 4. Sắp xếp: game YÊU THÍCH luôn lên đầu lưới (giữ nguyên thứ tự cũ cho các game còn lại)
+      filtered.sort((a, b) => (isGameFavorite(b) ? 1 : 0) - (isGameFavorite(a) ? 1 : 0));
+
       if (filtered.length === 0) {
         container.innerHTML = `
           <div class="col-span-full py-16 text-center text-slate-500 space-y-2">
@@ -693,7 +786,8 @@
 
       filtered.forEach(game => {
         const card = document.createElement('div');
-        card.className = 'group relative pixel-card overflow-hidden flex flex-col';
+        // Card đang Yêu thích được viền/glow hồng neon nhẹ (xem .pixel-card.is-favorite trong styles.css)
+        card.className = `group relative pixel-card overflow-hidden flex flex-col${isGameFavorite(game) ? ' is-favorite' : ''}`;
         card.setAttribute('data-game-id', game.id);
 
         const posterSrc = game.local_cover 
@@ -746,11 +840,14 @@
               <h3 class="font-display text-sm font-bold text-white tracking-wide line-clamp-3 leading-snug px-2">${game.title}</h3>
             </div>
 
-            <!-- Nút Đổi ảnh / Ghép lại game -->
+            <!-- Nút Trái tim Yêu thích (badge tròn góc trên-phải, luôn hiện khi đã thích) -->
+            ${gridFavoriteButtonHtml(game)}
+
+            <!-- Nút Đổi ảnh / Ghép lại game (hạ xuống dưới nút tim để không chồng lên nhau) -->
             <button 
               onclick="event.stopPropagation(); openAvatarPicker('${game.id}', '${(game.title || '').replace(/'/g, "\\'")}')"
               title="Sai hoặc thiếu ảnh bìa? Bấm để tìm & chọn lại game"
-              class="opacity-75 hover:opacity-100 group-hover:opacity-100 transition-all duration-200 absolute top-2 right-2 z-30 bg-[#070814]/80 hover:bg-[#00F0FF] hover:text-black text-[#00F0FF] p-1.5 rounded-[4px] border border-white/20 hover:border-[#00F0FF] shadow-[0_2px_8px_rgba(0,0,0,0.5)] flex items-center justify-center"
+              class="opacity-75 hover:opacity-100 group-hover:opacity-100 transition-all duration-200 absolute top-11 right-2 z-30 bg-[#070814]/80 hover:bg-[#00F0FF] hover:text-black text-[#00F0FF] p-1.5 rounded-[4px] border border-white/20 hover:border-[#00F0FF] shadow-[0_2px_8px_rgba(0,0,0,0.5)] flex items-center justify-center"
               style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
               <i data-lucide="image-plus" class="w-3.5 h-3.5"></i>
             </button>
@@ -843,6 +940,7 @@
       }
 
       updateSidebarSelection(game.id);
+      syncFavoriteDetailButton();
 
       const modalBannerImg = game.local_cover || (game.assets && game.assets.banner) || game.header_url || game.avatar_url || '';
       document.getElementById('modalBannerBg').style.backgroundImage = `url('${modalBannerImg}')`;

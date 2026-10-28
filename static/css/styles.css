@@ -362,3 +362,84 @@
     .cursor-pointer {
       -webkit-app-region: no-drag;
     }
+
+    /* =============================================================
+       YÊU THÍCH GAME (Steam-style Favorites)
+       Nút trái tim dùng chung: sidebar, lưới poster, trang chi tiết
+       ============================================================= */
+    @keyframes favHeartPop {
+      0%   { transform: scale(0.65); }
+      60%  { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+
+    .fav-heart-btn {
+      transition: transform 0.16s ease, opacity 0.18s ease,
+                  background-color 0.18s ease, border-color 0.18s ease,
+                  box-shadow 0.18s ease, color 0.16s ease;
+    }
+    .fav-heart-btn:hover {
+      transform: scale(1.15);
+    }
+    .fav-heart-btn:active {
+      transform: scale(0.88);
+    }
+    .fav-heart-btn:focus-visible {
+      outline: 1px solid var(--neon-magenta);
+      outline-offset: 2px;
+    }
+
+    /* Tim CHƯA yêu thích: viền xám, rỗng ruột, chỉ rõ khi hover */
+    .fav-heart-btn .fav-heart-icon {
+      color: #64748B;
+      fill: none;
+      stroke: currentColor;
+      transition: color 0.16s ease, fill 0.16s ease, filter 0.16s ease;
+    }
+    .fav-heart-btn:hover .fav-heart-icon {
+      color: var(--neon-magenta);
+      fill: rgba(255, 42, 133, 0.18);
+    }
+
+    /* Tim ĐÃ yêu thích: hồng neon, fill kín, glow nhẹ */
+    .fav-heart-btn.is-favorite .fav-heart-icon {
+      color: var(--neon-magenta);
+      fill: var(--neon-magenta);
+      stroke: var(--neon-magenta);
+      filter: drop-shadow(0 0 4px rgba(255, 42, 133, 0.75));
+    }
+    .fav-heart-btn.is-favorite:hover .fav-heart-icon {
+      filter: drop-shadow(0 0 7px rgba(255, 42, 133, 0.95));
+    }
+
+    /* Chỉ nút tim vừa được bấm mới nảy nhẹ (class do render gắn 1 lần, tránh blink hàng loạt) */
+    .fav-heart-btn.just-toggled .fav-heart-icon {
+      animation: favHeartPop 0.3s ease-out;
+    }
+
+    /* Badge tròn nền tối mờ + viền neon cho nút tim trên poster */
+    .fav-heart-badge {
+      background: rgba(7, 8, 20, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .fav-heart-badge:hover {
+      background: rgba(7, 8, 20, 0.95);
+      border-color: var(--neon-magenta);
+    }
+    .fav-heart-badge.is-favorite {
+      border-color: rgba(255, 42, 133, 0.7);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55), 0 0 10px rgba(255, 42, 133, 0.35);
+    }
+
+    /* Poster đang Yêu thích: viền + glow hồng rất nhẹ, giữ nguyên tông cyan của lưới */
+    .pixel-card.is-favorite {
+      border-color: rgba(255, 42, 133, 0.4) !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 14px rgba(255, 42, 133, 0.18) !important;
+    }
+    .pixel-card.is-favorite:hover {
+      border-color: var(--neon-magenta) !important;
+      box-shadow: 6px 6px 0px #05050a, 0 0 22px rgba(255, 42, 133, 0.32) !important;
+    }

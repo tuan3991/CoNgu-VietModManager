@@ -35,6 +35,105 @@
     let activeModalGameId = null;
     let selectedRating = 5;
     let progressInterval = null;
+
+    // -------------------------------------------------------------
+    // Yêu thích game (Steam-style Favorites)
+    // -------------------------------------------------------------
+    let favoritePendingIds = new Set();
+    // Id game vừa được toggle -> chỉ nút tim của game này chạy hiệu ứng "pop" khi render
+    let favoriteJustToggledId = null;
+
+    // Cập nhật cờ is_favorite trong gamesList rồi vẽ lại mọi bề mặt hiển thị game.
+    // favorites: (tuỳ chọn) danh sách id yêu thích server trả về -> đồng bộ lại toàn bộ.
+    // animate: true -> nút tim của game vừa toggle sẽ nảy nhẹ (dùng cho lần vẽ sau phản hồi server).
+    function applyFavoriteState(gameId, isFavorite, favorites, animate) {
+      if (!Array.isArray(gamesList)) return;
+
+      const target = gamesList.find(g => g.id === gameId);
+      if (target) target.is_favorite = !!isFavorite;
+
+      if (Array.isArray(favorites)) {
+        const favSet = new Set(favorites.map(id => String(id)));
+        gamesList.forEach(g => {
+          // Game vừa toggle lấy theo is_favorite (nguồn chuẩn nhất), các game khác theo danh sách
+          if (target && g.id === target.id) return;
+          g.is_favorite = favSet.has(String(g.id));
+        });
+      }
+
+      favoriteJustToggledId = animate ? gameId : null;
+
+      // Vẽ lại sidebar + lưới poster + nút tim ở trang chi tiết (nếu đang mở)
+      try {
+        [
+          typeof renderSidebar === 'function' ? renderSidebar : null,
+          typeof renderGrid === 'function' ? renderGrid : null,
+          typeof syncFavoriteDetailButton === 'function' ? syncFavoriteDetailButton : null
+        ].forEach(fn => {
+          if (!fn) return;
+          try {
+            fn();
+          } catch (e) {
+            console.warn('[Favorite] Lỗi khi vẽ lại giao diện:', e);
+          }
+        });
+      } finally {
+        favoriteJustToggledId = null;
+      }
+    }
+
+    // Bật/tắt Yêu thích với Optimistic UI (đổi ngay trên màn hình, rollback nếu lỗi)
+    async function toggleFavorite(gameId) {
+      if (!gameId || !Array.isArray(gamesList)) return;
+
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game) return;
+
+      // Chống bấm dồn dập: mỗi game chỉ có 1 request đang bay tại một thời điểm
+      if (favoritePendingIds.has(gameId)) return;
+      favoritePendingIds.add(gameId);
+
+      const prevFavorite = !!game.is_favorite;
+      const optimisticFavorite = !prevFavorite;
+
+      // 1. Optimistic UI: đảo trạng thái + render ngay, không chờ server
+      applyFavoriteState(gameId, optimisticFavorite);
+
+      try {
+        // 2. Gọi API thật (api_client đã tự gắn header X-App-Auth-Token)
+        const res = await fetch('/api/favorite/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        // Chấp nhận cả trường hợp server trả 200 nhưng body rỗng (backend chưa hoàn thiện)
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (_) {
+          data = null;
+        }
+        if (data && data.success === false) {
+          throw new Error(data.message || 'Máy chủ không trả về kết quả hợp lệ');
+        }
+
+        // 3. Đồng bộ theo phản hồi chuẩn của server (kèm hiệu ứng nảy nhẹ cho nút tim vừa bấm)
+        const finalFavorite = (data && typeof data.is_favorite === 'boolean') ? data.is_favorite : optimisticFavorite;
+        applyFavoriteState(gameId, finalFavorite, data ? data.favorites : null, true);
+
+        showToast(finalFavorite ? '⭐ Đã thêm vào Yêu thích' : 'Đã bỏ khỏi Yêu thích', 'success');
+      } catch (err) {
+        // 4. Rollback về trạng thái trước đó khi lỗi mạng / 404 / backend chưa sẵn sàng
+        console.warn('[Favorite] Toggle thất bại:', err);
+        applyFavoriteState(gameId, prevFavorite);
+        showToast('Không thể cập nhật Yêu thích. Vui lòng thử lại!', 'error');
+      } finally {
+        favoritePendingIds.delete(gameId);
+      }
+    }
+
     // Fetch games from backend API
     async function fetchGames() {
       try {
