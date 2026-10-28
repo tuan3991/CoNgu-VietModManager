@@ -17,6 +17,24 @@
       --shadow-pixel: 4px 4px 0px #05050a;
       --shadow-pixel-sm: 2px 2px 0px #05050a;
       --shadow-pixel-lg: 6px 6px 0px #05050a;
+
+      /* =========================================================
+         CUSTOM THEMES (Theme Studio) — 9 biến chuẩn + lớp wallpaper
+         Giá trị mặc định trùng khớp theme builtin cyberpunk_default.
+         ========================================================= */
+      --bg-primary: #090d16;
+      --bg-secondary: rgba(15, 23, 42, 0.85);
+      --text-primary: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-color: #06b6d4;
+      --accent-hover: #22d3ee;
+      --border-color: rgba(6, 182, 212, 0.25);
+      --card-radius: 12px;
+      --glass-blur: 12px;
+
+      /* Lớp ảnh nền do theme cung cấp (mặc định tắt). */
+      --bg-wallpaper: none;
+      --bg-opacity: 0.22;
     }
 
     body {
@@ -442,4 +460,273 @@
     .pixel-card.is-favorite:hover {
       border-color: var(--neon-magenta) !important;
       box-shadow: 6px 6px 0px #05050a, 0 0 22px rgba(255, 42, 133, 0.32) !important;
+    }
+
+    /* =============================================================
+       CUSTOM THEMES & THEME STUDIO
+       -------------------------------------------------------------
+       * Ảnh nền theme phủ toàn app bằng body::before (không chặn click).
+       * Mọi override giao diện chỉ chạy khi data-theme KHÁC
+         "cyberpunk_default" => theme mặc định / chưa nạp giữ nguyên 100%.
+       ============================================================= */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: var(--bg-wallpaper);
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      opacity: var(--bg-opacity);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Khi có wallpaper: hạ lớp pixel-city gốc xuống dưới để ảnh nền hiện rõ.
+       Nội dung app (z-10, z-20, z-40...) vẫn luôn nằm trên lớp phủ này. */
+    body.congu-has-wallpaper > div.pointer-events-none.fixed.inset-0.z-0 {
+      z-index: -1 !important;
+    }
+
+    /* Áp biến màu cho body (chỉ khi đã có theme được nạp). */
+    body[data-theme] {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    /* Theme mặc định: trả lại đúng nền gradient + màu chữ gốc của app. */
+    body[data-theme="cyberpunk_default"] {
+      background-color: transparent;
+      color: #F1F5F9;
+    }
+
+    /* Theme tuỳ chỉnh: bỏ gradient gốc để màu nền chủ đạo lộ ra. */
+    body[data-theme]:not([data-theme="cyberpunk_default"]) {
+      background-image: none;
+    }
+
+    /* --- Bề mặt lớn: header, sidebar, panel chi tiết, footer --- */
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #appTitlebar,
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #librarySidebar,
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #collapsedSidebarStrip,
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #viewGameDetail > div:first-child,
+    body[data-theme]:not([data-theme="cyberpunk_default"]) footer {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #appTitlebar {
+      border-bottom-color: var(--border-color) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #librarySidebar > div:first-child,
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #librarySidebar > div:last-child {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+    }
+
+    /* --- Dòng game trong sidebar --- */
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .sidebar-game-row {
+      border-radius: var(--card-radius) !important;
+    }
+
+    /* --- Thẻ poster game --- */
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-card {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+      border-radius: var(--card-radius) !important;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-card:hover {
+      border-color: var(--accent-color) !important;
+      box-shadow: 6px 6px 0px #05050a, 0 0 22px var(--border-color) !important;
+    }
+
+    /* --- Modal / panel kính --- */
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-modal {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+      border-radius: var(--card-radius) !important;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    /* --- Hero spotlight, thanh tìm kiếm, tab lọc, nút accent --- */
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #heroBanner.hero-arcade-frame {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--accent-color) !important;
+      outline-color: var(--accent-hover);
+      box-shadow: 6px 6px 0px #05050a, 0 0 25px var(--border-color) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) #searchInput {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+      border-radius: var(--card-radius) !important;
+      color: var(--text-primary) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-muted) !important;
+      border-radius: var(--card-radius) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab:hover {
+      border-color: var(--accent-color) !important;
+      color: var(--text-primary) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab.active-filter-tab {
+      background-color: var(--accent-color) !important;
+      border-color: var(--accent-color) !important;
+      color: #05050a !important;
+      box-shadow: 3px 3px 0px #05050a, 0 0 15px var(--border-color) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-cyan {
+      background-color: var(--bg-secondary) !important;
+      color: var(--accent-color) !important;
+      border-color: var(--accent-color) !important;
+    }
+
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-cyan:hover {
+      background-color: var(--accent-color) !important;
+      color: #05050a !important;
+      box-shadow: 4px 4px 0px #05050a, 0 0 16px var(--border-color) !important;
+    }
+
+    /* =============================================================
+       THEME STUDIO MODAL
+       ============================================================= */
+    #themeManagerModal .theme-studio-panel {
+      background-color: var(--bg-secondary) !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: var(--card-radius) !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 24px var(--border-color) !important;
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    .theme-tab-btn {
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      background-color: transparent;
+      transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .theme-tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .theme-tab-btn.is-active {
+      color: var(--accent-color);
+      border-bottom-color: var(--accent-color);
+      background-color: rgba(255, 255, 255, 0.025);
+    }
+
+    .theme-input {
+      width: 100%;
+      padding: 8px 10px;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .theme-input:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 2px var(--border-color);
+    }
+    .theme-input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+
+    .theme-color-field {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .theme-color-field:hover {
+      border-color: var(--accent-color);
+    }
+    .theme-color-field input[type="color"] {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .theme-color-field input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 2px;
+    }
+    .theme-color-field input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 2px;
+    }
+    .theme-color-field .theme-color-label {
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .theme-color-field .theme-color-hex {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .theme-range {
+      width: 100%;
+      height: 6px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .theme-bg-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background-color: var(--bg-primary);
+      border: 1px dashed var(--border-color);
+      border-radius: 4px;
+      color: var(--text-muted);
+      min-width: 0;
+    }
+
+    .theme-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--card-radius);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+    .theme-card:hover {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 18px var(--border-color);
+      transform: translateY(-1px);
+    }
+    .theme-card.is-active {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 1px var(--accent-color), 0 0 18px var(--border-color);
+    }
+    .theme-card-body {
+      background-color: var(--bg-primary);
     }

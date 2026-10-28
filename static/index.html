@@ -159,6 +159,12 @@
           <span class="hidden md:inline font-bold">Tải Game</span>
           <span id="hydraActiveDownloadsBadge" class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-pixel border border-cyan-500/40 hidden">0</span>
         </button>
+
+        <!-- Nút Tùy Chỉnh Giao Diện / Theme Studio (icon-only ở cửa sổ 1340px để không ép header) -->
+        <button id="themeStudioBtn" onclick="openThemeManager()" aria-label="Giao Diện" class="pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-[#FF2A85]/50 bg-[#190a1c]/90 text-pink-300 hover:bg-[#2a0d24] hover:border-[#FF2A85] transition shadow-[2px_2px_0px_#05050a]" title="Tùy Chỉnh Giao Diện (Theme Studio)">
+          <i data-lucide="palette" class="w-3.5 h-3.5 text-[#FF2A85]"></i>
+          <span class="hidden 2xl:inline font-bold">Giao Diện</span>
+        </button>
       </div>
 
       <!-- Safe Visual Divider -->
@@ -2502,6 +2508,188 @@
     <div class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></div>
   </div>
 
+  <!-- ============================================================= -->
+  <!-- THEME STUDIO MODAL — Đổi giao diện tức thì & tự thiết kế theme -->
+  <!-- ============================================================= -->
+  <div id="themeManagerModal" class="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md hidden" onclick="if (event.target === this) closeThemeManager()">
+    <div class="theme-studio-panel pixel-modal relative w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="themeStudioTitle">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-white/10 bg-[#070814]/70 shrink-0">
+        <div class="flex items-center space-x-3 min-w-0">
+          <div class="w-9 h-9 rounded-[2px] bg-[#FF2A85]/15 border border-[#FF2A85]/60 text-[#FF2A85] flex items-center justify-center shrink-0 shadow-[2px_2px_0px_#05050a]">
+            <i data-lucide="palette" class="w-4 h-4"></i>
+          </div>
+          <div class="min-w-0">
+            <h2 id="themeStudioTitle" class="font-display text-base sm:text-lg font-bold text-white tracking-wide flex items-center gap-2">
+              THEME STUDIO
+              <span class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50">CUSTOM</span>
+            </h2>
+            <p class="text-[11px] text-slate-400 font-sans truncate">Đổi giao diện tức thì, không cần khởi động lại ứng dụng</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeThemeManager()" class="pixel-btn p-1.5 bg-[#0e1022] hover:bg-[#1a1d36] text-slate-400 hover:text-white border border-[#00F0FF]/50 rounded-[2px] cursor-pointer" title="Đóng Theme Studio (Esc)">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex items-center gap-1 px-5 pt-2 border-b border-white/10 bg-[#080a16]/60 shrink-0" role="tablist">
+        <button type="button" id="themeTabBtnCollection" onclick="switchThemeTab('collection')" class="theme-tab-btn is-active px-3.5 py-2.5 text-xs font-bold font-display tracking-wide flex items-center space-x-1.5 cursor-pointer" role="tab" aria-selected="true">
+          <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+          <span>Bộ Sưu Tập</span>
+          <span id="themeCountBadge" class="font-pixel text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/40">0</span>
+        </button>
+        <button type="button" id="themeTabBtnStudio" onclick="switchThemeTab('studio')" class="theme-tab-btn px-3.5 py-2.5 text-xs font-bold font-display tracking-wide flex items-center space-x-1.5 cursor-pointer" role="tab" aria-selected="false">
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+          <span>Tự Thiết Kế</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto custom-sidebar-scroll">
+        <!-- TAB 1: BỘ SƯU TẬP -->
+        <section id="themeTabPanelCollection" class="p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-display text-sm font-bold text-white tracking-wide">Bộ Sưu Tập Giao Diện</h3>
+              <p class="text-[11px] text-slate-400 font-sans mt-0.5">Chọn một giao diện và bấm <span class="text-[#00F0FF] font-bold">Áp dụng</span> — hiệu lực ngay lập tức.</p>
+            </div>
+            <button type="button" id="themeImportBtn" onclick="importThemePackage()" class="pixel-btn btn-cyber-magenta px-3 py-2 text-xs flex items-center space-x-1.5 cursor-pointer" title="Mở hộp thoại chọn gói .congu_theme để cài vào máy">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>＋ Nhập Theme (.congu_theme)</span>
+            </button>
+          </div>
+
+          <div id="themeGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <!-- Render bởi static/js/theme_manager.js -->
+          </div>
+
+          <p class="text-[10px] text-slate-500 font-sans">Theme mặc định không thể xóa. Theme tự tạo được lưu trong thư mục dữ liệu Cổ Ngữ và có thể xuất thành gói <code class="font-mono-tech text-[#00FF9F]">.congu_theme</code> để chia sẻ cộng đồng.</p>
+        </section>
+
+        <!-- TAB 2: TỰ THIẾT KẾ -->
+        <section id="themeTabPanelStudio" class="p-5 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <!-- Cột trái: bảng màu + thanh trượt -->
+            <div class="lg:col-span-3 space-y-4">
+              <div class="p-4 rounded-[2px] border border-white/10 bg-[#080a16]/60 space-y-3">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="palette" class="w-4 h-4 text-[#00F0FF]"></i>
+                  <h3 class="font-display text-xs font-bold text-white tracking-wide uppercase">Bảng Màu</h3>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label class="theme-color-field" for="themeColorBg" title="Màu nền chính của ứng dụng">
+                    <input type="color" id="themeColorBg" value="#090d16" oninput="previewStudioTheme()" aria-label="Màu nền chính" />
+                    <span class="theme-color-label">Nền chính</span>
+                    <code id="themeColorBgHex" class="theme-color-hex">#090d16</code>
+                  </label>
+                  <label class="theme-color-field" for="themeColorText" title="Màu chữ chính">
+                    <input type="color" id="themeColorText" value="#f8fafc" oninput="previewStudioTheme()" aria-label="Màu chữ chính" />
+                    <span class="theme-color-label">Màu chữ</span>
+                    <code id="themeColorTextHex" class="theme-color-hex">#f8fafc</code>
+                  </label>
+                  <label class="theme-color-field" for="themeColorMuted" title="Màu chữ mờ / phụ">
+                    <input type="color" id="themeColorMuted" value="#94a3b8" oninput="previewStudioTheme()" aria-label="Màu chữ mờ" />
+                    <span class="theme-color-label">Chữ mờ</span>
+                    <code id="themeColorMutedHex" class="theme-color-hex">#94a3b8</code>
+                  </label>
+                  <label class="theme-color-field" for="themeColorAccent" title="Màu nhấn (viền, tab, nút)">
+                    <input type="color" id="themeColorAccent" value="#06b6d4" oninput="previewStudioTheme()" aria-label="Màu nhấn" />
+                    <span class="theme-color-label">Màu nhấn</span>
+                    <code id="themeColorAccentHex" class="theme-color-hex">#06b6d4</code>
+                  </label>
+                  <label class="theme-color-field" for="themeColorAccentHover" title="Màu nhấn khi hover">
+                    <input type="color" id="themeColorAccentHover" value="#22d3ee" oninput="previewStudioTheme()" aria-label="Màu nhấn hover" />
+                    <span class="theme-color-label">Nhấn hover</span>
+                    <code id="themeColorAccentHoverHex" class="theme-color-hex">#22d3ee</code>
+                  </label>
+                </div>
+              </div>
+
+              <div class="p-4 rounded-[2px] border border-white/10 bg-[#080a16]/60 space-y-4">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="sliders-horizontal" class="w-4 h-4 text-[#00F0FF]"></i>
+                  <h3 class="font-display text-xs font-bold text-white tracking-wide uppercase">Hình Khối &amp; Kính Mờ</h3>
+                </div>
+
+                <label class="block space-y-1.5" for="themeRadiusRange">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-200 font-sans">Độ bo góc thẻ / panel</span>
+                    <span id="themeRadiusValue" class="font-pixel text-[11px] text-[#00F0FF]">12px</span>
+                  </div>
+                  <input type="range" id="themeRadiusRange" class="theme-range" min="0" max="24" step="1" value="12" oninput="previewStudioTheme()" aria-label="Độ bo góc" />
+                  <div class="flex justify-between text-[9px] text-slate-500 font-mono-tech"><span>0px</span><span>24px</span></div>
+                </label>
+
+                <label class="block space-y-1.5" for="themeBlurRange">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-200 font-sans">Độ mờ kính (backdrop blur)</span>
+                    <span id="themeBlurValue" class="font-pixel text-[11px] text-[#00F0FF]">12px</span>
+                  </div>
+                  <input type="range" id="themeBlurRange" class="theme-range" min="0" max="32" step="1" value="12" oninput="previewStudioTheme()" aria-label="Độ mờ kính" />
+                  <div class="flex justify-between text-[9px] text-slate-500 font-mono-tech"><span>0px</span><span>32px</span></div>
+                </label>
+              </div>
+
+              <div class="p-3 rounded-[2px] border border-[#00F0FF]/20 bg-[#00F0FF]/5 text-[11px] text-slate-300 flex items-start gap-2">
+                <i data-lucide="eye" class="w-4 h-4 text-[#00F0FF] shrink-0 mt-0.5"></i>
+                <span>Preview trực tiếp: mọi thay đổi màu sắc, bo góc và độ mờ kính được áp dụng ngay lên ứng dụng. Đóng cửa sổ này mà không lưu sẽ khôi phục giao diện đang dùng.</span>
+              </div>
+            </div>
+
+            <!-- Cột phải: thông tin + ảnh nền + hành động -->
+            <div class="lg:col-span-2 space-y-4">
+              <div class="p-4 rounded-[2px] border border-white/10 bg-[#080a16]/60 space-y-3">
+                <h3 class="font-display text-xs font-bold text-white tracking-wide uppercase">Thông Tin Theme</h3>
+                <label class="block space-y-1" for="themeNameInput">
+                  <span class="text-[11px] text-slate-300 font-sans">Tên theme <span class="text-[#FF2A85]">*</span></span>
+                  <input id="themeNameInput" type="text" maxlength="80" value="Theme Của Tôi" placeholder="Ví dụ: Neon Sài Gòn" class="theme-input" autocomplete="off" />
+                </label>
+                <label class="block space-y-1" for="themeAuthorInput">
+                  <span class="text-[11px] text-slate-300 font-sans">Tác giả</span>
+                  <input id="themeAuthorInput" type="text" maxlength="120" placeholder="Tên bạn / nhóm dịch" class="theme-input" autocomplete="off" />
+                </label>
+              </div>
+
+              <div class="p-4 rounded-[2px] border border-white/10 bg-[#080a16]/60 space-y-3">
+                <h3 class="font-display text-xs font-bold text-white tracking-wide uppercase">Ảnh Nền</h3>
+                <button type="button" onclick="pickThemeBackground()" class="pixel-btn w-full px-3 py-2 text-xs bg-[#17192e] text-slate-200 border border-[#2b2f52] hover:text-white hover:border-[#00F0FF] flex items-center justify-center space-x-1.5 cursor-pointer" title="Mở hộp thoại chọn ảnh nền từ máy tính">
+                  <i data-lucide="image" class="w-3.5 h-3.5 text-[#00F0FF]"></i>
+                  <span>Chọn ảnh nền từ máy</span>
+                </button>
+                <div id="themeBgFileInfo" class="theme-bg-chip hidden">
+                  <i data-lucide="image" class="w-4 h-4 text-[#00FF9F] shrink-0"></i>
+                  <span id="themeBgFileName" class="truncate font-mono-tech text-[10px] text-slate-200"></span>
+                </div>
+                <button type="button" id="themeBgRemoveBtn" onclick="removeThemeBackground()" class="hidden text-[11px] text-[#FF6677] hover:text-white hover:bg-[#FF3344] px-2.5 py-1 rounded-[2px] border border-[#FF3344]/50 transition cursor-pointer">
+                  Bỏ ảnh nền
+                </button>
+                <p class="text-[10px] text-slate-500 font-sans leading-relaxed">Hỗ trợ .png/.jpg/.jpeg/.webp/.gif (tối đa 25 MB). Ảnh nền được hiển thị mờ nhẹ phía sau giao diện.</p>
+              </div>
+
+              <div class="space-y-2">
+                <button type="button" id="themeSaveBtn" onclick="saveThemeStudio()" class="pixel-btn btn-neon-green w-full px-4 py-2.5 text-xs flex items-center justify-center space-x-2 cursor-pointer">
+                  <i data-lucide="save" class="w-4 h-4"></i>
+                  <span>Lưu Theme</span>
+                </button>
+                <button type="button" onclick="switchTheme('cyberpunk_default')" class="pixel-btn w-full px-4 py-2 text-xs flex items-center justify-center space-x-2 bg-[#17192e] text-slate-300 border border-[#2b2f52] hover:text-white hover:border-[#FF2A85] cursor-pointer" title="Quay về giao diện Cyberpunk mặc định của Cổ Ngữ">
+                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                  <span>Khôi phục mặc định</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-2.5 border-t border-white/10 bg-[#070814]/70 flex items-center justify-between gap-3 shrink-0">
+        <p class="text-[10px] text-slate-500 font-sans truncate">Theme được lưu tại thư mục dữ liệu Cổ Ngữ • Áp dụng tức thì 0.1s</p>
+        <button type="button" onclick="closeThemeManager()" class="pixel-btn px-3 py-1.5 text-[11px] bg-[#17192e] text-slate-300 border border-[#2b2f52] hover:text-white cursor-pointer">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
 
@@ -2517,5 +2705,6 @@
   <script src="/static/js/ui_render.js"></script>
   <script src="/static/js/cloud_save_ui.js"></script>
   <script src="/static/js/torrent_ui.js"></script>
+  <script src="/static/js/theme_manager.js"></script>
 </body>
 </html>
