@@ -61,6 +61,7 @@ from core.config_manager import (
     save_user_data,
     load_covers_cache,
     save_covers_cache,
+    get_favorite_games,
     set_api_instance_ref,
 )
 
@@ -776,6 +777,7 @@ class ModManagerAPI:
         standalone_dirs = detect_standalone_game_dirs()
         user_data = load_user_data()
         covers_cache = load_covers_cache()
+        favorites = set(get_favorite_games())
         cfg_changed = False
 
         for g in games:
@@ -1073,6 +1075,9 @@ class ModManagerAPI:
             # Gắn dữ liệu Theo Dõi Giờ Chơi (Playtime Tracker)
             g["playtime"] = PLAYTIME_MGR.get_game_stats(gid, game_path)
 
+            # Gắn cờ Yêu thích (Steam-like Favorites) từ danh sách đã nạp 1 lần ở đầu method
+            g["is_favorite"] = bool(gid in favorites)
+
         # Gộp các game ngoài do người dùng tự thêm (Non-Steam / Custom Games)
         custom_games = load_custom_games()
         for cg in custom_games:
@@ -1110,6 +1115,9 @@ class ModManagerAPI:
 
             # Gắn playtime stats
             cg["playtime"] = PLAYTIME_MGR.get_game_stats(cg_id, cg_path)
+
+            # Gắn cờ Yêu thích (Steam-like Favorites)
+            cg["is_favorite"] = bool(cg_id in favorites)
 
             games.append(cg)
 

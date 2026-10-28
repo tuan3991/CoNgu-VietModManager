@@ -25,6 +25,8 @@ from core.config_manager import (
     get_games,
     load_covers_cache,
     save_covers_cache,
+    get_favorite_games,
+    toggle_favorite,
 )
 
 from core.installer_pipeline import (
@@ -245,6 +247,21 @@ def api_game_poster_preview():
 def api_get_games():
     response.content_type = "application/json"
     return json.dumps(api_instance.get_games(), ensure_ascii=False)
+
+@server_app.route("/api/favorite/toggle", method="POST")
+def api_toggle_favorite():
+    data = request.json or {}
+    game_id = data.get("game_id") or ""
+    res = toggle_favorite(game_id)
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/favorites", method="GET")
+def api_get_favorites():
+    response.content_type = "application/json"
+    return json.dumps({"success": True, "favorites": get_favorite_games()}, ensure_ascii=False)
 
 @server_app.route("/api/repo_dir", method="GET")
 def api_get_repo_dir():

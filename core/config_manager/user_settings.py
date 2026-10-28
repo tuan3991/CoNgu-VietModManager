@@ -91,6 +91,82 @@ def get_all_configured_game_paths() -> dict:
         return {}
 
 
+def get_favorite_games() -> list:
+    """
+    Lấy danh sách game_id người dùng đã thả tim (key 'favorite_games' trong user_config.json).
+    Luôn trả về list[str] hợp lệ, kể cả khi dữ liệu thiếu hoặc sai kiểu.
+    """
+    try:
+        cfg = load_user_config()
+        favs = cfg.get("favorite_games", [])
+        if not isinstance(favs, list):
+            return []
+        result = []
+        for gid in favs:
+            if isinstance(gid, str) and gid and gid not in result:
+                result.append(gid)
+        return result
+    except Exception as e:
+        print(f"[ConfigManager] Error loading favorite games: {e}")
+        return []
+
+
+def is_favorite(game_id: str) -> bool:
+    """Kiểm tra game_id có nằm trong danh sách yêu thích của người dùng hay không."""
+    try:
+        if not isinstance(game_id, str) or not game_id:
+            return False
+        return game_id in get_favorite_games()
+    except Exception as e:
+        print(f"[ConfigManager] Error checking favorite game: {e}")
+        return False
+
+
+def toggle_favorite(game_id: str) -> dict:
+    """
+    Đảo trạng thái yêu thích của game (thêm nếu chưa có, xóa nếu đã có),
+    lưu vào user_config.json và trả về trạng thái mới cùng danh sách yêu thích.
+    """
+    try:
+        if not isinstance(game_id, str):
+            game_id = "" if game_id is None else str(game_id)
+        game_id = game_id.strip()
+        if not game_id:
+            return {"success": False, "message": "Thiếu game_id để thả tim."}
+
+        cfg = load_user_config()
+        raw_favs = cfg.get("favorite_games", [])
+        if not isinstance(raw_favs, list):
+            raw_favs = []
+
+        # Chuẩn hóa & chống trùng lặp id
+        favorites = []
+        for gid in raw_favs:
+            if isinstance(gid, str) and gid and gid not in favorites:
+                favorites.append(gid)
+
+        if game_id in favorites:
+            favorites.remove(game_id)
+            is_fav = False
+        else:
+            favorites.append(game_id)
+            is_fav = True
+
+        cfg["favorite_games"] = favorites
+        if not save_user_config(cfg):
+            return {"success": False, "message": "Không thể lưu danh sách yêu thích."}
+
+        return {
+            "success": True,
+            "game_id": game_id,
+            "is_favorite": is_fav,
+            "favorites": favorites,
+        }
+    except Exception as e:
+        print(f"[ConfigManager] Error toggling favorite: {e}")
+        return {"success": False, "message": f"Lỗi khi lưu yêu thích: {e}"}
+
+
 def load_user_data() -> dict:
     """Nạp dữ liệu đánh giá, bình luận, machine_id từ user_data.json."""
     data = {"ratings": {}, "comments": {}, "bug_reports": [], "game_requests": [], "voted_requests": [], "machine_id": None}
