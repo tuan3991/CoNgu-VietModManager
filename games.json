@@ -1618,5 +1618,221 @@
       }
     ],
     "congu_sha256": "dd360d7328f797d0ee93fc5875b3e0692b72e5855756215a27b4993c2464064c"
+  },
+  {
+    "id": "serial_cleaners",
+    "steam_appid": "1337920",
+    "title": "Serial Cleaners",
+    "vietnamese_title": "Serial Cleaners — Việt hóa",
+    "developer": "Draw Distance",
+    "engine": "Unity 2020.3.36f1 / IL2CPP",
+    "genre": "Hành động lén lút, dọn hiện trường",
+    "description": "Bản Việt hóa cho Steam build 10874768. Thay cột English bằng tiếng Việt, gồm 3.947 mục I2 và 388 mục ngoài I2 đã duyệt. Không gồm bản game. Chưa kiểm hết từng màn/DLC; chữ trong hình/video chưa dịch đầy đủ.",
+    "executable_name": "SerialCleaners.exe",
+    "default_folder_names": [
+      "Serial Cleaners"
+    ],
+    "mod_subfolder": "Serial Cleaners",
+    "mod_type": "custom",
+    "translation_stats": {
+      "total_lines": "3.947 mục I2 + 388 mục ngoài I2 đã duyệt",
+      "status": "Đã kiểm mẫu runtime và người dùng xác nhận; chưa full playthrough/DLC",
+      "version": "1.0.0",
+      "author": "CoNgu Localization",
+      "font": "20 TMP font kiểm đủ 245 ký tự; dấu font cách điệu còn giới hạn",
+      "last_updated": "01/11/2026",
+      "mod_size": "~116.9 MB"
+    },
+    "versions": [
+      {
+        "version": "1.0.0",
+        "release_date": "01/11/2026",
+        "changelog": "Việt hóa phạm vi text đã xác minh; font tiếng Việt và catalog Addressables tương ứng. Chọn English. Steam build 10874768.",
+        "is_latest": true
+      }
+    ],
+    "install_steps": [
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_creditssystems_assets_all_e5edd933f6c1b8481574a5be5769f892.bundle",
+        "patch": "patches/01-dlcdino_creditssystems_assets_all_e5edd933f6c1b8481574a5be5769f892.bundle.vcdiff",
+        "original_sha256": "fed0d1c3aef9585ff2fe9616daf6ba0600dcb8416c2b2b3c53637fb703799587",
+        "patched_sha256": "8c61c58fb2f494e90537150947ea45da2f35ab3ded59214f5a102c1aa73ca4bd"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_creditssystems_scenes_all_13759fe7d0a10749d6a36ef246d1fb3d.bundle",
+        "patch": "patches/02-dlcdino_creditssystems_scenes_all_13759fe7d0a10749d6a36ef246d1fb3d.bundle.vcdiff",
+        "original_sha256": "0504413d250dd3e52f143fe31531664b6a75eb916a1dcbb0690e10244fcca859",
+        "patched_sha256": "d7cea9de6a1089bd9e2c7e03fe5069b6b5bedca1cb230ccd4a46832f038b8cf0"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/duplicateassetisolation_assets_all_fc7de8bc5e5b81d39a5b53b1fa73ab0a.bundle",
+        "patch": "patches/03-duplicateassetisolation_assets_all_fc7de8bc5e5b81d39a5b53b1fa73ab0a.bundle.vcdiff",
+        "original_sha256": "3f9f16c64713344373c36f4c60ef5e2e475d1ca4be1bc313b8e1c5a52b4e3d88",
+        "patched_sha256": "54604be746fef4d595dd4aca0983cff8020063fd843509bea55749a774a8a4c0"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/fonts_assets_all_402d424852f58b2ae1c3b9fb78d4dc90.bundle",
+        "patch": "patches/04-fonts_assets_all_402d424852f58b2ae1c3b9fb78d4dc90.bundle.vcdiff",
+        "original_sha256": "c9fd76af88e72bbaa299519aa8089a64309edcb641aa4d3948c21497a2f10c23",
+        "patched_sha256": "85f6915c478d90409dca364bbaa67d2ce6ef65e2b77214dba83e2e51e84cd3e5"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/gameplaysystems_assets_all_639d1e00b789b5915cfe12a0025bc113.bundle",
+        "patch": "patches/05-gameplaysystems_assets_all_639d1e00b789b5915cfe12a0025bc113.bundle.vcdiff",
+        "original_sha256": "b83cc9283d413f88cf73ce0aa95852568e48a15771a393c7de9f6d6b69a6374c",
+        "patched_sha256": "3fd4e249702212bdcb41828630126e21e6942a76b7038539fceab0bbd68d8c16"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/lifetimesystems_assets_all_ec5642d675fc1e9addeaaed58adc7990.bundle",
+        "patch": "patches/06-lifetimesystems_assets_all_ec5642d675fc1e9addeaaed58adc7990.bundle.vcdiff",
+        "original_sha256": "2dc1bf84c2561bbcacd2959974b8b79ec941fa5510b9675aae6e0a7c52bc9320",
+        "patched_sha256": "0efcc58de851d3f2b3d0d87fa1f5c9bf5123230fd8c12265384156bf444e4139"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/pawns_assets_all_a5b6f9603124b904d81439df82390d18.bundle",
+        "patch": "patches/07-pawns_assets_all_a5b6f9603124b904d81439df82390d18.bundle.vcdiff",
+        "original_sha256": "a96568b50fde4cff6c0535c7c32586ac8515cc42f30510a0a8ac9b795fc0cb13",
+        "patched_sha256": "5247960268f8dffb5120011adb16b48fd7393e4637cb3db98bc3d114bbe932af"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecenter_scenes_all_5547a656e9a181ad2b20f1689d221d3b.bundle",
+        "patch": "patches/08-scenecenter_scenes_all_5547a656e9a181ad2b20f1689d221d3b.bundle.vcdiff",
+        "original_sha256": "3b6b9ccadb71d9a8802f89cb4286cedbf9e58be7d0e7ee99815cef55b44a7d02",
+        "patched_sha256": "8f26e6cfa6fda9a37c8cf76b0def9056490905c0062bfddd908b11724d5f1151"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecliff_scenes_all_746a00d1e1f676ecba6aadb948621166.bundle",
+        "patch": "patches/09-scenecliff_scenes_all_746a00d1e1f676ecba6aadb948621166.bundle.vcdiff",
+        "original_sha256": "b19f0abbfd3dafdb2ef14416e745504c67d78b86d327289119889a4f2e983b47",
+        "patched_sha256": "44eb1c7823d9f3b588a775208fc00d659514a2e7f66b9dab77c6394f93a2575d"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashviper_scenes_all_2e39c2cdba9ae319d95fc819a5a77714.bundle",
+        "patch": "patches/10-sceneflashviper_scenes_all_2e39c2cdba9ae319d95fc819a5a77714.bundle.vcdiff",
+        "original_sha256": "1feede7825199eedec84099f7f97121d1daa277d8a36245adff4461e6d3a2f35",
+        "patched_sha256": "48a0c00b8aa33819ae63a3d2b1048c56bf09b8ad162aa3375c5aace2bd9fd0d4"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenehub_scenes_all_28e5aea48beaf4170200dcf03a6a9625.bundle",
+        "patch": "patches/11-scenehub_scenes_all_28e5aea48beaf4170200dcf03a6a9625.bundle.vcdiff",
+        "original_sha256": "3ba0fff9bfdc69bba4e983e984cd837774bd125e5ea17d55ee13f06819812227",
+        "patched_sha256": "3fbe3d727c60b0832f8e9a5821b2192c308ed2400ebf03b1371f4799be592030"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenetrain_scenes_all_3ef974a9fe9867b0a8bdead9d5621bb6.bundle",
+        "patch": "patches/12-scenetrain_scenes_all_3ef974a9fe9867b0a8bdead9d5621bb6.bundle.vcdiff",
+        "original_sha256": "c0ff2188c15f48c7d3e916400e53015e0049ac9a0f8247f5873d3ebba1dba092",
+        "patched_sha256": "bb29fdfe9635ae810cb8adca490d420eeeed320654cace1dbf41a5559428a2d6"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenevolcano_scenes_all_00c1474af2e6432ddbfd3b9249b2bb7d.bundle",
+        "patch": "patches/13-scenevolcano_scenes_all_00c1474af2e6432ddbfd3b9249b2bb7d.bundle.vcdiff",
+        "original_sha256": "ea729e0a8349e4d0271ca745eb1a27766a24f0d77d9e23d0821290a0f689e7cd",
+        "patched_sha256": "ced65c53cba0086be32c26d2998cac15255b378e5db26a55b893924a61ddc1cf"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/ui_assets_all_46952ddf5ba773acc2ab63b50673efaf.bundle",
+        "patch": "patches/14-ui_assets_all_46952ddf5ba773acc2ab63b50673efaf.bundle.vcdiff",
+        "original_sha256": "4b42f393ae9ad01009adaa17290fe9ff06641b5c73b2eb8dbd160dc8981cad1f",
+        "patched_sha256": "959bef379309e0c14e890e9b10524529768be9b27fc093e4e00bbae3ee7d1151"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/catalog.json",
+        "patch": "patches/15-catalog.json.vcdiff",
+        "original_sha256": "62f0b442330f70ff00129bfe8b379f4d47f2b859999a6863a990327872d17af2",
+        "patched_sha256": "a6011b14def0d30eae94dd64f5432d73978e875da3a8b1a3371b166d72731e05"
+      },
+      {
+        "action": "patch_binary",
+        "target": "SerialCleaners_Data/data.unity3d",
+        "patch": "patches/16-data.unity3d.vcdiff",
+        "original_sha256": "28e3584bb0fcd802a02cf8c404528a954e494424367e5b99a34290f8afc2e245",
+        "patched_sha256": "b6dc182cb0cb1d3f9f83d256a49f72e22dc636805cc44338c5039baad5c71a99"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_creditssystems_assets_all_e5edd933f6c1b8481574a5be5769f892.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_creditssystems_scenes_all_13759fe7d0a10749d6a36ef246d1fb3d.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/duplicateassetisolation_assets_all_fc7de8bc5e5b81d39a5b53b1fa73ab0a.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/fonts_assets_all_402d424852f58b2ae1c3b9fb78d4dc90.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/gameplaysystems_assets_all_639d1e00b789b5915cfe12a0025bc113.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/lifetimesystems_assets_all_ec5642d675fc1e9addeaaed58adc7990.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/pawns_assets_all_a5b6f9603124b904d81439df82390d18.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecenter_scenes_all_5547a656e9a181ad2b20f1689d221d3b.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecliff_scenes_all_746a00d1e1f676ecba6aadb948621166.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashviper_scenes_all_2e39c2cdba9ae319d95fc819a5a77714.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenehub_scenes_all_28e5aea48beaf4170200dcf03a6a9625.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenetrain_scenes_all_3ef974a9fe9867b0a8bdead9d5621bb6.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenevolcano_scenes_all_00c1474af2e6432ddbfd3b9249b2bb7d.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/ui_assets_all_46952ddf5ba773acc2ab63b50673efaf.bundle"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/StreamingAssets/aa/catalog.json"
+      },
+      {
+        "action": "restore_backup",
+        "target": "SerialCleaners_Data/data.unity3d"
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/serial-cleaners-vi-v1.0.0/serial-cleaners-vi-1.0.0.congu",
+    "congu_sha256": "f8a1d87b236b7516614b3af5328c8129e61447264eb1b984ecb6f5a0a8affaa9",
+    "mod_size": "~116.9 MB"
   }
 ]
