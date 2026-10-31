@@ -1,0 +1,91 @@
+{
+  "schema": "serial-cleaners-source-publication/v1",
+  "scope": "Translations+selectedstaging/validationcode+sanitizeddocumentation. No gamebytes,originalbackups,fonts,personalpaths,logsorcredentials. Not installable release.",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 82,
+      "sha256": "9ef456c58a76ec073259cebe9a145baed45f92d99149de54e5641db86b80e2e1"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 333,
+      "sha256": "fb995f792a5a45f46334c194de1a5b648ceb3271e7c60007e34f6dde8df3b73a"
+    },
+    {
+      "path": "GAME_BIBLE.md",
+      "bytes": 4551,
+      "sha256": "bea2f8c3b9299c618c23b85892a76380e43d7fc63bafbfbe894ce8199e88ad47"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5549,
+      "sha256": "7b56e1b5e4b2b855afa72d22ddd3a38694f354d91124f9e26bc44da3a9fe78b8"
+    },
+    {
+      "path": "allowed_files.json",
+      "bytes": 1915,
+      "sha256": "710861a453bd8f6e1639952fca33f8dc615e1ac17b310f66afcb0de942599812"
+    },
+    {
+      "path": "audit_translation_structure.py",
+      "bytes": 3113,
+      "sha256": "5c637f563e8b05955660b17e2bb1d3af093fc7d01d6db517d3e753e02d7a8020"
+    },
+    {
+      "path": "build_i2_staging.py",
+      "bytes": 3967,
+      "sha256": "01c5cade48298801b66252ff88fdbd9368aaa21188fcf95f00780596ee22c8c5"
+    },
+    {
+      "path": "original_manifest.json",
+      "bytes": 48546,
+      "sha256": "52cee02af6703bf819a2ed9d72461f3b43d5b28265b13924233797f86dfb4638"
+    },
+    {
+      "path": "qa_summary.json",
+      "bytes": 1788,
+      "sha256": "1c0db271520c9f49989c7bc7b74c87c0660aa154ee60e64b3a2fae1483817801"
+    },
+    {
+      "path": "raw_strings.json",
+      "bytes": 4780710,
+      "sha256": "7c692ac61fe647f4b0631f122594c9fef760ee9912c7c843eb325cfd5549c2c5"
+    },
+    {
+      "path": "requirements-staging.txt",
+      "bytes": 93,
+      "sha256": "972adb8d5d45ddec04a25fb318c04f43d31a71864700c5a59c5b2bc6ad2ac12e"
+    },
+    {
+      "path": "research_scope/outside_authored_strings.json",
+      "bytes": 801144,
+      "sha256": "1d359d9e9978a4ff49872a2748b9c2af7232b102580156f7974dae53000d49f9"
+    },
+    {
+      "path": "research_scope/outside_i2_strings.json",
+      "bytes": 767506,
+      "sha256": "72433059f08fff63b6560c3333991ed07560f02597c869c586d8caa0e884b167"
+    },
+    {
+      "path": "research_scope/patch_outside_i2.py",
+      "bytes": 17570,
+      "sha256": "a1c07acef177b2bb3406216fdaa447e7c7cc42bca008ac9fe3a21826244c66c7"
+    },
+    {
+      "path": "research_scope/test_patch_outside_i2.py",
+      "bytes": 3810,
+      "sha256": "d01bd0569d2679c3efc20d25c99acfcd7ef0c72ea6ee9cf771f7a54f0303ec93"
+    },
+    {
+      "path": "reviewed_build_hashes.json",
+      "bytes": 6136,
+      "sha256": "2621617c0b4e62bbaea35929a4432f799ba5e040dc6d1b28af5b3f8c94ab7761"
+    },
+    {
+      "path": "validate_sources.py",
+      "bytes": 1846,
+      "sha256": "b5e1aada4babc05f2f92f56a2b65bdf49b1e471a79ef68265164b34488cb66bd"
+    }
+  ]
+}

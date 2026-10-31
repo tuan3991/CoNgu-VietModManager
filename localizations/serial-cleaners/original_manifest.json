@@ -1,0 +1,1047 @@
+{
+  "game": "Serial Cleaners",
+  "buildid": "10874768",
+  "depot_manifest": "4624538395234988795",
+  "files": [
+    {
+      "path": "baselib.dll",
+      "size": 501272,
+      "sha256": "ff3659366f6f204b773f7bc9355f690c9d3cc7f2d4d38917b1ba768ad21442a3"
+    },
+    {
+      "path": "GameAssembly.dll",
+      "size": 57235968,
+      "sha256": "dd9ef3f8fa998c38409df5ff86a4ce5465a5b123473e4c5787e43db4664e31bf"
+    },
+    {
+      "path": "SerialCleaners.exe",
+      "size": 653824,
+      "sha256": "e9135dd230c799fd9128295601bb313c54da02f7694d796c8375a6360e0dd556"
+    },
+    {
+      "path": "SerialCleaners_Data/app.info",
+      "size": 27,
+      "sha256": "26a779d84304acebac2d59c884c0d5b85d9fed83b09687d601ab1574be21b4c9"
+    },
+    {
+      "path": "SerialCleaners_Data/boot.config",
+      "size": 120,
+      "sha256": "a5715a6a0d5edfa2668310736fbe86d36700b41b022e6d3dd5db37e6fcbb59d5"
+    },
+    {
+      "path": "SerialCleaners_Data/data.unity3d",
+      "size": 38547541,
+      "sha256": "28e3584bb0fcd802a02cf8c404528a954e494424367e5b99a34290f8afc2e245"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/2.0/Browsers/Compat.browser",
+      "size": 1605,
+      "sha256": "8a1082057ac5681dcd4e9c227ed7fb8eb42ac1618963b5de3b65739dd77e2741"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/2.0/DefaultWsdlHelpGenerator.aspx",
+      "size": 60575,
+      "sha256": "751861040b69ea63a3827507b7c8da9c7f549dc181c1c8af4b7ca78cc97d710a"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/2.0/machine.config",
+      "size": 29116,
+      "sha256": "edc5bcf685d930a607bc097927260a3f9ac7f52dd809db68158298bfd934b7ce"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/2.0/settings.map",
+      "size": 2622,
+      "sha256": "49c6160f9d54af4270a3b4e997fc4a8301f79b9e2070118fa46ddbcbbc44f9a2"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/2.0/web.config",
+      "size": 11686,
+      "sha256": "3c1a76a5849074b437d297656a208a3bef6d84b982153542b9c797046c601dfc"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.0/Browsers/Compat.browser",
+      "size": 1605,
+      "sha256": "8a1082057ac5681dcd4e9c227ed7fb8eb42ac1618963b5de3b65739dd77e2741"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.0/DefaultWsdlHelpGenerator.aspx",
+      "size": 60575,
+      "sha256": "751861040b69ea63a3827507b7c8da9c7f549dc181c1c8af4b7ca78cc97d710a"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.0/machine.config",
+      "size": 33648,
+      "sha256": "6919d5af506aae0d93e91bd83418a81895a5554b9f54cf94aad20d025a4db664"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.0/settings.map",
+      "size": 2622,
+      "sha256": "ce1db1ad8a9512073164e3eccdc193f7eda036e1a9733caec4635de21b2865c8"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.0/web.config",
+      "size": 18848,
+      "sha256": "f1a6416eeedd9d040387fd85dcf7d6e074b6644c6829d08be220ff9fc32efb31"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.5/Browsers/Compat.browser",
+      "size": 1605,
+      "sha256": "8a1082057ac5681dcd4e9c227ed7fb8eb42ac1618963b5de3b65739dd77e2741"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.5/DefaultWsdlHelpGenerator.aspx",
+      "size": 60575,
+      "sha256": "751861040b69ea63a3827507b7c8da9c7f549dc181c1c8af4b7ca78cc97d710a"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.5/machine.config",
+      "size": 34106,
+      "sha256": "ef9b9387168fd1dd6c996f96c134d9c44f8eb06f9587004bf997252a520182d6"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.5/settings.map",
+      "size": 2622,
+      "sha256": "ce1db1ad8a9512073164e3eccdc193f7eda036e1a9733caec4635de21b2865c8"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/4.5/web.config",
+      "size": 18857,
+      "sha256": "15a2c7a9242bf54d3ccb3e07fa6d8f84ba8b303d8877243787a1103009941bdb"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/browscap.ini",
+      "size": 311984,
+      "sha256": "4ddd50f31fb968f30bedefc253a46dc3f2890192d05cdaa9e0a64a056eee807e"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/config",
+      "size": 3276,
+      "sha256": "60099cf91bb1a5717fc1f2d23cf36a61d3bfb70d9489fbb6f4bae98c560bf3d5"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/etc/mono/mconfig/config.xml",
+      "size": 25817,
+      "sha256": "0c56e34c69124510fa8c19e7b4c2ca6c1c4ff460ae19f798dd0ca035809e396d"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/Metadata/global-metadata.dat",
+      "size": 15859968,
+      "sha256": "ef8f94a900bf1f5b675e6d35719f5c0e1d106c5d6933a4ff71c725f6473ecff8"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/Resources/mscorlib.dll-resources.dat",
+      "size": 337563,
+      "sha256": "c5baa176a5b72cd545266340e42102d393a5e43d38c95796bc828918bb95277f"
+    },
+    {
+      "path": "SerialCleaners_Data/il2cpp_data/Resources/System.Data.dll-resources.dat",
+      "size": 93718,
+      "sha256": "98a7950ec6de3242c2e190dfa630188dfa32511a125542b94baa952d1c757d49"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/CgSDK.x64_2019.dll",
+      "size": 260712,
+      "sha256": "8ee17311c627a29e406abf5b9e434d9a908480185d69b5c6311ff705a65cd58d"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/EOSSDK-Win32-Shipping.dll",
+      "size": 16700896,
+      "sha256": "7580ba6684d8f4b927be066abab2d53238151f614507ae1c78fe735c5339d034"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/EOSSDK-Win64-Shipping.dll",
+      "size": 22132192,
+      "sha256": "903ccd58911888ea3f37e7cb166b36c86c986c63b856f86e1e1701a1f630b4b2"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/fmodstudio.dll",
+      "size": 3079168,
+      "sha256": "2348ae266dfb46eeca5a5deb74b2361077d669be88e1728940ec162af6092f35"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/Galaxy64.dll",
+      "size": 13556224,
+      "sha256": "f92a130c80588db7f2ee38e1e3394c141bbcf5e08cc84a5aa92cdf50663ce593"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/GalaxyCSharpGlue.dll",
+      "size": 1916416,
+      "sha256": "1b1607dff5e1d7ba1cf44401eff3999cbe2bba504cf7e213a6a735704ed0edd5"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/lib_burst_generated.dll",
+      "size": 491520,
+      "sha256": "439f67256e8c4cc7fa7ccd5e649debad3fa2a03c96131a2c1ebbbd5bb54d5646"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/resonanceaudio.dll",
+      "size": 860160,
+      "sha256": "fec74c93409d5a8b4b99fc98d0f5629bfdcdad48b170d672af41602bff19aab7"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/steam_api.dll",
+      "size": 260840,
+      "sha256": "19ad8f436cc80081f77272974b0b4de361f6c8ef46f09a9263fd764145dc9dfc"
+    },
+    {
+      "path": "SerialCleaners_Data/Plugins/x86_64/steam_api64.dll",
+      "size": 290536,
+      "sha256": "0f16cef53bba8ce21056ecb49aa254eb407759a7ab1095452730695d7d8199a4"
+    },
+    {
+      "path": "SerialCleaners_Data/Resources/unity default resources",
+      "size": 4844944,
+      "sha256": "9f494f2f50063b6cf471365fe45431b9216816fa094696cdc99cb243ec33638c"
+    },
+    {
+      "path": "SerialCleaners_Data/RuntimeInitializeOnLoads.json",
+      "size": 6096,
+      "sha256": "ed4cf4cca291ab7c64d318203dcb7a53b4c1184117bdebe6460716fddbdcfb8f"
+    },
+    {
+      "path": "SerialCleaners_Data/ScriptingAssemblies.json",
+      "size": 7111,
+      "sha256": "8a413e6ac60f4e50e3e0fecac2e86ea4c7243e6ec7679895cf0977cd7abae1b0"
+    },
+    {
+      "path": "SerialCleaners_Data/sharedassets0.resource",
+      "size": 123443622,
+      "sha256": "01045636d43c2831ff4bd0e32e1977f9a0d797fc309d6a4059d9400806250b18"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/AddressablesLink/link.xml",
+      "size": 331176,
+      "sha256": "f418a91b5a22f932e593c3610a40d886a2d69f7d619e269179cd13bb97587840"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/catalog.json",
+      "size": 6264461,
+      "sha256": "62f0b442330f70ff00129bfe8b379f4d47f2b859999a6863a990327872d17af2"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/settings.json",
+      "size": 860,
+      "sha256": "2660557810d5d73e9c6eef910716854b7c64c36ff36de545f63b150cf104256c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/achievements_assets_all_e63f440480f780e55675716e1c7c795d.bundle",
+      "size": 750183,
+      "sha256": "1589432240b2191f3669f4824e3d223007823517208fbadca498f6329e35152d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_1_n_1b8ebc0913ff5eec6910be1061fb4eec.bundle",
+      "size": 38139811,
+      "sha256": "db50bb213e10312f2ecaa2055ccf825484e84631b51b2cef80239351ec2d1763"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_2_n_683635d077c3fc7b68bf024aea892db4.bundle",
+      "size": 43328953,
+      "sha256": "889c284c01ab43f484dbe4fba2892b6b75f069ad986730a01ed35824e51ef61e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_3_n_16a3791b93b872e7bc1c98c8aa26e21f.bundle",
+      "size": 46739022,
+      "sha256": "8e096fc932115357b0b9578697b6d9fbb94743826c170b5adb100fb34f8edfb8"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_4_all_6b4d81067e02b0779bcf6447661a3f4a.bundle",
+      "size": 52951004,
+      "sha256": "ef6a39d6e8f21b93f9652a2673fd6d124baa188b00674da637a0d0175e122b8a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_4_bob_fcf712395eea6881f6c93e828ed46e7d.bundle",
+      "size": 52909766,
+      "sha256": "59f9032e52ad62fae2f742e42e910ee7b7d3d04a54da75d746c6ae1269328b93"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_4_lati_92571f26279d65bcfae618c7f831ee69.bundle",
+      "size": 53184091,
+      "sha256": "ad834a019f9af4c5cb04992daa63280f64e7458ce03c18a633ab52f986d5877f"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_4_psycho_02d4043061a52aaf8b1789d1e0dbe80f.bundle",
+      "size": 53693563,
+      "sha256": "5e1a01a12a6f67749ada5a9eeceb9013d7deea84345a1ff179793b1cbe9e0be5"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_4_viper_f7138bc53796d5d6e4c7b99b94ab6198.bundle",
+      "size": 53034199,
+      "sha256": "859c160d58ca053cb5886ea4a029860e363935b089b1d9ea97d582af7e352736"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_5_bob_10bc9c711d0b6d8e16423117f0ed2973.bundle",
+      "size": 21886185,
+      "sha256": "934061614cac0a52526c7fed40834cb4b47ddb386c7c1be049fa3f4016eb8365"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_5_lati_22b572f713996cadaf993859da9724e7.bundle",
+      "size": 21881460,
+      "sha256": "e807db6e4d7632c74d3252408e06ce4aca4dd1257239af4a1d5ca0de09556cc0"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_5_noone_525452f1f54d8eeb854691d2b69662d8.bundle",
+      "size": 14934043,
+      "sha256": "ab60aabdf1839ff26c9446f6511173bab8359632362658302a7657f4f573f3e6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_5_psycho_93f42babc7794abf0fe0d369ae87b4a7.bundle",
+      "size": 21884946,
+      "sha256": "1e88e265aeac9e5adb7ede01368fa1d407bb891892f788c1e216be56a627c6c6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_c_interchapter_5_viper_ef379a5c3272c5f3d146872a980c3a04.bundle",
+      "size": 21885805,
+      "sha256": "9fcb3ee6144d7731d9eedfaf60decadc30e8dec365e6deaced3a0e2040a3e4d0"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/cinematics_assets_intro_scs_n_93bd6b5ec33c59850571e1ebf6de4e92.bundle",
+      "size": 63839298,
+      "sha256": "96c46f4a63351911643f534a3c8617590f349ef1465cde8763aded75737e0ce1"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/costumesfromshelf_assets_all_23d744a1510b4d2b882bbbd4e906ab50.bundle",
+      "size": 98860314,
+      "sha256": "d377c3bc3b463e7f313577a819c29a1608403455db5f1d58ce83dce1f74d1366"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/creditssystems_assets_all_cc81ec7a08f7bbadf126038d801ac7f2.bundle",
+      "size": 2881,
+      "sha256": "2eaf7e05d213684e3b47677aba6c012bad23d64c7c590483955f1035dfb40173"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/debugui_assets_all_0f84fa653b8fa6467df81948e8354c3c.bundle",
+      "size": 458560,
+      "sha256": "8f535a53580b7ff476491a3500112ee1b1a5b84d4ba5efa8bc4f50e1105a084d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/defaultlocalgroup_unitybuiltinshaders_653108b0a3bd0a73a19433540e060a87.bundle",
+      "size": 167554,
+      "sha256": "6b69e1b3ea9e734c696e316f24f246c0a25a1bf21e5c547ea2c7483ec1f06527"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dialogues_assets_all_392c35cea53952b1512b879eddb903ac.bundle",
+      "size": 4484921,
+      "sha256": "91729f548a00c063b735b8efbb6661a0b4b1181d220e9e8bb172e8596fd694b8"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_cinematics_assets_all_735a2c251df29529815607716a0be8e2.bundle",
+      "size": 81806691,
+      "sha256": "fbe3633903bd345700249fc1224e22a4b6ea3607c948e50ae782df4554e4d795"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_creditssystems_assets_all_e5edd933f6c1b8481574a5be5769f892.bundle",
+      "size": 8977534,
+      "sha256": "fed0d1c3aef9585ff2fe9616daf6ba0600dcb8416c2b2b3c53637fb703799587"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_creditssystems_scenes_all_13759fe7d0a10749d6a36ef246d1fb3d.bundle",
+      "size": 32797547,
+      "sha256": "0504413d250dd3e52f143fe31531664b6a75eb916a1dcbb0690e10244fcca859"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_dialogues_assets_all_916ff62f9ef12303f999bf44986abc68.bundle",
+      "size": 115857,
+      "sha256": "a23a2c55d8b8b3fba2964df7629cc380c7aa2045fd9e14dae7b76105d5c2d966"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_overlayeffects_assets_all_e19ec69909b638afee92e093c343c6be.bundle",
+      "size": 72787478,
+      "sha256": "e27f602259884c413a3693ec533dcd7f39fe64f23c843211059f0e55226aa801"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/dlcdino_quests_assets_all_55b09b40b03d049546ec2a794e724539.bundle",
+      "size": 49763,
+      "sha256": "70287c4b119e0aea732781d86d2e161b34f28e78f95e97fe7990f286a400e1b5"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/duplicateassetisolation_assets_all_fc7de8bc5e5b81d39a5b53b1fa73ab0a.bundle",
+      "size": 49901685,
+      "sha256": "3f9f16c64713344373c36f4c60ef5e2e475d1ca4be1bc313b8e1c5a52b4e3d88"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/fbxcommon_assets_all_a35cef0031e5a9aae402e1ac895c4613.bundle",
+      "size": 74851663,
+      "sha256": "cdf73be38aa38c7032c21d020350f43036574747c653dc59eb573dfab805c7b6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/fonts_assets_all_402d424852f58b2ae1c3b9fb78d4dc90.bundle",
+      "size": 7567821,
+      "sha256": "c9fd76af88e72bbaa299519aa8089a64309edcb641aa4d3948c21497a2f10c23"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/gameplaysystems_assets_all_639d1e00b789b5915cfe12a0025bc113.bundle",
+      "size": 24196157,
+      "sha256": "b83cc9283d413f88cf73ce0aa95852568e48a15771a393c7de9f6d6b69a6374c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/introscenesystems_assets_all_85a6f6b2ff74b83a7b6599fd2877e3e2.bundle",
+      "size": 2870,
+      "sha256": "3147d64d1ef1f063a6373454359dc618970610628021453cb1bcbda58f645397"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/lifetimesystems_assets_all_ec5642d675fc1e9addeaaed58adc7990.bundle",
+      "size": 63737207,
+      "sha256": "2dc1bf84c2561bbcacd2959974b8b79ec941fa5510b9675aae6e0a7c52bc9320"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/mainmenusystems_assets_all_5dcc82161acbf535ee1141dff4484fc6.bundle",
+      "size": 105409,
+      "sha256": "e39f528ceeae4588bb5b55aa7e6a8bcaecf5fdd6e540222541b5e0d90231b06e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/overlayeffects_assets_all_1d98b177f15a3cb5333681c585018b28.bundle",
+      "size": 210858662,
+      "sha256": "e00da70e79832bfb4e874374f52f068474910b59c3ee233e8fb9ce90bd07b50d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/pawns_assets_all_a5b6f9603124b904d81439df82390d18.bundle",
+      "size": 16207465,
+      "sha256": "a96568b50fde4cff6c0535c7c32586ac8515cc42f30510a0a8ac9b795fc0cb13"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/quests_assets_all_7f54dcf0d49720b5c79fd41e1653f2a9.bundle",
+      "size": 162797,
+      "sha256": "4ae78f52bc642c5a7f4cd05b8e10d4ab81c6c54028bbd7a00d8d3244f069848c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sandbox_assets_all_8421e66ed1e71ed5c44fc8e0ab33b84c.bundle",
+      "size": 15216,
+      "sha256": "7f10d06bb81577ab07b3e85d29ca0088ca5ecac8d27c245be6b9125eee66487d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sandbox_scenes_all_b3d6a411c348a21ba54a561062e51091.bundle",
+      "size": 54542623,
+      "sha256": "d0fd6935a579de1a08e9474de192a04d7f178828ab56293f94ddddd8144eb8d6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scene5pointz_scenes_all_8c5327715707e19153f33aaa28abc3e8.bundle",
+      "size": 77844438,
+      "sha256": "6b98549774f2ca54cac57535e891a5305196c83f2e70fc34928793b73300ae6e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenearcade_scenes_all_6e9649024d9d1878cd1a0ca2f6eb1e70.bundle",
+      "size": 39397218,
+      "sha256": "39e14a655ac7d8d0d1678d15c0fdebe3614cf5d1f5ec47fbc89db01d4d90f426"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenearcadeassets_assets_all_57a0054508f820726652fca48ddc4bdb.bundle",
+      "size": 76877922,
+      "sha256": "c2d2ad981510a81b181199ba0c14895e09ed93e96db5f1871e3458fd9f1f1134"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenebridge_scenes_all_100a497b50cfc5ead0191c045ca3cd06.bundle",
+      "size": 75643112,
+      "sha256": "d10b1ec4b73d9e292908132bf1e6e8cb13c1837777d9c8f10dd9278530eb4fd7"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenebridgeassets_assets_all_4aca58b8ba7eca9cb3fae70f5adbbb6d.bundle",
+      "size": 278442158,
+      "sha256": "d60e8377ee479d3f0a404dbae4d5b67b69d09521650e7c3a6f630f31de500f2f"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecabin_scenes_all_3bca16be61e2e7df912e61930f6badf3.bundle",
+      "size": 68350022,
+      "sha256": "e7d5f6e024841e0d2256dfae24939a4bb2cc076afa5ecf22760bacb12e40d70d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecabinassets_assets_all_4c3e9566cf60a253028a2ca288f86108.bundle",
+      "size": 48397830,
+      "sha256": "bebd093473c2634de12613a6230576765f9ad5fb16109e987d3250046f463d2e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecenter_scenes_all_5547a656e9a181ad2b20f1689d221d3b.bundle",
+      "size": 470540734,
+      "sha256": "3b6b9ccadb71d9a8802f89cb4286cedbf9e58be7d0e7ee99815cef55b44a7d02"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecentralpark_scenes_all_971a682871382645eb2374d7753066e3.bundle",
+      "size": 46731270,
+      "sha256": "6898e2bba356487b57c6ede1f9755415a58a3204ef39561ca4820af8f4245817"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecentralparkassets_assets_all_84e8f42443bb716b672e11c3790af50f.bundle",
+      "size": 53938293,
+      "sha256": "323640ab9c7e5bc020eb146985438987f8d831580cf6408793ca5304c5aae237"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenecliff_scenes_all_746a00d1e1f676ecba6aadb948621166.bundle",
+      "size": 397404780,
+      "sha256": "b19f0abbfd3dafdb2ef14416e745504c67d78b86d327289119889a4f2e983b47"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneden_scenes_all_21a389b64ff8f419e21cd36e99c5290b.bundle",
+      "size": 41760217,
+      "sha256": "533e31d042ac88057f3e8b66c02fcf917d9da607412bfee2745681f3b6e3cef7"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenedenassets_assets_all_b1339288e8cee2a07397543913c101cc.bundle",
+      "size": 66560311,
+      "sha256": "4bd202960a2f0cc0f38a84357b905121c6cdc303eeeaba22d37b91071c9de224"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneempty_scenes_all.bundle",
+      "size": 5618,
+      "sha256": "8ada42901a9319e3239273d2909f1345a81348f8a173514042d151cd51948683"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashbob01_scenes_all_22ff00e5a51b39f672143d331e8a37cd.bundle",
+      "size": 22343574,
+      "sha256": "99263c6f9302ace7ded7b0fb388268ca054128d38df44b0374636cf324ff43c1"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashbob01assets_assets_all_5e8a018f9f4f56ddfeb985b72c2db6be.bundle",
+      "size": 28656219,
+      "sha256": "40904ba9745e3cbe47c4a0b71fc992f7ff27862d3021462a2d9fb2e054b28fd9"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashbob02_scenes_all_eb550299a892ee6ac21f12ae18d4c944.bundle",
+      "size": 29395875,
+      "sha256": "d7d06e54aa639d8603cb70aefe29d267e2a031a09ad4e5506d1e2d9609447594"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashbob02assets_assets_all_dd5e3f58c0176f6150c3603fc3367b9d.bundle",
+      "size": 40107421,
+      "sha256": "5fb71090e568609d55cf795e51a456f4a1380601cd37fcc081fc84ffbbf1b842"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashbob03_scenes_all_7e2ef226c20e4ee2fe8e20e5b766a7cf.bundle",
+      "size": 9580892,
+      "sha256": "735aac3f8e399c427a450925b6bb7dc02f206b88a7924da1a51d3e50777b3d42"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashbob03assets_assets_all_21f170597a085163655f6e26973798c9.bundle",
+      "size": 33261504,
+      "sha256": "9b35b2042bea15602c108e887aef5c58d387350d5fdedaef1ccc3478208e61e0"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashlati_scenes_all_08db2463323c0edee29eaa1036037797.bundle",
+      "size": 19997937,
+      "sha256": "26f37938b2a2d3c984aff34ee62d6a976d8e3db3004f27110d01f6c0e8112770"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashlatiassets_assets_all_acb5c39ec5ca157e4964ef6795db0e7e.bundle",
+      "size": 40535373,
+      "sha256": "3acfa4b81cabe404de708803515d3f979f2d790dda66e2fd2274362e3206282c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashpsycho_scenes_all_cfc9b2c8ca5115507507c5e2fe684eae.bundle",
+      "size": 34245393,
+      "sha256": "0b37cf0c548dc7bfca8cd4e76fe63786d7f0446d3285fd5f3424a0fc65ac92f0"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashpsychoassets_assets_all_d2352a2fec0363c58ac018768c9c9b7f.bundle",
+      "size": 26678098,
+      "sha256": "778826eb8cd21daa44fbc5ba76f8bc831f044b2ce85897d660d4a9ca44aaa01b"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashviper_scenes_all_2e39c2cdba9ae319d95fc819a5a77714.bundle",
+      "size": 20730476,
+      "sha256": "1feede7825199eedec84099f7f97121d1daa277d8a36245adff4461e6d3a2f35"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneflashviperassets_assets_all_8cf9b6ce119ca736563aae470fd2acf7.bundle",
+      "size": 113972269,
+      "sha256": "0552649faddacbf90c508f8af4640c399fcd8a3279e8cb0a44e7640acafd9e87"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenegallery_scenes_all_ede2e78ee5cce691a0e7d4fa047a13b0.bundle",
+      "size": 33565323,
+      "sha256": "85d786bfc87a4575d03b5bd6f57cdf12de0b555b8c72f277cf54b490c531cd23"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenegalleryassets_assets_all_7df35590627b9fa2f5100aaacb154757.bundle",
+      "size": 96847124,
+      "sha256": "6255e20ae91de39a565a285f5bca597c9d348e05f206053fb666909bc5237364"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenehaven_scenes_all_4fc871b029dfdcd9c39a3a9009b5b4d0.bundle",
+      "size": 41120295,
+      "sha256": "1733c708d67086f63b624fddaca8b7b4431c29e34476fc4cec3401712b84291d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenehavenassets_assets_all_79117701de0ab23c6e829a4f88f292a8.bundle",
+      "size": 31921360,
+      "sha256": "344af3ca83ec2f40201c1082ccdf00976e17655b74f3da60e0be9ca3fd2473e9"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenehub_scenes_all_28e5aea48beaf4170200dcf03a6a9625.bundle",
+      "size": 96949839,
+      "sha256": "3ba0fff9bfdc69bba4e983e984cd837774bd125e5ea17d55ee13f06819812227"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenehubassets_assets_all_41ad64a60af3639847841730bf62738d.bundle",
+      "size": 131269350,
+      "sha256": "f4ddac214b456127a8cf69fe37d352756d58097243bf15e7b9f4fc4fca24a13a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenejunkyard_scenes_all_e54d52ee687eda9206809d3d15d8feb3.bundle",
+      "size": 56045242,
+      "sha256": "5dc985573e8b5789754976e51594ea22492b4d3c80f623827214fcb8a31f6d92"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenejunkyardassets_assets_all_486508d5db1b386f57408089a7346edc.bundle",
+      "size": 65827592,
+      "sha256": "8d8a959475578101c54cb7cb432878ec75c9d0d3c22cacd8eb729d1ea5abfc84"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenelibrary_scenes_all_a122fed3217bc68c8923b30d0a042c18.bundle",
+      "size": 34322851,
+      "sha256": "e923c6f0325fd7b6377ff0eb24a8e4a582c97ab84ff859ed6b29541280dcb51a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenelibraryassets_assets_all_5f8ddad8a06ef9510e720350488fa0b8.bundle",
+      "size": 137362119,
+      "sha256": "a20e373298db2ed090b0bc1316509ca4309afe5af9cc71ce77da24088a991a04"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenemainmenu_scenes_all_f6e5dc4edae776a800044ac22f25fc76.bundle",
+      "size": 200401121,
+      "sha256": "db34f08e0912c6b9c93e666fedd8b2578eddbff84ed8db1bf113d90a607bf054"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenemiami_scenes_all_b3f94dca87eba6d31be991b06475f020.bundle",
+      "size": 25825716,
+      "sha256": "e7d3a18e69007c97083feb23906665a378218970cc90f5b01f5bb5226f09744b"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenemiamiassets_assets_all_f5fdc7353421f59314bb8fd81d8b714e.bundle",
+      "size": 84466428,
+      "sha256": "319dcc55cdc63df5bedf9ef11425e097008bb688a72060e8944bdc33979915e1"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenemorgue_scenes_all_c4f854d7af0a502d2a02d9a16a46ee50.bundle",
+      "size": 48421397,
+      "sha256": "d3e30b646aee0e1f1e39d862e6e1acca5b1deac66d411b10a37548adbab7e52e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenemorgueassets_assets_all_7848646e13a489e0cedc8703fa7e3dd0.bundle",
+      "size": 62985449,
+      "sha256": "23e45c5f56ce7cbb0f73a0ac43e1cbf3f4cfe229dd0d4ee6913d9e6161c84e05"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneoffice_scenes_all_dc07a5799c9cb7748649bc2b3d2657f2.bundle",
+      "size": 36098260,
+      "sha256": "f7e13af84beb11a99c80df0366ef069143e98fca158cfc1c4d22ccfd8a0cf454"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneofficeassets_assets_all_1ae16b2beec8f4199b2a3dfc93da97a8.bundle",
+      "size": 93423201,
+      "sha256": "b5dd41d4126912e973d560d2bd42a273e50cda76c9c235278d80537fc88e729a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneparking_scenes_all_82dce46a1dc6a85876d3596bbbe28278.bundle",
+      "size": 17167452,
+      "sha256": "43c2d5c4266e8b79dd1107bb740be0525881939d25409756ed382942bfdb5116"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneparkingassets_assets_all_bc9c76de689d82baef0aefabe368718b.bundle",
+      "size": 83629536,
+      "sha256": "e6215f24af2aae0788db9693e3f8e9ae18611049724a5bb4ead167ba5887c7b6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenepolice_scenes_all_54e852786bb532bf8ace46433bdeb194.bundle",
+      "size": 46191605,
+      "sha256": "1ebbda5831944c8b7a5b1646e18bab684379db86297a4adb8a6624c939997773"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenepoliceassets_assets_all_4e54e8610f678c447b6fc8358323398f.bundle",
+      "size": 38749350,
+      "sha256": "6d8c65348ffb63b5c44abf608bf9e09a69777e6465a4535cb312d32e64c45aaf"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneprison_scenes_all_879013fcc16d9bacb97eaf53c2e00bf8.bundle",
+      "size": 24610466,
+      "sha256": "6a28c36cb17dc95c3e167f02c12d7ea66492645e45063264ce03f1aafcee8a9b"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneprisonassets_assets_all_1922b4b1dc0dd32d6460a97438b1e3e5.bundle",
+      "size": 67656484,
+      "sha256": "dcb0772c6203af86b36a4cc20448f06cbb96ca898e2b1b8fefa2665469790739"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenes_scenes_all_dc2ffdd61a24db97a5b87c2eda2deac8.bundle",
+      "size": 10640,
+      "sha256": "8fcb4598d883510576277df521445ce62f98fad25a3620a2c37b5fdbe9934067"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneselectionsystems_assets_all_c0aa345df36362364979c46111c25a82.bundle",
+      "size": 2892,
+      "sha256": "f850f087661d472d5fea0746d18b9c67f6629e035c0d09592b7b3acad782a3db"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenesetups_assets_all_df03173d564ff3dad9c4c7b58ca61501.bundle",
+      "size": 114804698,
+      "sha256": "920117fc96918cc7fe0746d33639ec78157f263a298c48452e7d8ca07e5d39b0"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenesetupsdlc_assets_all_a69d6fa6af1a037eba8012fdba8e47ab.bundle",
+      "size": 8142729,
+      "sha256": "da2a55324e3bb0a0f4be3001ba3ed748738467825be6fdb8e57ea9568c50699d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneshop_scenes_all_362d04cc233a552a6faddfa9375e770a.bundle",
+      "size": 55505292,
+      "sha256": "98f69689f425e8bd0b5ace95e83d1701fd1c634a3fa82804614e09bb6fea4c19"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/sceneshopassets_assets_all_3dec7a60b11acd642fd4de9c479a2069.bundle",
+      "size": 28181590,
+      "sha256": "128ce259ab9d11bfcd8eeaadb54125a60f044e6733b4d73c1d9b82bb30fdda85"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenesinglelevelrun_scenes_all_52737d9faca47b23008141cb5e99800c.bundle",
+      "size": 12271,
+      "sha256": "499e77aef7e78466ee73dce609b698f38b966fb7c8fbb529b1fb2dd61e33c683"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenestation_scenes_all_708edf0b48dfb9274a3a30dd313963ee.bundle",
+      "size": 37346436,
+      "sha256": "341a9184a0e58b2ee26b4f7a2d1066d5285a67717757c6796c1c1fabe5968c9e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenestationassets_assets_all_c55850a6091abb558593641e61398174.bundle",
+      "size": 210228096,
+      "sha256": "d86944fb325d460272529ace39b499af65b82ac55273026f9398b1e22c20c1c5"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenesubway_scenes_all_f2369eb8b210231dd527f3f9348f43d2.bundle",
+      "size": 34921098,
+      "sha256": "a0bf2a440a2bc9028fb19ec7fd203d8e5643730f5a3c6aabac45f29eb6931a24"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenesubwayassets_assets_all_b500e8b450490c32b1b041630b0289e6.bundle",
+      "size": 139461553,
+      "sha256": "3cd1018e7ea3a78e7661049f202dbaf06e0996bc5f878b82eb3e2c7364028bfd"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenetrain_scenes_all_3ef974a9fe9867b0a8bdead9d5621bb6.bundle",
+      "size": 404382960,
+      "sha256": "c0ff2188c15f48c7d3e916400e53015e0049ac9a0f8247f5873d3ebba1dba092"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenetvset_scenes_all_00c7d94f19de047ff0dc5c5542587214.bundle",
+      "size": 37835666,
+      "sha256": "358379b8bfe29070b9392cf467e98042295fe9c90e4aff06facbf6e90519c2bd"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenetvsetassets_assets_all_846ca1a25dafc20d83e836d4c1699f33.bundle",
+      "size": 60816444,
+      "sha256": "181b31bd77e07b7378d5e13f59aed00616cf5245f74503a632b16ef46e4be41e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scenevolcano_scenes_all_00c1474af2e6432ddbfd3b9249b2bb7d.bundle",
+      "size": 403681815,
+      "sha256": "ea729e0a8349e4d0271ca745eb1a27766a24f0d77d9e23d0821290a0f689e7cd"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scriptableenums_assets_all_51382a1b8850b7e0de03bce158341f6d.bundle",
+      "size": 4791,
+      "sha256": "acd16553493a016b79d9b11b417e496c86e4340bd523dc1b6108377d49b255c5"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/scriptableobjectscommon_assets_all_8c2aa642077e08d8c3aed03bd01adf0e.bundle",
+      "size": 5441703,
+      "sha256": "03eeea5e7ebd6cbd28ad8824316b95edf18e73f5fa2c35d2ad36e6cfe7f44f56"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/shaders_assets_all_d17af59ca69edf478844979f91296bdb.bundle",
+      "size": 14624505,
+      "sha256": "7fc9652a200f51121519bc4983c4eeaaf55881bab8c244f4c2fdf1d196be733c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/singlelevelrunhandlersystems_assets_all_8a88c6d185e0425ed2401f1f3bf33796.bundle",
+      "size": 2653,
+      "sha256": "df95a6329b32d28fd3ac76b1e459918cf5fdf1382793e36f8c0f427b1c4ebd9c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/spritescommon_assets_all_d3f18737f7fdc2904a7bb5b92fc8c3f3.bundle",
+      "size": 35162377,
+      "sha256": "1b38480175006aff050747a0b6c6f82eabba8f34094b64b512c62ff9c4ff072f"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/systemspawned_assets_all_b2f6ea699ccfa3696f36741ec5d9a836.bundle",
+      "size": 152583,
+      "sha256": "f1baefe86f563682816de24eb9fb98df3f206ba639bd0cfacb28beb4959ae1ca"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/texturescommon_assets_all_f5b8591f6ad508b91c962a08a64be823.bundle",
+      "size": 415639763,
+      "sha256": "417aa919ae9438cb479621166bcd573ffa6379ce2815cf3e17273666de0206c7"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/tutorials_assets_all_d6a1b95eb21745f7bf778696effb336c.bundle",
+      "size": 14082204,
+      "sha256": "12df67c52ac1b972c4e6ba3a1f8ccf76c3cc0ac0d91ad3094cb520751d8b0b3c"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/ui_assets_all_46952ddf5ba773acc2ab63b50673efaf.bundle",
+      "size": 80283106,
+      "sha256": "4b42f393ae9ad01009adaa17290fe9ff06641b5c73b2eb8dbd160dc8981cad1f"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/aa/StandaloneWindows64/uiscenesystems_assets_all_e60675fcfdc9e14c2429eb899b742317.bundle",
+      "size": 4134,
+      "sha256": "df7b5640ad467281e5491cca4defb82f7e1de2369beaf32df14acc359cd33eea"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Arcade.bank",
+      "size": 8571296,
+      "sha256": "2b1216ba7c528ce05a3d83a6da31cd005316bb6b6109265d5ec18dadf0a53886"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Bob.bank",
+      "size": 4592992,
+      "sha256": "ebfab7013e99dcab93209777dcdef22210683d1151909e4281b179d1095cce49"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/BobDlc.bank",
+      "size": 1014560,
+      "sha256": "ec9aad3e458f947f18274590f0fb4504113a60ae6647d4129c95a6c4b17a0699"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Bridge.bank",
+      "size": 8930368,
+      "sha256": "f8930b544ae63215cad8dc5864fe0565fccfab675e33f7a7a72a7ddddecd2c60"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Cabin.bank",
+      "size": 16631744,
+      "sha256": "0f83699865684d5aa2b9cdc9324ae7a3ed69815df70b2d2374b61941b2c0648a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Center.bank",
+      "size": 12916800,
+      "sha256": "431164dd81d5d0b0971d62acd3c6d769b3b2ac9a4a122027a3406ec0acb7eed6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/CentralPark.bank",
+      "size": 10441952,
+      "sha256": "ebd06c85c15253d278e1f88ceec4e8bda9eda4660e9a42762e7fba253f39f2df"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Cliff.bank",
+      "size": 10099456,
+      "sha256": "cbb5d644935d9690b194112e714f2036d2d8452551040abd59f9701ed10119eb"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Den.bank",
+      "size": 7677152,
+      "sha256": "e9db80dae13523dbaf1dcfdd2a0b713f52aac0f2c772fb11850ad0e06d3891b8"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/DinoGlobal.bank",
+      "size": 4398880,
+      "sha256": "acbd4cb66ac3184f87390438a05a0aeb9241d9d18e9f5d9884bb159d4ec9be14"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Dlc.bank",
+      "size": 482,
+      "sha256": "34b9928a9eb4e93263ce7105075b55ca6b74e6d844a0729be09e58023151d638"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/DlcEnding.bank",
+      "size": 4172608,
+      "sha256": "7d7706cbffce7be6e8db0c41d455d7f6f721947b7b2a37a0cb9eb13146c945d4"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Enemies.bank",
+      "size": 926688,
+      "sha256": "26ee7e234a2074b26eff7e5bc2651db963d2399c56e4b822da484bb4dee5fe26"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/EnemiesDlc.bank",
+      "size": 2001344,
+      "sha256": "6c0e272a33a84eff6a37def7b98d63afbdf637d50c72c139333924210ca424b6"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FivePointz.bank",
+      "size": 4910336,
+      "sha256": "e9a0fa8c269f8b88eee3e2889ef35ef9b144f97d33500d99f7420138d7cd3a0e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FlashbackBobFlatHospital.bank",
+      "size": 4587584,
+      "sha256": "f156e163cce95689fd88c1d34687c8f3c4c65ec41c84b280aa3702fa13f35d56"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FlashbackBobFlatNine.bank",
+      "size": 6348832,
+      "sha256": "ee5e6499a147daa866fb8dca0a2593bc70b73be8d8fa61f3fbfe0509b00bd4c4"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FlashbackBobOffice.bank",
+      "size": 4967296,
+      "sha256": "e86ddf32a38fa2422b6cc84082af148510a21fb6550be5377490699547957500"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FlashbackLatiHood.bank",
+      "size": 5394112,
+      "sha256": "1ca89068ae491025512766c2668a0fb2cc0b4a5bddd0b76503af9ae45d90fc94"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FlashbackPsychoHouse.bank",
+      "size": 5593344,
+      "sha256": "203c9ac490c3fbee6dbae102f7817c10a7617e35e0002d9759cd356414f28e35"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/FlashbackViperClub.bank",
+      "size": 6121600,
+      "sha256": "1541b695422373c4aeb4a2e2ee87c8f9aae7c3964820319968b39e00d4999950"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Gallery.bank",
+      "size": 5416928,
+      "sha256": "50ea33739ea94ca644fbd284818220acee3f0c7e08610dd97a977d232a29a0c4"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Haven.bank",
+      "size": 13540864,
+      "sha256": "2a978abf963daefee8bacaecdb107c66f95cc328fa5999285e0affbf96ed4fc7"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Hub.bank",
+      "size": 48520160,
+      "sha256": "75360cb1685cb9a399679960fb0eac8f210065c1beb85467986a194aad2bf354"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Junkyard.bank",
+      "size": 8885280,
+      "sha256": "6f68aa05656977c619f62d1add13910a621cd7e764f90e5b0de6915855f5c94d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Lati.bank",
+      "size": 3851200,
+      "sha256": "67bd406990fa30f72bd9b085bc278de5c65374d7209fd3ac064a637c8fde2d7a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/LatiDlc.bank",
+      "size": 1385120,
+      "sha256": "1f0d8f0ed331694693909fccae53499fb0327b4488d1850ab725dd5e0d778737"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Library.bank",
+      "size": 12065312,
+      "sha256": "6851cb6ff01e4d518b1605bf3938de40adf0303fefe2940affe414d06602737d"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Master.bank",
+      "size": 654464,
+      "sha256": "1620d78d8d0eb51bf76d0fb684aa7a73a19db62b060d58e8adcdfeb86739be12"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Master.strings.bank",
+      "size": 178248,
+      "sha256": "82b449bf0530f4efdc4e7c31f669102b9696179f3768dd89b7f0504a5d48fd3f"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Miami.bank",
+      "size": 11266400,
+      "sha256": "ce0f4e7740b2105d4b6ee6c7e17121e96655986051e0b019a443bec7c8b06a6e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Morgue.bank",
+      "size": 11941504,
+      "sha256": "492e4b570e68ae103a3e1293924a9404bfda4f23a15a5bd18891af9c5af61dd4"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Office.bank",
+      "size": 9436384,
+      "sha256": "8bf7d5d0a88e0c50edfd5827507149f8d3e7f9bda7354f102f83d75128015916"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Parking.bank",
+      "size": 9077760,
+      "sha256": "a2931e4fee91c7aeb154ab2dcf5eb7d6fd5ed95278413ab03f306dd3a006dd7a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Playground.bank",
+      "size": 4064544,
+      "sha256": "bf55913ff8d5cf4ce2def97ec17d0ffd14ea55217859b820a32ba4e5f7a96394"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Police.bank",
+      "size": 10250112,
+      "sha256": "924fca5c73b2867e012de08b4e74b4b4dc325d7f584b7a863b8015f909f42e07"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Prison.bank",
+      "size": 9348416,
+      "sha256": "22dd08297f60d9ef1d96d9a1b34ec09b31339228774da58cbdf0ea7a8be6f3a5"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Psycho.bank",
+      "size": 5084288,
+      "sha256": "29ab20f3d54bfb06843bcd847318bab848eca1c8f1e37f1535e2b14f24e587cf"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/PsychoDlc.bank",
+      "size": 1193536,
+      "sha256": "3fcc978e51264d5a9b9f3702c200e561715a698b0a9e1275448153d83a8ee49a"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Shop.bank",
+      "size": 7569664,
+      "sha256": "60d29012c0cccaba77be6cce3b7e8e38372a6bc70d47f31e085a14b8c1a63838"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Station.bank",
+      "size": 21314176,
+      "sha256": "c22f7e232d61f2e5ec3c38a6a58c0b433ab3a58a3d5c3bf07f4df6a8776361f2"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Subway.bank",
+      "size": 15268608,
+      "sha256": "39509520016e7b8288fcbae7c9f7e4f14fda8703c7c255967cf3656c2f3f37e0"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Train.bank",
+      "size": 13215072,
+      "sha256": "b2327c5a23cfad2beb51dbdd34cc76dc833a09dfb4868eb589578d08d81d4958"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Tvshow.bank",
+      "size": 13562752,
+      "sha256": "33d2648e2f1b36bcba972714ff6af69c79d20be4e10e79d9ca8c5412c0e60d15"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/UI.bank",
+      "size": 7170656,
+      "sha256": "69cd5db78eaf41d54aec374037d2fae498c5b84670810d9be0e6668870c1861e"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/UIDino.bank",
+      "size": 2241408,
+      "sha256": "917f2d0e91cf4ff8240599b32962ef8ab95f7934be48d42ae9ba6c409c6af695"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Velociraptor.bank",
+      "size": 482,
+      "sha256": "ce4f9eefaea90406aee6ef816b2eee7a58b011f4e6ac959fb322f4bb2ad60f89"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Viper.bank",
+      "size": 3735488,
+      "sha256": "794d0f89a3830e7fbd798448bd8e877abc352585d3d6262fa9f0680ec5c469e3"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/ViperDlc.bank",
+      "size": 1771840,
+      "sha256": "70505f14e909cfb4c3b6421936b2c6ca76a69c987d420c27cc10dfb29957e343"
+    },
+    {
+      "path": "SerialCleaners_Data/StreamingAssets/Volcano.bank",
+      "size": 16151072,
+      "sha256": "ec729ff746033602b382f62a33ee118bc46160974b6a498b4ce2f194b190ff4a"
+    },
+    {
+      "path": "UnityCrashHandler64.exe",
+      "size": 1235992,
+      "sha256": "eadfdf9c3b8bcfedd6d6816b82ad6e995e3162fb4efc4c837f3312cb7c0e33bc"
+    },
+    {
+      "path": "UnityPlayer.dll",
+      "size": 28275736,
+      "sha256": "7dcdb952d1e0d00b311e82d25e915068e630ef5f9c2532e9d45c70aac9c8f78e"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "gate_status": "PASS",
+  "scope": "Installed verified text scope + startup/sampled Vietnamese display + explicit user acceptance; NOT full-game visual coverage",
+  "completed_at": "2026-10-31T15:58:13.790281+00:00",
+  "manifest_sha256": "247061f2eacf667e95cced61d2dad302b0dae215726ba3ce6df2e6ab907bea5c",
+  "installed_files_verified": 208,
+  "patched_exact": 16,
+  "original_exact": 192,
+  "new_qa_launch_requests": 1,
+  "agent_relaunches": 0,
+  "bootstrap_exit_code": 0,
+  "steam_game_exit_code": 0,
+  "visually_verified_text": "CÔNG CỤ HOÀN HẢO CHO TAY DỌN DẸP BẨM SINH",
+  "sample_visual_result": "Vietnamese diacritics legible, no tofu/clipping observed in this startup prompt; remaining images opening cinematic, not full UI coverage",
+  "fatal_load_errors_observed": [],
+  "warnings_also_in_original_baseline": [
+    "Unable to add the requested character to font asset [NotoSansKR-Regular SDF]'s atlas texture. Please make the texture [NotoSansKR-Regular SDF Atlas] readable.",
+    "[FMOD] Please add an 'FMOD Studio Listener' component to your a camera in the scene for correct 3D positioning of sounds."
+  ],
+  "limits": [
+    "No full-game/DLC/layout playthrough; styled composite marks experimental",
+    "Image/video embedded text not fully translated/OCRed",
+    "5square bracket payloads intentionally preserved;3outsideheldreview unpatched",
+    "Native font fallback and all20fonts not visually sampled in every consumer",
+    "No release package/upload requested; local installed build only"
+  ],
+  "user_acceptance": "User confirmed the translation displayed correctly after launching the installed build.",
+  "evidence_note": "Sanitized summary of local QA; original logs/screenshots remain private and are not included."
+}

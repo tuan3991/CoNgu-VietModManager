@@ -1,0 +1,20 @@
+# Override repository-wide exclusion: this is the reviewed translation source.
+!raw_strings.json
+__pycache__/
+*.pyc
+original/
+staging/
+research_scope/*staging*/
+research_scope/*proof*/
+translation_structure_audit.json
+research_scope/outside_i2_patcher_tests.json
+*.bundle
+*.unity3d
+*.assets
+*.dll
+*.exe
+*.ttf
+*.otf
+*.log
+*.png
+*.jpg
