@@ -24,7 +24,7 @@ from core.scanner import check_directory_writable, is_running_as_admin
 from core.downloader import download_file_with_progress
 from core.backup_rollback import (
     load_backup_manifest, save_backup_manifest, restore_files_inplace,
-    record_preexisting_environment
+    record_preexisting_environment, emergency_restore_game as deep_emergency_restore
 )
 from .process_checker import (
     calculate_sha256, check_game_running, find_mod_source_dir, check_has_mod_files
@@ -32,7 +32,7 @@ from .process_checker import (
 from .actions import patch_ini_file
 from .pipeline_runner import (
     INSTALL_PROGRESS, set_progress, get_install_progress,
-    _MOD_OP_LOCK, execute_action_pipeline
+    get_game_operation_lock, has_pending_transaction, execute_action_pipeline
 )
 
 
@@ -61,6 +61,51 @@ def cleanup_cache_after_install(game_id: str, cfg: dict = None) -> int:
     except Exception as e:
         print(f"[Installer] Lỗi dọn cache sau cài đặt: {e}")
     return removed
+
+
+def _record_mod_install_receipt(game_id: str, g: dict, game_path: str):
+    """Lưu biên nhận phiên bản mod đã cài đặt vào user_config (P1-04) và ghi audit log (P1-05)."""
+    try:
+        from core.config_manager import record_installed_mod_receipt
+        from core.mod_compatibility import get_catalog_latest_mod_version
+        from core.troubleshooter import record_audit_event
+        ver, _, _ = get_catalog_latest_mod_version(g)
+        sha = str(g.get("congu_sha256") or g.get("sha256") or "")
+        record_installed_mod_receipt(
+            game_id,
+            version=ver or "v1.0.0",
+            sha256=sha,
+            metadata={
+                "game_path": game_path,
+                "mod_type": g.get("mod_type", ""),
+                "target_pak_name": g.get("target_pak_name", ""),
+            }
+        )
+        record_audit_event(
+            game_id,
+            action="install",
+            status="success",
+            message=f"Cài đặt thành công bản Việt hóa phiên bản {ver or 'v1.0.0'}",
+            details={"version": ver, "sha256": sha, "game_path": game_path}
+        )
+    except Exception as e:
+        print(f"[Installer] Lỗi ghi biên nhận mod {game_id}: {e}")
+
+
+def _remove_mod_install_receipt(game_id: str):
+    """Xóa hoặc cập nhật biên nhận mod khi gỡ cài đặt (P1-04) và ghi audit log (P1-05)."""
+    try:
+        from core.config_manager import remove_installed_mod_receipt
+        from core.troubleshooter import record_audit_event
+        remove_installed_mod_receipt(game_id)
+        record_audit_event(
+            game_id,
+            action="uninstall",
+            status="success",
+            message="Gỡ bỏ bản Việt hóa và khôi phục file gốc thành công"
+        )
+    except Exception as e:
+        print(f"[Installer] Lỗi gỡ biên nhận mod {game_id}: {e}")
 
 
 def find_reusable_cached_package(cache_dir: str, g: dict) -> str:
@@ -121,7 +166,29 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
     # Ghi nhận môi trường tiền tồn tại của game (BepInEx & winhttp.dll protection)
     record_preexisting_environment(game_id, game_path)
 
-    # 0. Write Permission Check (Program Files / Windows UAC restriction)
+    # Pre-Flight Game Doctor (P1-02): Kiểm tra toàn diện tiến trình, quyền ghi, ổ đĩa, runtime và xung đột
+    try:
+        from core.preflight_doctor import run_preflight
+        preflight = run_preflight(g, game_path, operation="install")
+        if preflight.get("is_blocked") and not force:
+            err_msg = preflight.get("summary", "Kiểm tra tiền trạm không đạt yêu cầu.")
+            set_progress(0, err_msg, status="error", game_id=game_id)
+            blockers = preflight.get("blockers", [])
+            req_admin = any("Admin" in str(b) or "quyền ghi" in str(b).lower() for b in blockers)
+            game_run = any("tiến trình" in str(b).lower() or "đang chạy" in str(b).lower() for b in blockers)
+            return {
+                "success": False,
+                "preflight_blocked": True,
+                "requires_admin": req_admin,
+                "is_game_running": game_run,
+                "message": err_msg,
+                "blockers": blockers,
+                "preflight": preflight
+            }
+    except Exception as pf_err:
+        print(f"[Installer] Preflight check error: {pf_err}")
+
+    # Fallback legacy checks nếu preflight gặp lỗi ngoại lệ
     if not is_running_as_admin() and not check_directory_writable(game_path):
         msg = (
             f"Thư mục cài đặt '{os.path.basename(game_path)}' đang bị khóa quyền ghi bởi Windows (thường do nằm trong 'Program Files'). "
@@ -134,7 +201,6 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
             "message": msg
         }
 
-    # 1. Process Check: verify game executable or crash handlers are not running
     is_running, proc_name = check_game_running(g, game_path)
     if is_running:
         msg = f"Phát hiện tiến trình '{proc_name}' của {g['vietnamese_title']} đang chạy! Vui lòng thoát game trước khi cài đặt để tránh xung đột khóa tệp tin (WinError 32)."
@@ -248,8 +314,8 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
 
     if not local_found and os.path.exists(existing_congu) and security.is_congu_package(existing_congu):
         expected_sha = g.get("congu_sha256") or g.get("sha256")
-        if not expected_sha or security.verify_package_checksum(existing_congu, expected_sha):
-            set_progress(25, "Đã tìm thấy gói bảo mật CỔ NGỮ trên thiết bị...", status="running", game_id=game_id)
+        if expected_sha and security.verify_package_checksum(existing_congu, expected_sha):
+            set_progress(25, "Đã tìm thấy gói bảo mật CỔ NGỮ đã xác minh trên thiết bị...", status="running", game_id=game_id)
             def on_sec_progress(pct, msg):
                 set_progress(pct, msg, status="running", game_id=game_id, operation="install")
 
@@ -342,11 +408,23 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
 
                 try:
                     if dl_url:
-                        download_file_with_progress(dl_url, cache_archive, on_dl_progress)
+                        def validate_package(staged_path):
+                            if security.is_congu_package(staged_path) or ext == ".congu":
+                                expected = g.get("congu_sha256") or g.get("sha256")
+                                if not expected:
+                                    raise ValueError("Gói .congu chính thức thiếu SHA-256 trong catalog; đã từ chối cài để bảo vệ game.")
+                                if not security.verify_package_checksum(staged_path, expected):
+                                    raise ValueError("Gói .congu tải về không khớp SHA-256 trong catalog.")
+                        download_file_with_progress(dl_url, cache_archive, on_dl_progress,
+                                                    validate_download=validate_package)
 
                     if security.is_congu_package(cache_archive):
                         expected_sha = g.get("congu_sha256") or g.get("sha256")
-                        set_progress(58, "Đang bảo mật C-Extension: Cài đặt trực tiếp vào game...", status="running", game_id=game_id)
+                        if not expected_sha:
+                            raise ValueError("Gói .congu chính thức thiếu SHA-256 trong catalog; đã từ chối cài để bảo vệ game.")
+                        if not security.verify_package_checksum(cache_archive, expected_sha):
+                            raise ValueError("Gói .congu tải về không khớp SHA-256 trong catalog.")
+                        set_progress(58, "Đã xác minh gói CỔ NGỮ (SHA-256), đang cài đặt...", status="running", game_id=game_id)
                         def on_sec_progress(pct, msg):
                             set_progress(pct, msg, status="running", game_id=game_id, operation="install")
 
@@ -402,11 +480,8 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
                 except Exception as dl_err:
                     last_err = str(dl_err)
                     print(f"Error downloading/decrypting from {source_name}: {dl_err}")
-                    if os.path.exists(cache_archive):
-                        try:
-                            os.remove(cache_archive)
-                        except Exception:
-                            pass
+                    # Downloader đã tự dọn file tạm. Không xóa cache hiện hữu:
+                    # lỗi tải/xác minh có thể xảy ra trước khi đích được thay thế.
 
             if not download_success:
                 set_progress(0, f"Lỗi tải từ Cloud: {last_err}", status="error", game_id=game_id)
@@ -428,13 +503,17 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
             )
             set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
             cleanup_cache_after_install(game_id, cfg)
+            _record_mod_install_receipt(game_id, g, game_path)
             return {
                 "success": True,
                 "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Data-Driven Pipeline)",
                 "games": games_fetcher()
             }
         except Exception as pe:
-            set_progress(0, f"Lỗi khi thực thi Pipeline: {str(pe)}", status="error", game_id=game_id)
+            # Rollback error may be intentionally marked as incomplete; keep that
+            # truthful message instead of overwriting it with a generic status.
+            if get_install_progress().get("status") == "running":
+                set_progress(0, f"Lỗi khi thực thi Pipeline: {str(pe)}", status="error", game_id=game_id)
             return {
                 "success": False,
                 "message": f"Lỗi khi cài đặt (Pipeline): {str(pe)}",
@@ -584,6 +663,7 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
 
         set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
         cleanup_cache_after_install(game_id, cfg)
+        _record_mod_install_receipt(game_id, g, game_path)
         return {
             "success": True,
             "message": f"Cài đặt thành công bản Việt hóa cho {g['vietnamese_title']}! (Đã sao lưu gốc tại chỗ .congu_bak)",
@@ -602,17 +682,31 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
         }
 
 
+def _pending_transaction_error(game_id: str) -> dict:
+    if not has_pending_transaction(game_id):
+        return {}
+    return {
+        "success": False,
+        "recovery_required": True,
+        "message": "Game có giao dịch cài đặt chưa hoàn tất. Đã dừng thao tác để bảo vệ dữ liệu; giữ nguyên journal và backup, liên hệ hỗ trợ để kiểm tra.",
+    }
+
+
 def install_mod(game_id: str, force: bool = False, get_games_func: Optional[Callable] = None) -> dict:
     """Thread-safe install wrapper with mutual exclusion lock."""
-    if not _MOD_OP_LOCK.acquire(blocking=False):
+    game_lock = get_game_operation_lock(game_id)
+    if not game_lock.acquire(blocking=False):
         return {
             "success": False,
-            "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
+            "message": "Game này đang được cài đặt/gỡ bỏ hoặc khôi phục. Vui lòng chờ hoàn tất!"
         }
     try:
+        pending_error = _pending_transaction_error(game_id)
+        if pending_error:
+            return pending_error
         return install_mod_impl(game_id, force=force, get_games_func=get_games_func)
     finally:
-        _MOD_OP_LOCK.release()
+        game_lock.release()
 
 
 # ==============================================================================
@@ -672,6 +766,7 @@ def uninstall_mod_impl(game_id: str, get_games_func: Optional[Callable] = None) 
             set_progress(30, f"Đang thực thi quy trình gỡ bỏ Data-Driven ({len(uninstall_steps)} bước)...", status="running", game_id=game_id, operation="uninstall")
             execute_action_pipeline(game_id, game_path, source_mod_dir="", steps=uninstall_steps, operation="uninstall", progress_range=(30, 90))
             restore_files_inplace(game_id, game_path)
+            _remove_mod_install_receipt(game_id)
             set_progress(100, "Đã khôi phục game về nguyên bản tiếng Anh thành công!", status="success", game_id=game_id)
             return {
                 "success": True,
@@ -764,6 +859,7 @@ def uninstall_mod_impl(game_id: str, get_games_func: Optional[Callable] = None) 
                     shutil.copy2(backup_bundle, target_bundle)
                     os.remove(backup_bundle)
 
+        _remove_mod_install_receipt(game_id)
         set_progress(100, "Đã khôi phục game về nguyên bản tiếng Anh thành công!", status="success", game_id=game_id)
         return {
             "success": True,
@@ -777,15 +873,19 @@ def uninstall_mod_impl(game_id: str, get_games_func: Optional[Callable] = None) 
 
 def uninstall_mod(game_id: str, get_games_func: Optional[Callable] = None) -> dict:
     """Thread-safe uninstall wrapper with mutual exclusion lock."""
-    if not _MOD_OP_LOCK.acquire(blocking=False):
+    game_lock = get_game_operation_lock(game_id)
+    if not game_lock.acquire(blocking=False):
         return {
             "success": False,
-            "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
+            "message": "Game này đang được cài đặt/gỡ bỏ hoặc khôi phục. Vui lòng chờ hoàn tất!"
         }
     try:
+        pending_error = _pending_transaction_error(game_id)
+        if pending_error:
+            return pending_error
         return uninstall_mod_impl(game_id, get_games_func=get_games_func)
     finally:
-        _MOD_OP_LOCK.release()
+        game_lock.release()
 
 
 # ==============================================================================
@@ -794,12 +894,16 @@ def uninstall_mod(game_id: str, get_games_func: Optional[Callable] = None) -> di
 
 def emergency_restore_game(game_id: str, get_games_func: Optional[Callable] = None) -> dict:
     """Thread-safe emergency restore wrapper with progress reporting."""
-    if not _MOD_OP_LOCK.acquire(blocking=False):
+    game_lock = get_game_operation_lock(game_id)
+    if not game_lock.acquire(blocking=False):
         return {
             "success": False,
-            "message": "Hệ thống đang xử lý một tiến trình cài đặt/gỡ bỏ khác. Vui lòng chờ hoàn tất!"
+            "message": "Game này đang được cài đặt/gỡ bỏ hoặc khôi phục. Vui lòng chờ hoàn tất!"
         }
     try:
+        pending_error = _pending_transaction_error(game_id)
+        if pending_error:
+            return pending_error
         def _on_restore_progress(pct, msg, status="running"):
             set_progress(pct, msg, status=status, game_id=game_id, operation="restore")
 
@@ -808,4 +912,4 @@ def emergency_restore_game(game_id: str, get_games_func: Optional[Callable] = No
             res["games"] = get_games_func()
         return res
     finally:
-        _MOD_OP_LOCK.release()
+        game_lock.release()

@@ -62,6 +62,8 @@ from core.config_manager import (
     load_covers_cache,
     save_covers_cache,
     get_favorite_games,
+    get_bookmarked_games,
+    merge_bookmarked_games,
     set_api_instance_ref,
     DEFAULT_USER_CONFIG,
     get_unified_settings,
@@ -113,6 +115,7 @@ from core.installer_pipeline import (
     uninstall_mod,
     emergency_restore_game,
     _MOD_OP_LOCK,
+    any_game_operation_running,
     INSTALL_PROGRESS,
 )
 
@@ -145,6 +148,7 @@ from core.cloud_save import (
     CLOUD_SYNC_MGR,
     SAVE_VAULT,
     configure_cloud_save_system,
+    register_exit_hook,
 )
 
 from core.platform_win import WIN_NO_WINDOW, DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP
@@ -155,6 +159,7 @@ from core.steam_client import (
     fetch_steamgriddb_posters,
     search_steamgriddb_by_name,
     search_steam_online,
+    STEAMGRIDDB_API_KEY,
 )
 
 from custom_game_detector import CustomGameDetector
@@ -355,9 +360,8 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
     candidate_posters.extend(fetch_steamgriddb_posters(appid, limit=3))
 
     downloaded_raw = None
-    ssl_bypass_ctx = ssl.create_default_context()
-    ssl_bypass_ctx.check_hostname = False
-    ssl_bypass_ctx.verify_mode = ssl.CERT_NONE
+    # Fallback urllib vẫn phải xác minh certificate/hostname của CDN.
+    verified_ssl_ctx = ssl.create_default_context()
 
     # 4. Tải và kiểm tra từng candidate poster dọc
     for url in candidate_posters:
@@ -367,7 +371,7 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
             raw = steam_direct_request(url, timeout=3.0)
             if not raw or len(raw) < 1000:
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=3.5, context=ssl_bypass_ctx) as resp:
+                with urllib.request.urlopen(req, timeout=3.5, context=verified_ssl_ctx) as resp:
                     if resp.status == 200:
                         raw = resp.read()
             if (
@@ -445,6 +449,50 @@ COMMUNITY_CLOUD_MGR = CommunityCloudManager(
     games_getter=get_games
 )
 
+_CC_UPLOAD_LOCK = threading.Lock()
+_CC_UPLOAD_RUNNING = False
+
+
+def _community_cloud_post_exit_sync(game_id: str, game_dir: str):
+    """Tự đẩy Hồ Sơ lên Đám Mây Cổ Ngữ sau khi thoát game (nếu đã đăng nhập)."""
+    global _CC_UPLOAD_RUNNING
+    try:
+        cfg = load_user_config()
+        if not (cfg.get("cloud_save") or {}).get("auto_sync_on_exit", True):
+            return
+        if not COMMUNITY_CLOUD_MGR.get_status().get("is_logged_in"):
+            return
+
+        with _CC_UPLOAD_LOCK:
+            if _CC_UPLOAD_RUNNING:
+                return
+            _CC_UPLOAD_RUNNING = True
+
+        def _worker():
+            global _CC_UPLOAD_RUNNING
+            try:
+                # Chờ hook Google Drive/đóng gói vault của game vừa thoát hoàn tất
+                time.sleep(8)
+                res = COMMUNITY_CLOUD_MGR.upload_save(pack_all=False)
+                if res.get("success"):
+                    log_startup("[CommunityCloud] Đã tự động đồng bộ Hồ Sơ lên Đám Mây Cổ Ngữ sau khi thoát game.")
+                else:
+                    print(f"[CommunityCloud] Auto sync warning: {res.get('error')}")
+            except Exception as e:
+                print(f"[CommunityCloud] Auto sync error: {e}")
+            finally:
+                _CC_UPLOAD_RUNNING = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+    except Exception as e:
+        print(f"[CommunityCloud] Post-exit hook error: {e}")
+
+
+try:
+    register_exit_hook(_community_cloud_post_exit_sync)
+except Exception as _hook_err:
+    print(f"[CommunityCloud] Register exit hook warning: {_hook_err}")
+
 from controller_engine import ControllerEngine
 
 CONTROLLER_ENGINE = ControllerEngine(
@@ -519,6 +567,49 @@ def merge_vault_custom_games() -> int:
         return added
     except Exception as e:
         print(f"[LocalizationRequest] merge_vault_custom_games warning: {e}")
+        return 0
+
+
+def sync_bookmarks_to_vault() -> bool:
+    """Ghi danh sách "Thêm vào Thư viện" vào profile_manifest.json để đi theo .congu_save."""
+    try:
+        vault = get_vault_instance()
+        manifest = vault.read_manifest() or {}
+        manifest["bookmarked_games"] = get_bookmarked_games()
+        res = vault.update_manifest_only(manifest)
+        return bool(res.get("success"))
+    except Exception as e:
+        print(f"[Bookmark] Vault sync warning: {e}")
+        return False
+
+
+def merge_vault_bookmarks() -> int:
+    """Khôi phục danh sách "Chưa tải" (bookmark) từ Hồ Sơ .congu_save sang PC này."""
+    try:
+        vault = get_vault_instance()
+        manifest = vault.read_manifest() or {}
+        stored = manifest.get("bookmarked_games")
+        if not isinstance(stored, list) or not stored:
+            return 0
+        added = merge_bookmarked_games(stored)
+        if added:
+            log_startup(f"[Bookmark] Đã khôi phục {added} game từ danh sách Chưa tải trong Hồ Sơ (.congu_save).")
+        return added
+    except Exception as e:
+        print(f"[Bookmark] Vault merge warning: {e}")
+        return 0
+
+
+def merge_vault_playtime() -> int:
+    """Gộp giờ chơi trong .congu_save vào playtime.json của máy hiện tại."""
+    try:
+        manifest = get_vault_instance().read_manifest() or {}
+        count = PLAYTIME_MGR.merge_manifest_playtime(manifest)
+        if count:
+            log_startup(f"[Profile] Đã khôi phục giờ chơi của {count} game từ Hồ Sơ (.congu_save).")
+        return count
+    except Exception as e:
+        print(f"[Profile] Playtime merge warning: {e}")
         return 0
 
 
@@ -844,8 +935,16 @@ def get_steam_games():
     global STEAM_GAMES_CACHE
     if STEAM_GAMES_CACHE is not None:
         return STEAM_GAMES_CACHE
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "data", "steam_games.json")
-    if os.path.exists(db_path):
+    # Sửa lỗi đường dẫn: file thật nằm ở <APP>/static/data/steam_games.json.
+    # Trước đây tính theo thư mục api/ nên luôn trỏ sai -> DB Steam offline luôn rỗng.
+    candidates = [
+        os.path.join(STATIC_DIR, "data", "steam_games.json"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "data", "steam_games.json"),
+        os.path.join(getattr(sys, "_MEIPASS", ""), "static", "data", "steam_games.json"),
+    ]
+    for db_path in candidates:
+        if not db_path or not os.path.exists(db_path):
+            continue
         try:
             with open(db_path, "r", encoding="utf-8") as f:
                 STEAM_GAMES_CACHE = json.load(f)
@@ -866,6 +965,198 @@ def _get_app_module():
         if mod is not None and hasattr(mod, "SYSTEM_TRAY"):
             return mod
     return None
+
+
+def _bookmark_title_key(text) -> str:
+    """Khóa so khớp tên game giữa nhiều kho (Steam discovery, Hydra, games.json)."""
+    return re.sub(r"[^a-z0-9]+", " ", str(text or "").lower()).strip()
+
+
+def _format_play_seconds(total_sec: int) -> str:
+    total_sec = int(total_sec or 0)
+    if total_sec <= 0:
+        return "Chưa chơi"
+    if total_sec < 60:
+        return "< 1 phút"
+    if total_sec < 3600:
+        return f"{max(1, total_sec // 60)} phút"
+    return f"{round(total_sec / 3600, 1)} giờ"
+
+
+_VAULT_AUTO_RESTORE_LOCK = threading.Lock()
+_VAULT_AUTO_RESTORE_INFLIGHT = set()
+
+
+def _queue_vault_auto_restore(vault, game_obj: dict, game_root: str):
+    """Tự bung save chờ khi game vừa được cài và thư mục save local còn trống."""
+    key = f"{game_obj.get('id')}|{os.path.normcase(os.path.abspath(game_root or ''))}"
+    with _VAULT_AUTO_RESTORE_LOCK:
+        if key in _VAULT_AUTO_RESTORE_INFLIGHT:
+            return
+        _VAULT_AUTO_RESTORE_INFLIGHT.add(key)
+
+    def _worker():
+        try:
+            res = vault.unpack_game_from_vault(game_obj, game_root)
+            if res.get("success"):
+                log_startup(
+                    f"[GhostLibrary] Tự động khôi phục {res.get('unpacked_saves', 0)} tệp save "
+                    f"cho '{game_obj.get('id')}' vừa được cài trên máy."
+                )
+        except Exception as e:
+            print(f"[GhostLibrary] Auto restore error: {e}")
+        finally:
+            with _VAULT_AUTO_RESTORE_LOCK:
+                _VAULT_AUTO_RESTORE_INFLIGHT.discard(key)
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def _read_sync_marker_mtime(game_root: str) -> int:
+    """Đọc mốc vault_mtime trong .congu_restored.json của thư mục game."""
+    if not game_root:
+        return 0
+    try:
+        marker_path = os.path.join(game_root, ".congu_restored.json")
+        with open(marker_path, "r", encoding="utf-8") as f:
+            return int(json.load(f).get("vault_mtime") or 0)
+    except Exception:
+        return 0
+
+
+def _resolve_library_state(status_code: str, is_bookmarked: bool) -> str:
+    """3 trạng thái Thư Viện: sẵn sàng chơi / chờ Việt hóa / đã lưu nhưng chưa tải."""
+    if status_code == "INSTALLED":
+        return "ready"
+    if status_code in ("NOT_INSTALLED", "UPDATE_DETECTED"):
+        return "needs_translation"
+    return "bookmark" if is_bookmarked else "unavailable"
+
+
+def _make_vault_ghost_game(gid: str, meta: dict, favorites: set) -> dict:
+    """Thẻ Ghost cho game chỉ còn trong .congu_save (không còn trong games.json)."""
+    title = str(meta.get("title") or gid)
+    thumb = str(meta.get("cover_thumb_b64") or "")
+    sec = int(meta.get("playtime_seconds") or 0)
+    saved_ach = meta.get("unlocked_achievements") or []
+    return {
+        "id": gid,
+        "title": title,
+        "vietnamese_title": title,
+        "genre": "Hồ Sơ di động",
+        "engine": "PC Game",
+        "developer": "",
+        "description": "Tựa game từng có trong Hồ Sơ .congu_save nhưng máy này chưa cài đặt.",
+        "assets": {},
+        "steam_appid": str(meta.get("steam_appid") or ""),
+        "game_path": "",
+        "is_game_found": False,
+        "is_custom_game": False,
+        "is_bookmark_only": False,
+        "is_ghost": True,
+        "is_vault_ghost": True,
+        "is_bookmarked": False,
+        "library_state": "uninstalled_ghost",
+        "status_code": "GAME_MISSING",
+        "status_label": "CHƯA CÀI ĐẶT - ĐÃ LƯU SAVE",
+        "is_mod_installed": False,
+        "is_writable": True,
+        "requires_admin": False,
+        "has_safe_backup": False,
+        "has_cached_congu": False,
+        "update_detected": False,
+        "health_reason": "",
+        "important_note": "",
+        "download_url": "",
+        "local_cover": thumb,
+        "avatar_url": thumb,
+        "header_url": thumb,
+        "latest_version": "",
+        "current_version": "Chưa tải",
+        "has_update": False,
+        "versions": [],
+        "translation_stats": {"total_lines": "—", "version": "—", "font": "—", "mod_size": "—", "last_updated": "—"},
+        "mod_size": "—",
+        "mod_subfolder": "",
+        "media": {"trailers": []},
+        "playtime": {
+            "game_id": gid,
+            "is_running": False,
+            "total_seconds": sec,
+            "formatted_time": _format_play_seconds(sec),
+            "last_played_str": "Từ Hồ Sơ",
+            "sessions_count": 0,
+        },
+        "vault_save": {
+            "has_save": int(meta.get("file_count") or 0) > 0,
+            "file_count": int(meta.get("file_count") or 0),
+            "save_size_bytes": int(meta.get("save_size_bytes") or 0),
+            "playtime_seconds": sec,
+            "achievements_count": len(saved_ach),
+            "last_installed_path": meta.get("last_installed_path") or "",
+            "vi_patch_info": meta.get("vi_patch_info") or {},
+            "cover_thumb": thumb,
+        },
+        "user_rating": 5,
+        "user_comment": "",
+        "is_favorite": gid in favorites,
+    }
+
+
+def _make_bookmark_only_game(bookmark: dict, favorites: set) -> dict:
+    """Tạo thẻ game tổng hợp cho mục "Chưa tải" (bookmark không nằm trong games.json)."""
+    gid = bookmark["id"]
+    cover = bookmark.get("cover_url") or ""
+    title = bookmark.get("title") or gid
+    source = str(bookmark.get("source") or "web").lower()
+    return {
+        "id": gid,
+        "title": title,
+        "vietnamese_title": bookmark.get("vietnamese_title") or title,
+        "genre": bookmark.get("genre") or ("Kho Tải Game" if source == "hydra" else "Steam Store"),
+        "engine": "PC Game",
+        "developer": "",
+        "description": "Tựa game đã được lưu vào Thư Viện. Bấm Tải Game để lấy bộ cài, "
+                       "hoặc trỏ đường dẫn tới bản cài sẵn có trên máy.",
+        "assets": {},
+        "steam_appid": bookmark.get("steam_appid") or "",
+        "game_path": "",
+        "is_game_found": False,
+        "is_custom_game": False,
+        "is_bookmark_only": True,
+        "is_bookmarked": True,
+        "bookmark_source": source,
+        "library_state": "bookmark",
+        "status_code": "GAME_MISSING",
+        "status_label": "CHƯA TẢI",
+        "is_mod_installed": False,
+        "is_writable": True,
+        "requires_admin": False,
+        "has_safe_backup": False,
+        "has_cached_congu": False,
+        "update_detected": False,
+        "health_reason": "",
+        "important_note": "",
+        "download_url": "",
+        "local_cover": cover,
+        "avatar_url": cover,
+        "header_url": bookmark.get("header_url") or cover,
+        "latest_version": "",
+        "current_version": "Chưa tải",
+        "has_update": False,
+        "versions": [],
+        "translation_stats": {
+            "total_lines": "—", "version": "—", "font": "—",
+            "mod_size": "—", "last_updated": "—",
+        },
+        "mod_size": "—",
+        "mod_subfolder": "",
+        "media": {"trailers": []},
+        "playtime": PLAYTIME_MGR.get_game_stats(gid),
+        "user_rating": 5,
+        "user_comment": "",
+        "is_favorite": gid in favorites,
+    }
 
 
 class ModManagerAPI:
@@ -898,6 +1189,99 @@ class ModManagerAPI:
         user_data = load_user_data()
         covers_cache = load_covers_cache()
         favorites = set(get_favorite_games())
+
+        # Bookmarks "Thêm vào Thư viện": khớp thẻ game hiện có theo id/appid/tên
+        # trước, phần còn lại sẽ được thêm vào cuối danh sách dưới dạng thẻ "Chưa tải".
+        bookmarked_games = get_bookmarked_games()
+        matched_bookmarks = set()
+
+        def _apply_bookmark_state(game_obj, gid, *titles):
+            matched = False
+            appid = str(game_obj.get("steam_appid") or "")
+            title_keys = {_bookmark_title_key(t) for t in titles if _bookmark_title_key(t)}
+            for bm in bookmarked_games:
+                if bm["id"] in matched_bookmarks:
+                    continue
+                if (
+                    bm["id"] == gid
+                    or (appid and bm.get("steam_appid") == appid)
+                    or (_bookmark_title_key(bm.get("title")) in title_keys)
+                ):
+                    matched_bookmarks.add(bm["id"])
+                    matched = True
+            game_obj["is_bookmarked"] = matched
+            game_obj["library_state"] = _resolve_library_state(game_obj.get("status_code"), matched)
+
+        # Metadata thư viện di động từ .congu_save (Ghost Library + giờ chơi + ảnh bìa)
+        try:
+            _vault = get_vault_instance()
+            vault_manifest = _vault.read_manifest() or {}
+            vault_mtime = int(os.path.getmtime(_vault.vault_path)) if os.path.exists(_vault.vault_path) else 0
+        except Exception:
+            vault_manifest, vault_mtime = {}, 0
+        vault_games_meta = vault_manifest.get("games") if isinstance(vault_manifest.get("games"), dict) else {}
+
+        def _apply_vault_metadata(game_obj, gid, game_root):
+            meta = vault_games_meta.get(gid)
+            if not isinstance(meta, dict):
+                return
+
+            file_count = int(meta.get("file_count") or 0)
+            saved_ach = meta.get("unlocked_achievements") or []
+            thumb = str(meta.get("cover_thumb_b64") or "")
+            payload = {
+                "has_save": file_count > 0,
+                "file_count": file_count,
+                "save_size_bytes": int(meta.get("save_size_bytes") or 0),
+                "playtime_seconds": int(meta.get("playtime_seconds") or 0),
+                "achievements_count": len(saved_ach),
+                "last_installed_path": meta.get("last_installed_path") or "",
+                "vi_patch_info": meta.get("vi_patch_info") or {},
+                "cover_thumb": thumb,
+            }
+            game_obj["vault_save"] = payload
+
+            if thumb and not game_obj.get("local_cover") and not game_obj.get("avatar_url"):
+                game_obj["local_cover"] = thumb
+                game_obj["avatar_url"] = thumb
+
+            # Giữ nguyên giờ chơi lịch sử khi máy mới chưa từng chơi game này
+            pt = game_obj.get("playtime") or {}
+            if payload["playtime_seconds"] > int(pt.get("total_seconds") or 0):
+                sec = payload["playtime_seconds"]
+                game_obj["playtime"] = {
+                    "game_id": gid,
+                    "is_running": False,
+                    "total_seconds": sec,
+                    "formatted_time": _format_play_seconds(sec),
+                    "last_played_str": "Từ Hồ Sơ",
+                    "sessions_count": int(pt.get("sessions_count") or 0),
+                }
+
+            # Ghost Library: game từng có trong Hồ Sơ nhưng máy này chưa cài
+            if game_obj.get("status_code") == "GAME_MISSING" and file_count > 0:
+                game_obj["is_ghost"] = True
+                game_obj["library_state"] = "uninstalled_ghost"
+                game_obj["status_label"] = "CHƯA CÀI ĐẶT - ĐÃ LƯU SAVE"
+
+            # Save trong Hồ Sơ chưa được bung vào thư mục game trên máy này
+            if game_obj.get("is_game_found") and file_count > 0:
+                marker_mtime = _read_sync_marker_mtime(game_root)
+                last_path = str(meta.get("last_installed_path") or "")
+                same_path = bool(
+                    last_path and game_root
+                    and os.path.normcase(os.path.normpath(last_path)) == os.path.normcase(os.path.normpath(game_root))
+                )
+                if marker_mtime:
+                    pending = marker_mtime < vault_mtime
+                else:
+                    pending = bool(not same_path and last_path)
+                game_obj["pending_vault_save"] = pending
+
+                # Game vừa cài xong, save local còn trống -> tự bung save lịch sử
+                if pending and not _vault.has_local_save_data(game_obj, game_root):
+                    _queue_vault_auto_restore(_vault, game_obj, game_root)
+
         cfg_changed = False
 
         for g in games:
@@ -978,12 +1362,16 @@ class ModManagerAPI:
                 mtype = g.get("mod_type", "pak")
                 
                 if mtype == "pak":
-                    pak_path = os.path.join(game_path, g["relative_install_path"], g["target_pak_name"])
-                    if os.path.exists(pak_path):
-                        mod_installed = True
-                        installed_size = os.path.getsize(pak_path)
-                        mtime = os.path.getmtime(pak_path)
-                        installed_date = datetime.fromtimestamp(mtime).strftime("%d/%m/%Y %H:%M")
+                    # Game dùng install_steps (không có target_pak_name) sẽ được
+                    # kiểm tra bằng status_marker / install_steps bên dưới.
+                    pak_name = g.get("target_pak_name", "")
+                    if pak_name:
+                        pak_path = os.path.join(game_path, g.get("relative_install_path", ""), pak_name)
+                        if os.path.exists(pak_path):
+                            mod_installed = True
+                            installed_size = os.path.getsize(pak_path)
+                            mtime = os.path.getmtime(pak_path)
+                            installed_date = datetime.fromtimestamp(mtime).strftime("%d/%m/%Y %H:%M")
                         
                 elif mtype == "unity_assets":
                     target_assets = os.path.join(game_path, g["relative_install_path"], g["target_pak_name"])
@@ -1068,6 +1456,24 @@ class ModManagerAPI:
             g["is_mod_installed"] = mod_installed
             g["installed_size_mb"] = round(installed_size / (1024 * 1024), 2) if installed_size else 0
             g["installed_date"] = installed_date
+
+            # P1-01 / P1-04: Phiên bản mod đã cài & phát hiện cập nhật mod thực chất
+            try:
+                from core.config_manager import get_installed_mod_receipt
+                from core.mod_compatibility import get_catalog_latest_mod_version, compare_mod_versions
+                receipt = get_installed_mod_receipt(gid)
+                latest_v, _, _ = get_catalog_latest_mod_version(g)
+                g["latest_mod_version"] = latest_v
+                if mod_installed:
+                    installed_v = receipt.get("version") if receipt and receipt.get("status") == "installed" else ""
+                    g["installed_mod_version"] = installed_v or "Chưa rõ phiên bản"
+                    g["has_mod_update"] = (compare_mod_versions(installed_v or "0.0.0", latest_v) < 0) if (installed_v and latest_v) else False
+                else:
+                    g["installed_mod_version"] = None
+                    g["has_mod_update"] = False
+            except Exception:
+                g["installed_mod_version"] = None
+                g["has_mod_update"] = False
 
             # 3.4. Chẩn đoán sức khỏe bản dịch (Health Check & Steam/Epic Auto-Update Detection)
             update_detected = False
@@ -1161,6 +1567,8 @@ class ModManagerAPI:
                 g["status_code"] = "NOT_INSTALLED"
                 g["status_label"] = "CHƯA CÀI MOD"
 
+            _apply_bookmark_state(g, gid, g.get("title"), g.get("vietnamese_title"))
+
             # Check for version update status
             versions = g.get("versions", [])
             latest_version = versions[0]["version"] if versions else g.get("translation_stats", {}).get("version", "v1.0.0")
@@ -1184,6 +1592,21 @@ class ModManagerAPI:
             
             g["local_cover"] = local_cover
 
+            # Ảnh bìa thật trên ổ cứng để vault tạo thumbnail WebP nhúng vào Hồ Sơ
+            cover_fs_path = ""
+            if local_cover:
+                cover_name = local_cover.split("?", 1)[0].rsplit("/", 1)[-1]
+                cover_candidate = os.path.join(COVERS_DIR, cover_name)
+                if os.path.isfile(cover_candidate):
+                    cover_fs_path = cover_candidate
+            if not cover_fs_path:
+                poster_rel = str((g.get("assets") or {}).get("poster") or "").lstrip("/")
+                if poster_rel:
+                    poster_path = poster_rel if os.path.isabs(poster_rel) else os.path.join(APP_DIR, poster_rel)
+                    if os.path.isfile(poster_path):
+                        cover_fs_path = poster_path
+            g["cover_fs_path"] = cover_fs_path
+
             cached_meta = covers_cache.get(gid) or covers_cache.get(gid.lower()) or {}
             g["avatar_url"] = local_cover or cached_meta.get("avatar_url") or (g.get("assets", {}).get("poster"))
             g["header_url"] = cached_meta.get("header_url") or (g.get("assets", {}).get("header"))
@@ -1197,6 +1620,8 @@ class ModManagerAPI:
 
             # Gắn cờ Yêu thích (Steam-like Favorites) từ danh sách đã nạp 1 lần ở đầu method
             g["is_favorite"] = bool(gid in favorites)
+
+            _apply_vault_metadata(g, gid, game_path)
 
         # Gộp các game ngoài do người dùng tự thêm (Non-Steam / Custom Games)
         custom_games = load_custom_games()
@@ -1233,13 +1658,44 @@ class ModManagerAPI:
             else:
                 cg["local_cover"] = cg.get("cover_url", "")
 
+            cg["cover_fs_path"] = ""
+            cover_value = str(cg.get("local_cover") or "")
+            if cover_value.startswith("/api/covers/"):
+                cover_name = cover_value.split("?", 1)[0].rsplit("/", 1)[-1]
+                cover_candidate = os.path.join(COVERS_DIR, cover_name)
+                if os.path.isfile(cover_candidate):
+                    cg["cover_fs_path"] = cover_candidate
+
             # Gắn playtime stats
             cg["playtime"] = PLAYTIME_MGR.get_game_stats(cg_id, cg_path)
 
             # Gắn cờ Yêu thích (Steam-like Favorites)
             cg["is_favorite"] = bool(cg_id in favorites)
 
+            _apply_bookmark_state(cg, cg_id, cg.get("title"), cg.get("vietnamese_title"))
+            _apply_vault_metadata(cg, cg_id, cg_path)
+
             games.append(cg)
+
+        # Bookmark không khớp bất kỳ game nào ở trên -> thêm thẻ "Chưa tải" vào Thư Viện
+        for bm in bookmarked_games:
+            if bm["id"] in matched_bookmarks:
+                continue
+            games.append(_make_bookmark_only_game(bm, favorites))
+
+        # Game chỉ còn trong .congu_save (delisted/đổi id) -> vẫn giữ trong Ghost Library
+        known_ids = {str(g.get("id")) for g in games}
+        for gid, meta in vault_games_meta.items():
+            if str(gid) in known_ids or not isinstance(meta, dict):
+                continue
+            has_history = (
+                int(meta.get("file_count") or 0) > 0
+                or int(meta.get("playtime_seconds") or 0) > 0
+                or bool(meta.get("unlocked_achievements"))
+            )
+            if not has_history:
+                continue
+            games.append(_make_vault_ghost_game(str(gid), meta, favorites))
 
         if cfg_changed:
             save_user_config(user_cfg)
@@ -1251,6 +1707,57 @@ class ModManagerAPI:
         cfg = load_user_config()
         game_path = cfg.get(f"{game_id}_path")
         return PLAYTIME_MGR.get_game_stats(game_id, game_path)
+
+    def get_profile_overview(self):
+        """Tổng hợp Hồ Sơ Game Thủ: cấp độ, huy hiệu nền tảng, top game, hoạt động gần đây."""
+        from core.profile_manager import build_profile_overview
+        try:
+            games = self.get_games()
+            vault = get_vault_instance()
+            vault_info = vault.get_vault_info()
+            manifest = vault.read_manifest() or {}
+            overview = build_profile_overview(
+                games=games,
+                vault_info=vault_info,
+                manifest=manifest,
+                playtime_snapshot=PLAYTIME_MGR.get_profile_snapshot(),
+                achievements_progress=ACHIEVEMENT_MGR.get_progress_summary(),
+                bookmarks=get_bookmarked_games(),
+                loc_requests=LOCALIZATION_REQ_MGR.get_my_history(),
+            )
+
+            unlock_map = overview.pop("_badge_unlock_map", {})
+            newly_unlocked = overview.pop("_newly_unlocked", [])
+            if newly_unlocked:
+                manifest["profile_badges"] = unlock_map
+                vault.update_manifest_only(manifest)
+
+            community_online = False
+            community_id = ""
+            try:
+                cc_status = COMMUNITY_CLOUD_MGR.get_status()
+                community_online = bool(cc_status.get("is_logged_in"))
+                community_id = cc_status.get("cloud_id") or ""
+            except Exception:
+                pass
+
+            gdrive_online = False
+            try:
+                gdrive_online = bool(CLOUD_SYNC_MGR and CLOUD_SYNC_MGR.is_connected())
+            except Exception:
+                pass
+
+            overview["player"]["is_online"] = community_online or gdrive_online
+            overview["player"]["online_provider"] = (
+                "community" if community_online else ("gdrive" if gdrive_online else "")
+            )
+            overview["player"]["cloud_id"] = community_id
+
+            overview["success"] = True
+            return overview
+        except Exception as e:
+            print(f"[Profile] Lỗi tổng hợp Hồ Sơ: {e}")
+            return {"success": False, "message": f"Không thể tải Hồ Sơ: {e}"}
 
     def get_game_achievements(self, game_id_or_appid: str, game_dir: str = ""):
         """Lấy danh sách và trạng thái mở khóa thành tựu của game (Chuẩn Hydra Launcher)."""
@@ -1915,8 +2422,6 @@ class ModManagerAPI:
                     else:
                         req = urllib.request.Request(clean_cand, headers={"User-Agent": "CoNgu-VietModManager/2.0"})
                         ctx = ssl.create_default_context()
-                        ctx.check_hostname = False
-                        ctx.verify_mode = ssl.CERT_NONE
                         with urllib.request.urlopen(req, timeout=4.0, context=ctx) as r:
                             raw_content = r.read()
                 except Exception:
@@ -2054,7 +2559,24 @@ class ModManagerAPI:
         return execute_action_pipeline(game_id, game_path, source_mod_dir, steps, operation=operation, progress_range=progress_range, uninstall_steps=uninstall_steps)
 
     def install_mod(self, game_id, force=False):
-        return install_mod(game_id, force=force, get_games_func=self.get_games)
+        res = install_mod(game_id, force=force, get_games_func=self.get_games)
+        # Hậu kiểm Game Doctor: sau khi cài, xác nhận loader BepInEx (winhttp.dll) thực sự có mặt
+        try:
+            if isinstance(res, dict) and res.get("success"):
+                from core.preflight_doctor import run_preflight
+                games = {g["id"]: g for g in self.get_games()}
+                g = games.get(game_id)
+                if g:
+                    cfg = load_user_config()
+                    report = run_preflight(g, cfg.get(f"{game_id}_path", "") or "")
+                    winhttp = next((c for c in report.get("checks", []) if c.get("id") == "winhttp"), None)
+                    if winhttp and winhttp.get("status") in ("warn", "error"):
+                        res["doctor"] = report
+                        res["doctor_warning"] = winhttp.get("detail")
+                        log_startup(f"[GameDoctor] Sau cai dat '{game_id}': {winhttp.get('detail')}")
+        except Exception as e:
+            print(f"[GameDoctor] Post-install check warning: {e}")
+        return res
 
     def _install_mod_impl(self, game_id, force=False):
         return install_mod_impl(game_id, force=force, get_games_func=self.get_games)
@@ -2068,8 +2590,11 @@ class ModManagerAPI:
     def emergency_restore_game(self, game_id):
         return emergency_restore_game(game_id, get_games_func=self.get_games)
 
-    def launch_game(self, game_id):
-        """Khởi chạy game độc lập (Detached Process) và kích hoạt luồng theo dõi đếm giờ chuẩn xác."""
+    def launch_game(self, game_id, force: bool = False):
+        """
+        Khởi chạy game độc lập (Detached Process) và kích hoạt luồng theo dõi đếm giờ chuẩn xác.
+        force=True: bỏ qua cảnh báo nghiêm trọng của Pre-Flight Game Doctor.
+        """
         games = {g["id"]: g for g in self.get_games()}
 
         if game_id not in games:
@@ -2088,6 +2613,24 @@ class ModManagerAPI:
                 "message": f"Game {g['vietnamese_title']} đang chạy!",
                 "stats": PLAYTIME_MGR.get_game_stats(game_id, game_path)
             }
+
+        # 0.1 Pre-Flight Game Doctor: chặn khởi chạy nếu thiếu runtime nghiêm trọng (trừ khi force)
+        doctor_report = None
+        try:
+            from core.preflight_doctor import run_preflight
+            doctor_report = run_preflight(g, game_path or "")
+            if doctor_report.get("severity") == "error" and not force:
+                log_startup(
+                    f"[GameDoctor] Chan khoi chay '{game_id}': {doctor_report.get('summary')}"
+                )
+                return {
+                    "success": False,
+                    "status": "doctor_warning",
+                    "message": doctor_report.get("summary"),
+                    "doctor": doctor_report,
+                }
+        except Exception as e:
+            print(f"[GameDoctor] Pre-flight warning: {e}")
 
         # 1. Tìm file thực thi .exe trong thư mục game
         candidate_exe = None
@@ -2116,7 +2659,9 @@ class ModManagerAPI:
             vault_game_info = manifest.get("games", {}).get(game_id)
             if vault_game_info and game_path:
                 vault_save_time = vault_game_info.get("save_updated_at", 0)
-                save_locs, _ = vault._extract_game_locations(g, game_path)
+                # _extract_game_locations() chỉ nhận game_config (trước đây truyền dư game_path
+                # khiến TypeError bị nuốt im lặng -> tính năng tự nạp save từ Vault không chạy).
+                save_locs, _ach_locs, _excl = vault._extract_game_locations(g)
                 local_has_save = False
                 for sloc in save_locs:
                     rp = vault.resolve_macro_path(sloc.get("path", ""), game_path)
@@ -2183,12 +2728,31 @@ class ModManagerAPI:
             if effective_dir:
                 PLAYTIME_MGR.start_tracking(game_id, effective_dir)
             stats = PLAYTIME_MGR.get_game_stats(game_id, effective_dir)
+
+            # --- GAME BOOSTER: thu nhỏ xuống Khay + giải phóng RAM (WebView2) cho game ---
+            booster_info = None
+            try:
+                booster_enabled = cfg.get("game_booster", True) is not False
+                if booster_enabled and self.window:
+                    _app_mod = _get_app_module()
+                    if _app_mod is not None:
+                        booster_info = _app_mod.enter_game_booster_mode(
+                            self.window,
+                            game_id,
+                            g.get("vietnamese_title") or g.get("title") or game_id,
+                        )
+                        log_startup(f"[GameBooster] Kich hoat cho '{game_id}': {booster_info}")
+            except Exception as e:
+                print(f"[GameBooster] Kich hoat that bai (khong anh huong game): {e}")
+
             return {
                 "success": True,
                 "status": "launched",
                 "protocol": launch_protocol,
                 "message": f"Đang khởi chạy {g['vietnamese_title']}...",
-                "stats": stats
+                "stats": stats,
+                "booster": booster_info,
+                "doctor": doctor_report,
             }
 
         return {
@@ -2196,6 +2760,20 @@ class ModManagerAPI:
             "status": "error",
             "message": "Không thể khởi động game. Vui lòng mở game trực tiếp từ Steam / Epic Games / GOG!"
         }
+
+    def install_game_from_steam(self, appid):
+        """Mở khung cài đặt của Steam cho game Ghost Library qua giao thức steam://install."""
+        appid = str(appid or "").strip()
+        if not appid.isdigit():
+            return {"success": False, "message": "Steam AppID không hợp lệ."}
+        try:
+            if sys.platform == "win32":
+                os.startfile(f"steam://install/{appid}")
+            else:
+                subprocess.Popen(["xdg-open", f"steam://install/{appid}"])
+            return {"success": True, "message": "Đã mở Steam để cài game. Cài xong hãy quay lại CỔ NGỮ để khôi phục save."}
+        except Exception as e:
+            return {"success": False, "message": f"Không mở được Steam: {e}"}
 
     def kill_game_process(self, game_id):
         """Force terminate running game process to release file locks before modding"""
@@ -2465,25 +3043,121 @@ class ModManagerAPI:
         return {"success": False, "is_valid": False, "message": "Bản Việt hóa hiện chưa được cài đặt trong thư mục game."}
 
     def check_updates(self, game_id):
-        """Check for updates for a specific game mod"""
-        with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
-            games = {g["id"]: g for g in json.load(f)}
+        """Kiểm tra bản cập nhật mới cho mod game một cách thực chất (P1-04)."""
+        from core.mod_compatibility import check_mod_update_status
+        from core.config_manager import get_installed_mod_receipt
+
+        p = get_active_games_json_path()
+        if not os.path.exists(p):
+            return {
+                "success": False,
+                "game_id": game_id,
+                "has_update": False,
+                "status": "offline",
+                "message": "Không tìm thấy dữ liệu danh mục game (Chế độ ngoại tuyến)."
+            }
+
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                games = {g["id"]: g for g in json.load(f)}
+        except Exception as e:
+            return {
+                "success": False,
+                "game_id": game_id,
+                "has_update": False,
+                "status": "catalog_error",
+                "message": f"Lỗi đọc danh mục game: {e}"
+            }
+
+        if game_id not in games:
+            return {
+                "success": False,
+                "game_id": game_id,
+                "has_update": False,
+                "status": "game_not_found",
+                "message": "Không tìm thấy game trong danh mục!"
+            }
+
+        g = games[game_id]
+        receipt = get_installed_mod_receipt(game_id)
+
+        # Kiểm tra trạng thái mod trên đĩa
+        is_mod_on_disk = False
+        try:
+            cfg = load_user_config()
+            game_path = cfg.get(f"{game_id}_path", "")
+            if game_path and os.path.exists(game_path):
+                rel_p = g.get("relative_install_path", "")
+                tpak = g.get("target_pak_name", "")
+                if tpak and os.path.exists(os.path.join(game_path, rel_p, tpak)):
+                    is_mod_on_disk = True
+                elif os.path.exists(os.path.join(game_path, "core", "locale.congu_bak")):
+                    is_mod_on_disk = True
+        except Exception:
+            pass
+
+        return check_mod_update_status(
+            game_id=game_id,
+            catalog_game=g,
+            installed_receipt=receipt,
+            is_mod_installed_on_disk=is_mod_on_disk
+        )
+
+    def check_compatibility(self, game_id):
+        """Đánh giá tương thích giữa game hiện tại và bản mod (P1-01)."""
+        from core.mod_compatibility import assess_mod_compatibility
+
+        p = get_active_games_json_path()
+        if not os.path.exists(p):
+            return {"success": False, "message": "Chưa có danh mục game."}
+
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                games = {g["id"]: g for g in json.load(f)}
+        except Exception as e:
+            return {"success": False, "message": f"Lỗi đọc danh mục: {e}"}
+
         if game_id not in games:
             return {"success": False, "message": "Không tìm thấy game!"}
-        
+
         g = games[game_id]
-        versions = g.get("versions", [])
-        latest = versions[0] if versions else {"version": "v1.0.0", "changelog": "Bản phát hành đầu tiên", "is_latest": True}
-        
+        cfg = load_user_config()
+        game_path = cfg.get(f"{game_id}_path", "")
+
+        installed_info = {
+            "game_path": game_path,
+            "platform": "steam" if g.get("steam_appid") else "standalone",
+        }
+        report = assess_mod_compatibility(g, installed_info)
         return {
             "success": True,
             "game_id": game_id,
-            "has_update": False,  # Local repo matches latest available
-            "latest_version": latest.get("version"),
-            "release_date": latest.get("release_date"),
-            "changelog": latest.get("changelog"),
-            "versions": versions
+            "compatibility": report
         }
+
+    def get_troubleshooting_guides(self):
+        """Lấy danh sách kịch bản hướng dẫn xử lý sự cố (P1-05)."""
+        from core.troubleshooter import get_troubleshooting_guides
+        return {"success": True, "guides": get_troubleshooting_guides()}
+
+    def inspect_game_backups(self, game_id: str):
+        """Xem trước phạm vi các file sao lưu trước khi khôi phục (P1-05)."""
+        from core.troubleshooter import inspect_game_backups
+        cfg = load_user_config()
+        game_path = cfg.get(f"{game_id}_path", "")
+        res = inspect_game_backups(game_id, game_path)
+        return {"success": True, "backup_inspection": res}
+
+    def get_recent_audit_logs(self, game_id: str = "", limit: int = 50):
+        """Truy xuất nhật ký thao tác (Audit Log) theo Job ID (P1-05)."""
+        from core.troubleshooter import get_recent_audit_logs
+        logs = get_recent_audit_logs(game_id=game_id or None, limit=limit)
+        return {"success": True, "logs": logs}
+
+    def generate_support_report(self, game_id: str = ""):
+        """Xuất báo cáo kỹ thuật đã che mờ thông tin cá nhân (P1-05)."""
+        from core.troubleshooter import generate_support_report
+        return generate_support_report(game_id=game_id or None)
 
     def submit_rating(self, game_id, stars, comment=""):
         """Save rating and comment for a game"""
@@ -2801,7 +3475,7 @@ class ModManagerAPI:
         """
         import zipfile
 
-        if INSTALL_PROGRESS.get("status") == "running":
+        if INSTALL_PROGRESS.get("status") == "running" or _MOD_OP_LOCK.locked() or any_game_operation_running():
             return {"success": False, "message": "Không thể cập nhật khi đang cài đặt/gỡ bỏ bản mod! Vui lòng chờ hoàn tất."}
 
         if not getattr(sys, "frozen", False):
@@ -2815,31 +3489,51 @@ class ModManagerAPI:
 
         url = (info.get("portable_zip_url") or "").strip()
         if not url.lower().endswith(".zip"):
-            url = (info.get("download_url") or "").strip()
-        if not url.lower().endswith(".zip"):
-            return {"success": False, "message": "Bản phát hành không kèm gói .zip tự động cập nhật. Vui lòng tải thủ công trên GitHub Releases."}
+            return {"success": False, "message": "Bản phát hành không kèm portable_zip_url .zip được ký để tự động cập nhật. Vui lòng tải thủ công trên GitHub Releases."}
+        expected_sha = str(info.get("portable_zip_sha256") or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_sha):
+            return {"success": False, "message": "Bản cập nhật chưa có SHA-256 hợp lệ trong metadata phát hành; đã từ chối tự cập nhật để bảo vệ ứng dụng."}
+
+        from core.update_manifest import verify_manifest_signature
+        signature_ok, signature_reason = verify_manifest_signature(info)
+        if not signature_ok:
+            return {"success": False, "message": "Chữ ký manifest phát hành không hợp lệ (%s); đã từ chối tự cập nhật." % signature_reason}
 
         upd_root = os.path.join(APPDATA_DIR, "update")
-        new_dir = os.path.join(upd_root, "new")
-        pkg_path = os.path.join(upd_root, "package.zip")
+        pending_path = os.path.join(upd_root, "pending_update.json")
+        if os.path.lexists(pending_path):
+            return {"success": False, "message": "Có giao dịch cập nhật chưa xử lý; giữ nguyên dữ liệu phục hồi tại %s." % upd_root}
+        transaction_token = secrets.token_hex(32)
+        job_dir = os.path.join(upd_root, "job-" + transaction_token[:16])
+        new_dir = os.path.join(job_dir, "new")
+        pkg_path = os.path.join(job_dir, "package.zip")
         try:
-            os.makedirs(upd_root, exist_ok=True)
-            if os.path.isdir(new_dir):
-                shutil.rmtree(new_dir, ignore_errors=True)
-            os.makedirs(new_dir, exist_ok=True)
+            os.makedirs(new_dir, exist_ok=False)
         except Exception as e:
             return {"success": False, "message": "Không tạo được thư mục cập nhật: %s" % e}
 
         log_startup("[Updater] Bat dau tai ban cap nhat: %s" % url)
         try:
             from core.downloader import download_file_with_progress
-            download_file_with_progress(url, pkg_path, timeout=30.0)
+            def validate_update(staged_path):
+                actual_sha = compute_file_sha256(staged_path)
+                if not actual_sha or actual_sha.lower() != expected_sha:
+                    raise ValueError("SHA-256 gói cập nhật không khớp metadata phát hành")
+            download_file_with_progress(url, pkg_path, timeout=30.0, validate_download=validate_update)
         except Exception as e:
-            return {"success": False, "message": "Tải bản cập nhật thất bại: %s" % e}
+            return {"success": False, "message": "Tải/xác minh bản cập nhật thất bại: %s" % e}
 
         try:
+            max_members = 5000
+            max_unpacked_bytes = 2 * 1024 * 1024 * 1024
             with zipfile.ZipFile(pkg_path, "r") as zf:
-                for member in zf.namelist():
+                members = [member for member in zf.infolist() if not member.is_dir()]
+                if len(members) > max_members:
+                    raise ValueError("Gói cập nhật chứa quá nhiều tệp")
+                if sum(member.file_size for member in members) > max_unpacked_bytes:
+                    raise ValueError("Gói cập nhật vượt giới hạn dung lượng giải nén")
+                for member_info in members:
+                    member = member_info.filename
                     if member.endswith("/") or member.endswith("\\"):
                         continue
                     dest = validate_safe_path(new_dir, member, allow_base_itself=False)
@@ -2864,34 +3558,43 @@ class ModManagerAPI:
         if not src_dir:
             return {"success": False, "message": "Gói cập nhật không hợp lệ (không tìm thấy VietModHub.exe bên trong)."}
 
-        dst_dir = APP_DIR
-        bat_path = os.path.join(upd_root, "apply_update.bat")
+        dst_dir = os.path.dirname(os.path.abspath(sys.executable))
+        backup_dir = os.path.join(job_dir, "backup_prev")
+        bat_path = os.path.join(job_dir, "apply_update.bat")
         pid = os.getpid()
         try:
-            bat_lines = [
-                "@echo off",
-                "chcp 65001 >nul",
-                "title CO NGU - Dang cap nhat...",
-                "timeout /t 2 /nobreak >nul",
-                ":waitloop",
-                'tasklist /FI "PID eq %d" 2>nul | find "%d" >nul' % (pid, pid),
-                "if not errorlevel 1 (",
-                "    timeout /t 1 /nobreak >nul",
-                "    goto waitloop",
-                ")",
-                'robocopy "%s" "%s" /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP >nul' % (src_dir, dst_dir),
-                'start "" "%s"' % os.path.join(dst_dir, "VietModHub.exe"),
-                'del "%~f0"',
-            ]
-            with open(bat_path, "w", encoding="utf-8", newline="\r\n") as f:
-                f.write("\n".join(bat_lines) + "\n")
+            from core.updater_apply import build_apply_script, build_copy_verifier
+            from core.update_startup import build_startup_probe
+            probe_path = os.path.join(job_dir, "startup_probe.ps1")
+            with open(probe_path, "w", encoding="utf-8-sig", newline="") as output:
+                output.write(build_startup_probe())
+            with open(probe_path + ".verify.ps1", "w", encoding="utf-8-sig", newline="") as output:
+                output.write(build_copy_verifier())
+            script = build_apply_script(
+                src_dir, dst_dir, backup_dir, pid, startup_probe=probe_path,
+                transaction_token=transaction_token, version=info.get("version", ""),
+                pending_update=pending_path,
+            )
+            with open(bat_path, "w", encoding="utf-8", newline="") as f:
+                f.write(script)
         except Exception as e:
             return {"success": False, "message": "Không tạo được script cập nhật: %s" % e}
 
         try:
+            with open(pending_path, "x", encoding="utf-8") as pending:
+                json.dump({"version": info.get("version"), "job_dir": job_dir,
+                           "application_dir": dst_dir, "backup_dir": backup_dir}, pending)
+                pending.flush()
+                os.fsync(pending.fileno())
+        except FileExistsError:
+            return {"success": False, "message": "Một giao dịch cập nhật khác đã được bàn giao; giữ nguyên dữ liệu phục hồi."}
+        except OSError as error:
+            return {"success": False, "message": "Không thể ghi journal cập nhật; đã dừng: %s" % error}
+        try:
             flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-            subprocess.Popen(["cmd", "/c", bat_path], creationflags=flags, cwd=upd_root, close_fds=True)
+            subprocess.Popen(["cmd", "/d", "/c", bat_path], creationflags=flags, cwd=job_dir, close_fds=True)
         except Exception as e:
+            os.remove(pending_path)
             return {"success": False, "message": "Không khởi chạy được script cập nhật: %s" % e}
 
         log_startup("[Updater] Da khoi chay script cap nhat. Ung dung se khoi dong lai sau it giay.")
@@ -3384,16 +4087,131 @@ class ModManagerAPI:
         - Đang có phiên chơi game -> ẩn xuống Khay Hệ Thống, giữ tiến trình để đếm giờ
           và kích hoạt hook đóng gói .congu_save + đẩy Google Drive sau khi tắt game.
         - Không có game nào chạy -> thoát hẳn (Zero-Leak Clean Exit).
+        - Chế độ Fallback Browser (không có cửa sổ native): giữ tiến trình nếu đang có game,
+          còn lại trả tín hiệu để frontend gọi /api/app/quit thoát hẳn.
         """
-        if not self.window:
-            return {"success": False, "error": "No window instance"}
+        try:
+            _app_mod = _get_app_module()
+            if self.window:
+                if _app_mod is None:
+                    return {"success": False, "error": "App module unavailable"}
+                return _app_mod.request_close(self.window)
+
+            # Fallback Browser Mode: không có cửa sổ WinForms để ẩn xuống Khay
+            if PLAYTIME_MGR.has_active_session():
+                return {
+                    "success": True,
+                    "hidden_to_tray": True,
+                    "reason": "active_game_session",
+                    "message": (
+                        "CỔ NGỮ đang theo dõi phiên chơi game nên tiến trình sẽ tiếp tục chạy ngầm "
+                        "để đếm giờ và tự động sao lưu Cloud khi bạn thoát game."
+                    ),
+                }
+            try:
+                PLAYTIME_MGR.flush_all_active()
+            except Exception:
+                pass
+            return {"success": True, "hidden_to_tray": False, "reason": "fallback_no_window"}
+        except Exception as e:
+            return {"success": False, "hidden_to_tray": False, "error": str(e)}
+
+    # ---------------------------------------------------------------------
+    # SAVE TIME MACHINE (lịch sử 3 thế hệ save trong .congu_save)
+    # ---------------------------------------------------------------------
+    def get_save_revisions(self, game_id: str):
+        """Liệt kê các thế hệ save (current / prev_1 / prev_2) của 1 game."""
+        try:
+            games = {g["id"]: g for g in self.get_games()}
+            g = games.get(game_id)
+            if not g:
+                return {"success": False, "error": "Không tìm thấy game."}
+            data = get_vault_instance().list_game_revisions(g)
+            return {"success": True, **data}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def restore_previous_save(self, game_id: str, revision: str = "prev_1"):
+        """Khôi phục save của phiên chơi trước (mặc định prev_1) về thư mục game."""
+        try:
+            games = {g["id"]: g for g in self.get_games()}
+            g = games.get(game_id)
+            if not g:
+                return {"success": False, "message": "Không tìm thấy game."}
+            cfg = load_user_config()
+            root = cfg.get(f"{game_id}_path", "") or ""
+            res = get_vault_instance().restore_game_revision(g, root, revision=revision)
+            if res.get("success"):
+                label = {"current": "bản hiện tại", "prev_1": "phiên chơi trước", "prev_2": "2 phiên trước"}.get(revision, revision)
+                res["message"] = (
+                    f"Đã khôi phục {res.get('restored_files', 0)} tệp save từ {label}"
+                    + (f" (đã sao lưu {res.get('backups_created', 0)} tệp cũ thành .congu_prevbak)."
+                       if res.get("backups_created") else ".")
+                )
+            else:
+                res["message"] = res.get("error") or "Khôi phục thất bại."
+            return res
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    # ---------------------------------------------------------------------
+    # PRE-FLIGHT GAME DOCTOR (kiểm tra runtime trước khi chơi)
+    # ---------------------------------------------------------------------
+    def run_game_doctor(self, game_id: str = ""):
+        """
+        Kiểm tra môi trường máy trước khi khởi chạy game:
+        VC++ Redistributable x64, .NET Framework, DirectX, BepInEx winhttp.dll và font tiếng Việt.
+        """
+        try:
+            from core.preflight_doctor import run_preflight
+            games = {g["id"]: g for g in self.get_games()}
+            gid = game_id or (next(iter(games)) if games else "")
+            g = games.get(gid)
+            if not g:
+                return {"success": False, "error": "Không tìm thấy game để kiểm tra."}
+            cfg = load_user_config()
+            root = cfg.get(f"{gid}_path", "") or ""
+            report = run_preflight(g, root)
+            return {"success": True, "doctor": report}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # ---------------------------------------------------------------------
+    # QUICK-SAVE CHECKPOINT (Ctrl+F5 lưu / Ctrl+F9 hoàn nguyên)
+    # ---------------------------------------------------------------------
+    def quick_checkpoint_save(self):
+        """Tạo Quick Checkpoint cho game đang chơi (dùng cho phím tắt / UI)."""
         try:
             _app_mod = _get_app_module()
             if _app_mod is None:
                 return {"success": False, "error": "App module unavailable"}
-            return _app_mod.request_close(self.window)
+            return _app_mod.quick_checkpoint_save()
         except Exception as e:
-            return {"success": False, "hidden_to_tray": False, "error": str(e)}
+            return {"success": False, "error": str(e)}
+
+    def quick_checkpoint_restore(self):
+        """Hoàn nguyên Quick Checkpoint mới nhất cho game đang chơi."""
+        try:
+            _app_mod = _get_app_module()
+            if _app_mod is None:
+                return {"success": False, "error": "App module unavailable"}
+            return _app_mod.quick_checkpoint_restore()
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def list_quick_checkpoints(self, game_id: str = ""):
+        """Liệt kê các Quick Checkpoint đã lưu của 1 game."""
+        try:
+            from core.quick_checkpoint import list_checkpoints
+            gid = game_id
+            if not gid:
+                ids = PLAYTIME_MGR.get_active_session_ids()
+                gid = ids[0] if ids else ""
+            if not gid:
+                return {"success": False, "items": [], "message": "Chưa chọn game nào."}
+            return {"success": True, "game_id": gid, "items": list_checkpoints(gid, APPDATA_DIR)}
+        except Exception as e:
+            return {"success": False, "items": [], "error": str(e)}
 
     def get_all_playtime_stats(self):
         """Lấy toàn bộ thống kê giờ chơi thời gian thực của các game."""
@@ -3469,6 +4287,242 @@ class ModManagerAPI:
             return {"success": True, "theme": data}
         except Exception as e:
             return {"success": False, "message": str(e)}
+
+    # ==========================================================================
+    # UNIVERSAL DRAG & DROP (Kéo & Thả file trực tiếp vào cửa sổ CỔ NGỮ)
+    # ==========================================================================
+
+    def _dnd_resolve_lnk(self, lnk_path: str) -> str:
+        """Giải mã đường dẫn đích thực của Shortcut .lnk qua COM WScript.Shell."""
+        try:
+            import subprocess
+            safe = str(lnk_path).replace("'", "''")
+            cmd = [
+                "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                f"(New-Object -ComObject WScript.Shell).CreateShortcut('{safe}').TargetPath",
+            ]
+            out = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=8,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            target = (out.stdout or "").strip().splitlines()
+            target = target[0].strip() if target else ""
+            if target and os.path.exists(target):
+                return target
+        except Exception as e:
+            print(f"[DnD] Resolve .lnk error: {e}")
+        return ""
+
+    def _dnd_find_exe_in_folder(self, folder: str) -> str:
+        """Tìm file .exe khả nghi nhất trong thư mục game được kéo thả (quét tối đa 2 tầng)."""
+        best, best_size = "", -1
+        try:
+            for root, dirs, files in os.walk(folder):
+                depth = root[len(folder):].count(os.sep)
+                if depth >= 2:
+                    dirs[:] = []
+                for fn in files:
+                    if not fn.lower().endswith(".exe"):
+                        continue
+                    low = fn.lower()
+                    if any(t in low for t in ("unins", "setup", "crash", "helper", "vc_redist", "dxsetup")):
+                        continue
+                    p = os.path.join(root, fn)
+                    try:
+                        size = os.path.getsize(p)
+                    except OSError:
+                        continue
+                    if size > best_size:
+                        best, best_size = p, size
+        except Exception as e:
+            print(f"[DnD] Scan folder error: {e}")
+        return best
+
+    def _dnd_add_game_from_exe(self, exe_path: str) -> dict:
+        """Nhận diện game từ .exe (Steam metadata + ảnh bìa) và thêm vào thư viện Game Lẻ."""
+        det = self.detect_custom_game(exe_path)
+        if not det.get("success"):
+            return {"status": "error", "message": det.get("message") or "Không nhận diện được game."}
+        game = det.get("game") or {}
+        if not game.get("id"):
+            return {"status": "error", "message": "Không tạo được mã định danh cho game."}
+        saved = self.save_custom_game(game)
+        if not saved.get("success"):
+            return {"status": "error", "message": saved.get("message") or "Không lưu được game."}
+        return {
+            "status": "ok",
+            "kind": "custom_game",
+            "message": saved.get("message") or f"Đã thêm '{game.get('title')}' vào thư viện.",
+            "game": {"id": game.get("id"), "title": game.get("title"), "steam_appid": game.get("steam_appid")},
+        }
+
+    def _dnd_install_congu(self, congu_path: str) -> dict:
+        """
+        Cài gói Việt hóa Offline (.congu): xác thực SHA-256 với games.json,
+        đưa vào cache chuẩn rồi kích hoạt pipeline cài đặt hiện có.
+        """
+        hasher = hashlib.sha256()
+        try:
+            with open(congu_path, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    hasher.update(chunk)
+        except Exception as e:
+            return {"status": "error", "message": f"Không đọc được tệp .congu: {e}"}
+
+        digest = hasher.hexdigest().lower()
+        match = None
+        for g in self.get_games():
+            if str(g.get("congu_sha256") or "").strip().lower() == digest:
+                match = g
+                break
+        if not match:
+            return {
+                "status": "error",
+                "message": "Gói .congu không khớp mã SHA-256 của bất kỳ game nào trong danh mục — "
+                           "từ chối cài đặt để bảo vệ máy bạn.",
+            }
+
+        gid = match["id"]
+        try:
+            cache_dir = os.path.join(APPDATA_DIR, "cache", gid)
+            os.makedirs(cache_dir, exist_ok=True)
+            shutil.copy2(congu_path, os.path.join(cache_dir, "mod_package.congu"))
+        except Exception as e:
+            return {"status": "error", "message": f"Không ghi được vào cache: {e}"}
+
+        def _worker():
+            try:
+                self.install_mod(gid, force=True)
+            except Exception as e:
+                print(f"[DnD] Offline install error: {e}")
+
+        threading.Thread(target=_worker, daemon=True).start()
+        return {
+            "status": "installing",
+            "kind": "congu",
+            "game_id": gid,
+            "message": f"Đã nhận gói Việt hóa '{match.get('vietnamese_title') or match.get('title')}'. Đang cài đặt...",
+        }
+
+    def _dnd_install_theme(self, theme_path: str) -> dict:
+        """Cài gói theme .congu_theme vừa kéo thả và áp dụng ngay."""
+        try:
+            from core.theme_manager import install_theme_zip, get_themes_root
+            res = install_theme_zip(theme_path, get_themes_root())
+        except Exception as e:
+            return {"status": "error", "message": f"Lỗi cài theme: {e}"}
+        if not res.get("success"):
+            return {"status": "error", "message": res.get("message") or res.get("error") or "Cài theme thất bại."}
+        theme_id = res.get("theme_id")
+        if theme_id:
+            try:
+                from core.theme_manager import set_active_theme
+                set_active_theme(theme_id)
+            except Exception as e:
+                print(f"[DnD] Apply theme warning: {e}")
+        return {
+            "status": "ok",
+            "kind": "theme",
+            "theme_id": theme_id,
+            "message": res.get("message") or "Đã cài theme thành công.",
+        }
+
+    def _dnd_preview_vault(self, save_path: str) -> dict:
+        """Đọc manifest .congu_save để hỏi xác nhận trước khi nạp Hồ sơ."""
+        try:
+            import zipfile
+            with zipfile.ZipFile(save_path, "r") as zf:
+                if "profile_manifest.json" not in zf.namelist():
+                    return {"status": "error", "message": "Tệp không phải Hồ Sơ CỔ NGỮ (.congu_save) hợp lệ."}
+                manifest = json.loads(zf.read("profile_manifest.json").decode("utf-8"))
+        except Exception as e:
+            return {"status": "error", "message": f"Tệp .congu_save bị hỏng hoặc sai định dạng: {e}"}
+
+        player = manifest.get("player_name") or os.environ.get("USERNAME", "Game Thủ Cổ Ngữ")
+        games_count = len(manifest.get("games") or {})
+        return {
+            "status": "confirm",
+            "kind": "vault",
+            "requires_confirm": True,
+            "path": save_path,
+            "player_name": player,
+            "games_count": games_count,
+            "message": f"Bạn có muốn nạp Hồ sơ Save & Thành tựu của {player} không?",
+        }
+
+    def handle_dropped_files(self, paths):
+        """Điểm vào duy nhất cho Universal Drag & Drop (nhận danh sách đường dẫn tuyệt đối)."""
+        if isinstance(paths, str):
+            paths = [paths]
+        items = []
+        for raw in (paths or []):
+            try:
+                p = os.path.abspath(str(raw))
+                if not os.path.exists(p):
+                    items.append({"file": str(raw), "status": "error", "message": "Không tìm thấy tệp."})
+                    continue
+
+                # Thư mục game: tự tìm .exe bên trong
+                if os.path.isdir(p):
+                    exe = self._dnd_find_exe_in_folder(p)
+                    if not exe:
+                        items.append({"file": p, "status": "error",
+                                      "message": "Không tìm thấy file .exe trong thư mục game."})
+                        continue
+                    item = self._dnd_add_game_from_exe(exe)
+                    item["file"] = p
+                    items.append(item)
+                    continue
+
+                ext = os.path.splitext(p)[1].lower()
+
+                if ext == ".lnk":
+                    target = self._dnd_resolve_lnk(p)
+                    if not target:
+                        items.append({"file": p, "status": "error",
+                                      "message": "Không giải mã được Shortcut .lnk này."})
+                        continue
+                    if os.path.isdir(target):
+                        target = self._dnd_find_exe_in_folder(target)
+                    if not target or not target.lower().endswith(".exe"):
+                        items.append({"file": p, "status": "error",
+                                      "message": "Shortcut không trỏ tới file game .exe."})
+                        continue
+                    item = self._dnd_add_game_from_exe(target)
+                    item["file"] = p
+                    item["resolved_target"] = target
+                    items.append(item)
+
+                elif ext == ".exe":
+                    item = self._dnd_add_game_from_exe(p)
+                    item["file"] = p
+                    items.append(item)
+
+                elif ext == ".congu_save":
+                    item = self._dnd_preview_vault(p)
+                    item["file"] = p
+                    items.append(item)
+
+                elif ext == ".congu":
+                    item = self._dnd_install_congu(p)
+                    item["file"] = p
+                    items.append(item)
+
+                elif ext == ".congu_theme":
+                    item = self._dnd_install_theme(p)
+                    item["file"] = p
+                    items.append(item)
+
+                else:
+                    items.append({
+                        "file": p, "status": "unsupported",
+                        "message": "Định dạng chưa hỗ trợ. CỔ NGỮ nhận: .exe, .lnk, .congu, .congu_save, .congu_theme",
+                    })
+            except Exception as e:
+                items.append({"file": str(raw), "status": "error", "message": str(e)})
+
+        ok = sum(1 for i in items if i.get("status") in ("ok", "installing", "confirm"))
+        return {"success": ok > 0, "items": items, "total": len(items), "accepted": ok}
 
     def import_theme_dialog(self):
         """Mở hộp thoại chọn gói theme (.congu_theme / .zip) từ máy tính và cài đặt an toàn."""
@@ -3675,9 +4729,17 @@ class ModManagerAPI:
 # Global API singleton instance
 api_instance = ModManagerAPI()
 
-# Tự động khôi phục game lẻ + yêu cầu Việt hóa từ Hồ Sơ (.congu_save) khi khởi động
+# Tự động khôi phục game lẻ + yêu cầu Việt hóa + danh sách Chưa tải từ Hồ Sơ (.congu_save) khi khởi động
 try:
     merge_vault_custom_games()
 except Exception as _merge_err:
     print(f"[LocalizationRequest] Startup merge skipped: {_merge_err}")
+try:
+    merge_vault_bookmarks()
+except Exception as _bm_merge_err:
+    print(f"[Bookmark] Startup merge skipped: {_bm_merge_err}")
+try:
+    merge_vault_playtime()
+except Exception as _pt_merge_err:
+    print(f"[Profile] Playtime startup merge skipped: {_pt_merge_err}")
 set_api_instance_ref(api_instance)

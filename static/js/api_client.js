@@ -134,6 +134,205 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // Thư Viện: "Thêm vào Thư viện" (Bookmarks) - game chưa tải vẫn nằm trong kho
+    // -------------------------------------------------------------
+    let bookmarkEntries = [];
+    let bookmarkIdSet = new Set();
+    let bookmarkAppIdSet = new Set();
+    let bookmarkTitleSet = new Set();
+    let bookmarkPendingKeys = new Set();
+
+    function bookmarkTitleKey(text) {
+      const raw = String(text || '');
+      const normalized = (typeof removeVietnameseTones === 'function') ? removeVietnameseTones(raw) : raw.toLowerCase();
+      return normalized.replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
+    function isGameBookmarked(obj) {
+      if (!obj) return false;
+      const id = String(obj.id || obj.game_id || '');
+      if (id && bookmarkIdSet.has(id)) return true;
+      const appid = String(obj.steam_appid || '');
+      if (appid && bookmarkAppIdSet.has(appid)) return true;
+      const key = bookmarkTitleKey(obj.title);
+      return !!(key && bookmarkTitleSet.has(key));
+    }
+
+    // Đồng bộ cờ bookmark + trạng thái Thư Viện cho toàn bộ gamesList hiện tại
+    function applyBookmarkEntries(entries) {
+      bookmarkEntries = Array.isArray(entries) ? entries : [];
+      bookmarkIdSet = new Set(bookmarkEntries.map(b => String(b.id)));
+      bookmarkAppIdSet = new Set(bookmarkEntries.map(b => String(b.steam_appid || '')).filter(Boolean));
+      bookmarkTitleSet = new Set(bookmarkEntries.map(b => bookmarkTitleKey(b.title)).filter(Boolean));
+
+      (Array.isArray(gamesList) ? gamesList : []).forEach(g => {
+        const isBm = isGameBookmarked(g);
+        g.is_bookmarked = isBm;
+        if (g.status_code === 'INSTALLED') {
+          g.library_state = 'ready';
+        } else if (g.status_code === 'NOT_INSTALLED' || g.status_code === 'UPDATE_DETECTED') {
+          g.library_state = 'needs_translation';
+        } else {
+          g.library_state = isBm ? 'bookmark' : 'unavailable';
+        }
+      });
+    }
+
+    async function fetchBookmarks() {
+      try {
+        const res = await fetch('/api/bookmarks');
+        const data = await res.json();
+        if (data && data.success) applyBookmarkEntries(data.bookmarks);
+      } catch (err) {
+        console.warn('[Bookmark] Không nạp được danh sách Thư viện:', err);
+      }
+    }
+
+    function refreshBookmarkSurfaces() {
+      try {
+        const viewDiscovery = document.getElementById('viewDiscovery');
+        if (viewDiscovery && !viewDiscovery.classList.contains('hidden') && typeof renderDiscoveryFeed === 'function') {
+          renderDiscoveryFeed();
+        }
+      } catch (err) {
+        console.warn('[Bookmark] Lỗi vẽ lại Khám Phá:', err);
+      }
+    }
+
+    // Bật/tắt lưu game vào Thư viện. Nhận game_id (từ Thư Viện) hoặc payload metadata
+    // (từ Khám Phá / Kho Tải Game) để game chưa tải vẫn có đủ thông tin hiển thị.
+    async function toggleGameBookmark(target) {
+      let payload = null;
+      if (typeof target === 'string') {
+        const game = (Array.isArray(gamesList) ? gamesList : []).find(g => g.id === target);
+        if (!game) return;
+        payload = {
+          game_id: game.id,
+          title: game.title,
+          vietnamese_title: game.vietnamese_title,
+          steam_appid: game.steam_appid || '',
+          cover_url: game.local_cover || game.avatar_url || (game.assets && game.assets.poster) || '',
+          genre: game.genre || '',
+          source: game.bookmark_source || 'library',
+          slug: game.slug || ''
+        };
+      } else if (target && typeof target === 'object') {
+        payload = Object.assign({}, target);
+      }
+      if (!payload || (!payload.title && !payload.steam_appid && !payload.slug)) return;
+
+      const pendingKey = String(payload.game_id || payload.steam_appid || payload.slug || payload.title);
+      if (bookmarkPendingKeys.has(pendingKey)) return;
+      bookmarkPendingKeys.add(pendingKey);
+
+      try {
+        const res = await fetch('/api/bookmark/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data || data.success === false) {
+          throw new Error((data && data.message) || 'Máy chủ không phản hồi hợp lệ');
+        }
+
+        applyBookmarkEntries(data.bookmarks);
+        showToast(
+          data.is_bookmarked ? 'Đã thêm vào Thư viện (Chưa tải)' : 'Đã bỏ khỏi Thư viện',
+          'success'
+        );
+
+        // Nạp lại danh sách game để thẻ "Chưa tải" xuất hiện / biến mất khỏi Thư Viện
+        if (typeof fetchGames === 'function') await fetchGames();
+        applyBookmarkEntries(data.bookmarks);
+        if (typeof renderCounts === 'function') renderCounts();
+        if (typeof renderGrid === 'function') renderGrid();
+        if (typeof renderSidebar === 'function') renderSidebar();
+        refreshBookmarkSurfaces();
+        return !!data.is_bookmarked;
+      } catch (err) {
+        console.warn('[Bookmark] Toggle thất bại:', err);
+        showToast('Không thể cập nhật Thư viện. Vui lòng thử lại!', 'error');
+        return false;
+      } finally {
+        bookmarkPendingKeys.delete(pendingKey);
+      }
+    }
+
+    // Mở Kho Tải Game và tìm sẵn tên game đã lưu để người dùng lấy bộ cài
+    function bookmarkOpenDownload(gameId) {
+      const game = (Array.isArray(gamesList) ? gamesList : []).find(g => g.id === gameId);
+      if (!game) return;
+      if (typeof openHydraModal === 'function') {
+        openHydraModal('catalogue');
+        if (typeof searchCatalogueGames === 'function') {
+          setTimeout(() => searchCatalogueGames(game.title), 150);
+        }
+      } else if (typeof openDiscoveryHub === 'function') {
+        openDiscoveryHub();
+      }
+    }
+
+    // Trỏ tới bản cài sẵn có: mở hộp thoại Game Tự Thêm với thông tin điền sẵn
+    function bookmarkLinkExisting(gameId) {
+      const game = (Array.isArray(gamesList) ? gamesList : []).find(g => g.id === gameId);
+      if (!game || typeof openAddCustomGameModal !== 'function') return;
+      openAddCustomGameModal({
+        title: game.title,
+        steam_appid: game.steam_appid || '',
+        cover_url: game.local_cover || game.avatar_url || ''
+      });
+    }
+
+    // Ghost Library: mở Steam để cài game chưa có trên máy
+    async function installGhostGame(gameId) {
+      const game = (Array.isArray(gamesList) ? gamesList : []).find(g => g.id === gameId);
+      if (!game) return;
+
+      if (!game.steam_appid) {
+        showToast('Game không có Steam AppID. Hãy chọn thư mục cài sẵn trên máy!', 'warning');
+        if (typeof openGameModal === 'function') openGameModal(game.id);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/game/steam_install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appid: game.steam_appid })
+        });
+        const data = await res.json();
+        showToast((data && data.message) || 'Đã mở Steam để cài game.', data && data.success ? 'success' : 'error');
+      } catch (err) {
+        showToast('Không mở được Steam: ' + err.message, 'error');
+      }
+    }
+
+    // Bung save đang chờ trong .congu_save về thư mục game đã cài trên máy này
+    async function restorePendingVaultSave(gameId) {
+      const game = (Array.isArray(gamesList) ? gamesList : []).find(g => g.id === gameId);
+      if (!game) return;
+      try {
+        showToast('Đang bung save từ Hồ Sơ .congu_save về máy...', 'info');
+        const res = await fetch('/api/vault/unpack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game_id: gameId, backup_existing: true })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(`Đã khôi phục ${data.unpacked_saves || 0} tệp save cho ${game.vietnamese_title || game.title}!`, 'success');
+          await fetchGames();
+        } else {
+          showToast((data && data.error) || 'Khôi phục save thất bại!', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi khi khôi phục save: ' + err.message, 'error');
+      }
+    }
+
     // Fetch games from backend API
     async function fetchGames() {
       try {
@@ -181,6 +380,11 @@
       } finally {
         await fetchGames();
         if (icon) setTimeout(() => icon.classList.remove('animate-spin'), 600);
+        // Tab Khám Phá không còn nút Làm mới riêng: icon header làm mới luôn feed
+        const discoveryView = document.getElementById('viewDiscovery');
+        if (discoveryView && !discoveryView.classList.contains('hidden') && typeof loadDiscoveryFeed === 'function') {
+          loadDiscoveryFeed(true, true);
+        }
       }
     }
 
@@ -237,7 +441,21 @@
       }
     }
     // Install / Uninstall Trigger
+    const _busyGameOps = new Set();
     async function toggleMod(gameId, force = false) {
+      if (_busyGameOps.has(gameId)) {
+        showToast('Thao tác đang diễn ra, vui lòng không bấm liên tục!', 'info');
+        return;
+      }
+      _busyGameOps.add(gameId);
+      try {
+        await _toggleModInternal(gameId, force);
+      } finally {
+        _busyGameOps.delete(gameId);
+      }
+    }
+
+    async function _toggleModInternal(gameId, force = false) {
       const game = gamesList.find(g => g.id === gameId);
       if (!game) return;
       if (game.status_code === 'UPDATE_DETECTED') {
@@ -431,6 +649,19 @@
     }
 
     async function emergencyRestoreGame(gameId) {
+      if (_busyGameOps.has(gameId)) {
+        showToast('Thao tác đang diễn ra, vui lòng không bấm liên tục!', 'info');
+        return;
+      }
+      _busyGameOps.add(gameId);
+      try {
+        await _emergencyRestoreGameInternal(gameId);
+      } finally {
+        _busyGameOps.delete(gameId);
+      }
+    }
+
+    async function _emergencyRestoreGameInternal(gameId) {
       const game = gamesList.find(g => g.id === gameId);
       if (!game) return;
 
@@ -523,7 +754,7 @@
       }
     }
 
-    async function launchGameFromHub(gameId) {
+    async function launchGameFromHub(gameId, _force) {
       if (!gameId) return;
       const game = gamesList.find(g => g.id === gameId);
       if (!game || !game.is_game_found) {
@@ -531,23 +762,57 @@
         return;
       }
 
+      let forceLaunch = _force === true;
+
+      // --- PRE-FLIGHT GAME DOCTOR: kiểm tra VC++ / .NET / DirectX / BepInEx / Font ---
+      if (!forceLaunch) {
+        try {
+          let docRes = null;
+          if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.run_game_doctor === 'function') {
+            docRes = await window.pywebview.api.run_game_doctor(gameId);
+          } else {
+            const r = await fetch('/api/game/doctor', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ game_id: gameId })
+            });
+            docRes = await r.json();
+          }
+          const doc = docRes && docRes.doctor;
+          if (doc && doc.severity && doc.severity !== 'ok') {
+            const go = await showGameDoctor(doc);
+            if (!go) return;             // Người dùng bấm Huỷ
+            forceLaunch = true;
+          }
+        } catch (e) {
+          console.warn('[GameDoctor] Bỏ qua kiểm tra:', e);
+        }
+      }
+
       setGamePlayingState(gameId, true);
 
       let res;
       try {
         if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.launch_game === 'function') {
-          res = await window.pywebview.api.launch_game(gameId);
+          res = await window.pywebview.api.launch_game(gameId, forceLaunch);
         } else {
           const resp = await fetch('/api/launch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ game_id: gameId })
+            body: JSON.stringify({ game_id: gameId, force: forceLaunch })
           });
           res = await resp.json();
         }
       } catch (err) {
         showToast('Không thể kết nối đến máy chủ khởi chạy: ' + (err && err.message ? err.message : err), 'error');
         setGamePlayingState(gameId, false);
+        return;
+      }
+
+      if (res && res.status === 'doctor_warning' && res.doctor) {
+        setGamePlayingState(gameId, false);
+        const go = await showGameDoctor(res.doctor);
+        if (go) return launchGameFromHub(gameId, true);
         return;
       }
 
@@ -734,17 +999,17 @@
           let subtitleClass = 'text-cyan-400';
 
           if (isCongu) {
-            badgeClass = 'bg-[#FF2A85] text-white border border-[#FF2A85]/60';
+            badgeClass = 'bg-[#00F0FF] text-white border border-[#00F0FF]/60';
             badgeText = 'Kho Cổ Ngữ';
-            borderHoverClass = 'hover:border-[#FF2A85] hover:shadow-[0_4px_16px_rgba(255,42,133,0.3)]';
-            btnClass = 'bg-[#FF2A85] text-white';
-            subtitleClass = 'text-pink-400';
+            borderHoverClass = 'hover:border-[#00F0FF] hover:shadow-[0_4px_16px_rgba(0,240,255,0.3)]';
+            btnClass = 'bg-[#00F0FF] text-white';
+            subtitleClass = 'text-cyan-400';
           } else if (isSteamGrid) {
-            badgeClass = 'bg-[#B026FF] text-white border border-[#B026FF]/70 shadow-[0_0_8px_rgba(176,38,255,0.5)]';
+            badgeClass = 'bg-[#00F0FF] text-white border border-[#00F0FF]/70 shadow-[0_0_8px_rgba(0,240,255,0.5)]';
             badgeText = 'SteamGridDB';
-            borderHoverClass = 'hover:border-[#B026FF] hover:shadow-[0_4px_16px_rgba(176,38,255,0.35)]';
-            btnClass = 'bg-[#B026FF] text-white';
-            subtitleClass = 'text-purple-400';
+            borderHoverClass = 'hover:border-[#00F0FF] hover:shadow-[0_4px_16px_rgba(0,240,255,0.35)]';
+            btnClass = 'bg-[#00F0FF] text-white';
+            subtitleClass = 'text-cyan-400';
           }
 
           const posterUrl = item.avatar_url || item.header_url || item.capsule || '';
@@ -758,8 +1023,8 @@
 
           return `
             <div onclick="selectGameCandidate(${idx})" 
-                 class="group cursor-pointer bg-[#070914] border border-[#1e2340] ${borderHoverClass} rounded-[2px] overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-1 relative">
-              <div class="aspect-[2/3] w-full bg-[#05060f] relative overflow-hidden flex items-center justify-center">
+                 class="group cursor-pointer bg-[#0A0E1A] border border-[#1e2340] ${borderHoverClass} rounded-[2px] overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-1 relative">
+              <div class="aspect-[2/3] w-full bg-[#0A0E1A] relative overflow-hidden flex items-center justify-center">
                 <!-- Crisp foreground image: full bleed 2:3 vertical poster preview -->
                 <img id="cand-fg-${idx}" 
                      src="${posterUrl}" 
@@ -776,7 +1041,7 @@
 
                 <!-- Hover Overlay Chọn Mẫu Này -->
                 <div class="absolute inset-0 z-30 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 backdrop-blur-[1px]">
-                  <span class="pixel-btn ${btnClass} text-[11px] font-bold px-3 py-1.5 rounded-[2px] shadow-[2px_2px_0px_#000] flex items-center space-x-1">
+                  <span class="pixel-btn ${btnClass} text-[11px] font-bold px-3 py-1.5 rounded-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center space-x-1">
                     <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>
                     <span>Chọn Mẫu Này</span>
                   </span>
@@ -1361,14 +1626,10 @@
         } catch (e) {}
       }
 
-      // 4. Gui lenh tat backend qua sendBeacon / fetch khong block
-      const quitUrl = SESSION_AUTH_TOKEN ? `/api/app/quit?token=${encodeURIComponent(SESSION_AUTH_TOKEN)}` : '/api/app/quit';
+      // 4. Gửi lệnh tắt qua fetch keepalive. Không dùng sendBeacon vì nó không
+      //    gắn được header token, và tuyệt đối không đưa token vào query string.
       try {
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon(quitUrl);
-        } else {
-          fetch(quitUrl, { method: 'POST', keepalive: true }).catch(() => {});
-        }
+        fetch('/api/app/quit', { method: 'POST', keepalive: true }).catch(() => {});
       } catch (e) {}
 
       // 5. Dong cua so ngay lap tuc
@@ -1934,9 +2195,9 @@
       }
 
       container.innerHTML = paths.map((p, idx) => `
-        <div class="flex items-center justify-between p-2 rounded-[4px] bg-[#070817] border border-white/10 text-xs gap-2">
+        <div class="flex items-center justify-between p-2 rounded-[4px] bg-[#0A0E1A] border border-white/10 text-xs gap-2">
           <div class="flex items-center space-x-2 min-w-0">
-            <i data-lucide="folder" class="w-3.5 h-3.5 text-purple-400 shrink-0"></i>
+            <i data-lucide="folder" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
             <span class="font-mono text-slate-300 truncate" title="${p}">${p}</span>
           </div>
           <button type="button" onclick="removeCustomLibraryPath(${idx})" class="p-1 text-slate-400 hover:text-red-400 rounded shrink-0 transition" title="Xóa thư mục khỏi danh sách quét">
@@ -2297,3 +2558,354 @@
         }
       }
     });
+
+    // =========================================================================
+    // FALLBACK BROWSER HEARTBEAT (Zero-Leak Clean Exit)
+    // Gửi ping nhẹ mỗi 5 giây để backend biết cửa sổ Edge/Chrome vẫn còn mở.
+    // Khi người dùng đóng cửa sổ trình duyệt, watchdog trong app.py sẽ tự thoát
+    // tiến trình sau 15 giây (trừ khi vẫn còn game đang chạy để đếm giờ / Cloud Save).
+    // =========================================================================
+    (function initUiHeartbeat() {
+      const HEARTBEAT_INTERVAL_MS = 5000;
+
+      function sendHeartbeat() {
+        try {
+          fetch('/api/heartbeat', { method: 'POST', keepalive: true }).catch(() => {});
+        } catch (e) {}
+      }
+
+      sendHeartbeat();
+      setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    })();
+
+    // =========================================================================
+    // GAME BOOSTER - BẢNG TỔNG KẾT PHIÊN CHƠI
+    // Được Python gọi qua window.evaluate_js() ngay sau khi người chơi thoát game.
+    // =========================================================================
+    window.showSessionSummary = function (payload) {
+      try {
+        payload = payload || {};
+        const esc = (v) =>
+          String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+          }[c]));
+
+        const old = document.getElementById('conguSessionSummary');
+        if (old) old.remove();
+
+        if (!document.getElementById('conguSessionSummaryStyle')) {
+          const st = document.createElement('style');
+          st.id = 'conguSessionSummaryStyle';
+          st.textContent =
+            '@keyframes conguSummaryIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}' +
+            '@keyframes conguSummaryBar{from{width:100%}to{width:0%}}';
+          document.head.appendChild(st);
+        }
+
+        const row = (label, value, color) =>
+          '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;line-height:1.5;margin-top:6px;">' +
+          '<span style="color:#7b8ba3;">' + esc(label) + '</span>' +
+          '<span style="color:' + (color || '#d7e6f5') + ';font-weight:600;text-align:right;">' + esc(value) + '</span></div>';
+
+        const freed = Number(payload.freed_mb || 0);
+        const box = document.createElement('div');
+        box.id = 'conguSessionSummary';
+        box.style.cssText =
+          'position:fixed;right:18px;bottom:18px;z-index:99999;width:330px;' +
+          'background:rgba(10,14,26,0.97);border:1px solid rgba(0,240,255,0.55);border-radius:6px;' +
+          'box-shadow:0 12px 40px rgba(0,0,0,0.65),0 0 24px rgba(0,240,255,0.15);' +
+          'font-family:Inter,system-ui,sans-serif;color:#e6f7ff;overflow:hidden;' +
+          'animation:conguSummaryIn .25s ease-out;';
+
+        box.innerHTML =
+          '<div style="display:flex;align-items:center;justify-content:space-between;' +
+          'padding:10px 12px;background:linear-gradient(90deg,rgba(0,240,255,0.16),rgba(0,240,255,0.10));' +
+          'border-bottom:1px solid rgba(0,240,255,0.25);">' +
+          '<div style="font-size:11px;letter-spacing:1px;font-weight:700;color:#00F0FF;">// TỔNG KẾT PHIÊN CHƠI</div>' +
+          '<button id="conguSummaryClose" style="background:transparent;border:0;color:#8fa6bd;font-size:16px;' +
+          'cursor:pointer;line-height:1;padding:0 2px;">&times;</button></div>' +
+          '<div style="padding:10px 12px 12px 12px;">' +
+          '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;">' + esc(payload.game_name || payload.game_id || 'Game') + '</div>' +
+          row('Thời lượng phiên', payload.duration_text || '—', '#F2F6FC') +
+          (payload.total_played ? row('Tổng giờ chơi', payload.total_played) : '') +
+          row('Google Drive', payload.cloud_status || '—', '#8ad4ff') +
+          (freed > 0 ? row('RAM đã giải phóng', freed.toFixed(1) + ' MB') : '') +
+          '<div style="margin-top:10px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">' +
+          '<div style="height:100%;background:#00F0FF;' +
+          'animation:conguSummaryBar 12s linear forwards;"></div></div>' +
+          '</div>';
+
+        document.body.appendChild(box);
+
+        const close = () => { const el = document.getElementById('conguSessionSummary'); if (el) el.remove(); };
+        box.querySelector('#conguSummaryClose').addEventListener('click', close);
+        setTimeout(close, 12000);
+        return true;
+      } catch (e) {
+        console.warn('[showSessionSummary] error', e);
+        return false;
+      }
+    };
+
+    // =========================================================================
+    // UNIVERSAL DRAG & DROP - Lớp phủ gợi ý khi kéo file vào cửa sổ
+    // =========================================================================
+    (function initDragDropOverlay() {
+      let overlay = null;
+      let depth = 0;
+
+      function ensureOverlay() {
+        if (overlay) return overlay;
+        overlay = document.createElement('div');
+        overlay.id = 'conguDropOverlay';
+        overlay.style.cssText =
+          'position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;' +
+          'pointer-events:none;background:rgba(5,8,18,0.72);';
+        overlay.innerHTML =
+          '<div style="border:2px dashed rgba(0,240,255,0.75);border-radius:10px;padding:32px 44px;text-align:center;' +
+          'background:rgba(10,14,26,0.92);box-shadow:0 0 40px rgba(0,240,255,0.25);font-family:Inter,system-ui,sans-serif;">' +
+          '<div style="font-size:32px;line-height:1;margin-bottom:10px;">📥</div>' +
+          '<div style="font-size:15px;font-weight:700;color:#00F0FF;letter-spacing:.5px;">THẢ FILE VÀO ĐÂY</div>' +
+          '<div style="font-size:12px;color:#9fb3c8;margin-top:8px;line-height:1.7;">' +
+          '.exe / .lnk → thêm Game Lẻ &nbsp;·&nbsp; .congu → cài Việt hóa Offline<br>' +
+          '.congu_save → nạp Hồ sơ Save &amp; Thành tựu &nbsp;·&nbsp; .congu_theme → đổi Theme</div></div>';
+        document.body.appendChild(overlay);
+        return overlay;
+      }
+
+      window.addEventListener('dragenter', (e) => {
+        const types = (e.dataTransfer && e.dataTransfer.types) || [];
+        if (!Array.from(types).includes('Files')) return;
+        depth += 1;
+        ensureOverlay().style.display = 'flex';
+      });
+      window.addEventListener('dragover', (e) => {
+        const types = (e.dataTransfer && e.dataTransfer.types) || [];
+        if (!Array.from(types).includes('Files')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      });
+      window.addEventListener('dragleave', () => {
+        depth = Math.max(0, depth - 1);
+        if (depth === 0 && overlay) overlay.style.display = 'none';
+      });
+      window.addEventListener('drop', () => {
+        setTimeout(() => { if (overlay) overlay.style.display = 'none'; depth = 0; }, 80);
+      });
+    })();
+
+    // =========================================================================
+    // UNIVERSAL DRAG & DROP - Hiển thị kết quả + hộp thoại xác nhận nạp Hồ sơ
+    // =========================================================================
+    window.handleDroppedFilesResult = function (res) {
+      try {
+        const items = (res && res.items) || [];
+        if (!items.length) return false;
+
+        const confirmItem = items.find((i) => i.requires_confirm && i.kind === 'vault');
+        if (confirmItem) showVaultImportConfirm(confirmItem);
+
+        const rest = items.filter((i) => i.status !== 'confirm');
+        if (!rest.length) return true;
+
+        const colorOf = (st) => ({
+          ok: '#34D399', installing: '#00F0FF', error: '#F87171', unsupported: '#FBBF24'
+        }[st] || '#9fb3c8');
+
+        const html = rest.map((i) => {
+          const name = String(i.file || '').split(/[\\/]/).pop();
+          return '<div style="display:flex;gap:8px;margin-top:7px;font-size:12px;line-height:1.45;">' +
+            '<span style="color:' + colorOf(i.status) + ';font-weight:700;">●</span>' +
+            '<span style="flex:1;"><b style="color:#dceaf7;">' + _dndEscapeHtml(name) + '</b><br>' +
+            '<span style="color:#93a7bd;">' + _dndEscapeHtml(i.message || '') + '</span></span></div>';
+        }).join('');
+
+        let card = document.getElementById('conguDndResult');
+        if (card) card.remove();
+        card = document.createElement('div');
+        card.id = 'conguDndResult';
+        card.style.cssText =
+          'position:fixed;right:18px;bottom:18px;z-index:99999;width:360px;max-height:60vh;overflow:auto;' +
+          'background:rgba(10,14,26,0.98);border:1px solid rgba(0,240,255,0.45);border-radius:6px;' +
+          'box-shadow:0 12px 40px rgba(0,0,0,0.6);font-family:Inter,system-ui,sans-serif;color:#e6f7ff;';
+        card.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;' +
+          'background:linear-gradient(90deg,rgba(0,240,255,0.14),rgba(0,240,255,0.08));' +
+          'border-bottom:1px solid rgba(0,240,255,0.22);">' +
+          '<span style="font-size:11px;font-weight:700;letter-spacing:1px;color:#00F0FF;">// KẾT QUẢ KÉO &amp; THẢ</span>' +
+          '<button id="conguDndClose" style="background:transparent;border:0;color:#8fa6bd;font-size:16px;cursor:pointer;">&times;</button></div>' +
+          '<div style="padding:6px 12px 12px 12px;">' + html + '</div>';
+        document.body.appendChild(card);
+        card.querySelector('#conguDndClose').addEventListener('click', () => card.remove());
+        setTimeout(() => { if (card && card.parentNode) card.remove(); }, 14000);
+
+        try {
+          if (items.some((i) => i.kind === 'custom_game' && i.status === 'ok') && typeof refreshData === 'function') {
+            setTimeout(() => refreshData(), 600);
+          }
+        } catch (e) {}
+        return true;
+      } catch (e) {
+        console.warn('[handleDroppedFilesResult] error', e);
+        return false;
+      }
+    };
+
+    function _dndEscapeHtml(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function showVaultImportConfirm(item) {
+      const old = document.getElementById('conguVaultConfirm');
+      if (old) old.remove();
+
+      const box = document.createElement('div');
+      box.id = 'conguVaultConfirm';
+      box.style.cssText =
+        'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;' +
+        'background:rgba(4,6,14,0.78);font-family:Inter,system-ui,sans-serif;';
+      box.innerHTML =
+        '<div style="width:430px;max-width:92vw;background:rgba(12,16,30,0.98);border:1px solid rgba(0,240,255,0.5);' +
+        'border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.75),0 0 30px rgba(0,240,255,0.18);overflow:hidden;">' +
+        '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(0,240,255,0.16),rgba(0,240,255,0.10));' +
+        'border-bottom:1px solid rgba(0,240,255,0.25);font-size:12px;font-weight:700;letter-spacing:1px;color:#00F0FF;">' +
+        '// NẠP HỒ SƠ SAVE &amp; THÀNH TỰU</div>' +
+        '<div style="padding:18px 16px;color:#dbe9f6;font-size:13px;line-height:1.7;">' +
+        'Bạn có muốn nạp Hồ sơ Save &amp; Thành tựu của ' +
+        '<b style="color:#34D399;">' + _dndEscapeHtml(item.player_name || 'Game Thủ Cổ Ngữ') + '</b> không?' +
+        '<div style="margin-top:8px;color:#8fa6bd;font-size:12px;">Hồ sơ chứa <b>' + Number(item.games_count || 0) +
+        '</b> game đã lưu. Hồ sơ hiện tại trên máy sẽ được sao lưu thành <code>.congu_vault_bak</code> trước khi thay thế.</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px;padding:0 16px 16px 16px;">' +
+        '<button id="conguVaultCancel" style="padding:7px 14px;font-size:12px;border-radius:4px;cursor:pointer;' +
+        'background:#171a2c;color:#c7d5e4;border:1px solid #2b3050;">Để sau</button>' +
+        '<button id="conguVaultAccept" style="padding:7px 14px;font-size:12px;border-radius:4px;cursor:pointer;' +
+        'background:#0f7a52;color:#eafff6;border:1px solid #34D399;font-weight:700;">Nạp Hồ sơ</button>' +
+        '</div></div>';
+      document.body.appendChild(box);
+
+      const close = () => box.remove();
+      box.querySelector('#conguVaultCancel').addEventListener('click', close);
+      box.querySelector('#conguVaultAccept').addEventListener('click', async () => {
+        close();
+        try {
+          if (typeof showToast === 'function') showToast('Đang nạp Hồ sơ Save & Thành tựu...', 'info');
+          const r = await fetch('/api/vault/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_path: item.path, auto_unpack: true })
+          });
+          const data = await r.json();
+          if (typeof showToast === 'function') {
+            showToast(data.success ? (data.message || 'Đã nạp Hồ sơ thành công!') : (data.error || 'Nạp Hồ sơ thất bại.'),
+              data.success ? 'success' : 'error');
+          }
+          if (data.success) {
+            setTimeout(() => {
+              if (typeof refreshData === 'function') refreshData();
+              else location.reload();
+            }, 800);
+          }
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Lỗi nạp Hồ sơ: ' + e, 'error');
+        }
+      });
+    }
+
+    // =========================================================================
+    // PRE-FLIGHT GAME DOCTOR - Modal cảnh báo trước khi chơi
+    // Trả về Promise<boolean>: true = người dùng chọn "Vẫn chơi", false = Huỷ.
+    // =========================================================================
+    window.showGameDoctor = function (report) {
+      return new Promise((resolve) => {
+        try {
+          const old = document.getElementById('conguGameDoctor');
+          if (old) old.remove();
+
+          const ICONS = { ok: '✅', warn: '⚠️', error: '⛔', skip: '➖' };
+          const COLORS = { ok: '#34D399', warn: '#FBBF24', error: '#F87171', skip: '#7b8ba3' };
+          const checks = (report && report.checks) || [];
+
+          const rows = checks.map((c) => {
+            const st = c.status || 'skip';
+            const fix = c.fix_url
+              ? '<button data-fix="' + escapeAttr(c.fix_url) + '" class="conguDocFix" ' +
+                'style="margin-top:6px;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer;' +
+                'background:#12314a;color:#9fe8ff;border:1px solid rgba(0,240,255,0.45);font-weight:700;">' +
+                escapeHtmlText(c.fix_label || 'Tải về') + '</button>'
+              : '';
+            const hint = c.hint
+              ? '<div style="margin-top:4px;color:#8fa6bd;font-size:11.5px;line-height:1.5;">' + escapeHtmlText(c.hint) + '</div>'
+              : '';
+            return '<div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.06);">' +
+              '<span style="font-size:15px;line-height:1.2;">' + (ICONS[st] || '➖') + '</span>' +
+              '<div style="flex:1;">' +
+              '<div style="font-size:12.5px;font-weight:700;color:' + (COLORS[st] || '#9fb3c8') + ';">' +
+              escapeHtmlText(c.label || '') + '</div>' +
+              '<div style="font-size:12px;color:#c7d5e4;margin-top:2px;line-height:1.55;">' +
+              escapeHtmlText(c.detail || '') + '</div>' + hint + fix +
+              '</div></div>';
+          }).join('');
+
+          const isErr = report && report.severity === 'error';
+          const box = document.createElement('div');
+          box.id = 'conguGameDoctor';
+          box.style.cssText =
+            'position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;' +
+            'background:rgba(4,6,14,0.82);font-family:Inter,system-ui,sans-serif;';
+          box.innerHTML =
+            '<div style="width:560px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;' +
+            'background:rgba(12,16,30,0.99);border:1px solid ' + (isErr ? 'rgba(255,77,109,0.6)' : 'rgba(255,176,32,0.55)') + ';' +
+            'border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.8);overflow:hidden;">' +
+            '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(0,240,255,0.12),rgba(0,240,255,0.08));' +
+            'border-bottom:1px solid rgba(0,240,255,0.22);font-size:12px;font-weight:700;letter-spacing:1px;color:#00F0FF;">' +
+            '🩺 // GAME DOCTOR — KIỂM TRA TRƯỚC KHI CHƠI</div>' +
+            '<div style="padding:12px 16px 4px 16px;font-size:12.5px;color:#dbe9f6;line-height:1.6;">' +
+            escapeHtmlText((report && report.summary) || '') + '</div>' +
+            '<div style="padding:0 16px 10px 16px;overflow:auto;flex:1;">' + rows + '</div>' +
+            '<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;' +
+            'border-top:1px solid rgba(255,255,255,0.07);">' +
+            '<button id="conguDocCancel" style="padding:7px 14px;font-size:12px;border-radius:4px;cursor:pointer;' +
+            'background:#171a2c;color:#c7d5e4;border:1px solid #2b3050;">Huỷ</button>' +
+            '<button id="conguDocContinue" style="padding:7px 14px;font-size:12px;border-radius:4px;cursor:pointer;' +
+            'background:' + (isErr ? '#7a1f2f' : '#0f7a52') + ';color:#fff;border:1px solid ' +
+            (isErr ? '#F87171' : '#34D399') + ';font-weight:700;">' +
+            (isErr ? 'Vẫn chơi (không khuyến nghị)' : 'Đã hiểu, tiếp tục') + '</button>' +
+            '</div></div>';
+
+          document.body.appendChild(box);
+
+          const finish = (val) => { try { box.remove(); } catch (e) {} resolve(val); };
+          box.querySelector('#conguDocCancel').addEventListener('click', () => finish(false));
+          box.querySelector('#conguDocContinue').addEventListener('click', () => finish(true));
+          box.querySelectorAll('.conguDocFix').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const url = btn.getAttribute('data-fix');
+              if (!url) return;
+              try {
+                if (window.pywebview && window.pywebview.api && window.pywebview.api.open_url) {
+                  window.pywebview.api.open_url(url);
+                } else {
+                  window.open(url, '_blank');
+                }
+              } catch (e) { window.open(url, '_blank'); }
+            });
+          });
+        } catch (e) {
+          console.warn('[showGameDoctor] error', e);
+          resolve(true);
+        }
+      });
+    };
+
+    function escapeHtmlText(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function escapeAttr(v) {
+      return String(v == null ? '' : v).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }

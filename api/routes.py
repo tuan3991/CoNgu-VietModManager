@@ -10,6 +10,7 @@ import sys
 import json
 import time
 import socketserver
+import urllib.parse
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 from bottle import Bottle, static_file, request, response, abort
 
@@ -27,6 +28,8 @@ from core.config_manager import (
     save_covers_cache,
     get_favorite_games,
     toggle_favorite,
+    get_bookmarked_games,
+    toggle_bookmark,
     get_unified_settings,
     update_unified_settings,
     get_cache_stats,
@@ -64,11 +67,37 @@ from api.ipc_bridge import (
     CONTROLLER_ENGINE,
     LOCALIZATION_REQ_MGR,
     merge_vault_custom_games,
+    merge_vault_bookmarks,
+    merge_vault_playtime,
+    sync_bookmarks_to_vault,
     log_startup,
 )
 
 server_app = Bottle()
 SESSION_AUTH_TOKEN = ""
+
+# Trạng thái Heartbeat của giao diện khi chạy ở chế độ Fallback Browser (Edge/Chrome App Mode).
+# Frontend gửi POST /api/heartbeat mỗi 5 giây; watchdog trong app.py sẽ tự thoát tiến trình
+# nếu quá 15 giây không nhận được ping (người dùng đã đóng cửa sổ trình duyệt) và không có
+# phiên chơi game nào đang hoạt động -> bảo toàn triết lý "Tắt là tắt hẳn" (Zero-Leak Clean Exit).
+HEARTBEAT_STATE = {"last": 0.0, "hits": 0}
+
+
+def mark_ui_heartbeat() -> float:
+    """Ghi nhận thời điểm cuối cùng giao diện còn sống (thread-safe nhờ GIL cho dict đơn giản)."""
+    now = time.time()
+    HEARTBEAT_STATE["last"] = now
+    HEARTBEAT_STATE["hits"] = int(HEARTBEAT_STATE.get("hits", 0)) + 1
+    return now
+
+
+def get_ui_heartbeat_age() -> float:
+    """Số giây kể từ heartbeat gần nhất (inf nếu chưa từng nhận)."""
+    last = float(HEARTBEAT_STATE.get("last", 0.0) or 0.0)
+    if last <= 0:
+        return float("inf")
+    return max(0.0, time.time() - last)
+
 
 def configure_routes(api: ModManagerAPI = None, session_token: str = ""):
     """Cập nhật api_instance và SESSION_AUTH_TOKEN cho các endpoint."""
@@ -110,6 +139,28 @@ class QuietWSGIRequestHandler(WSGIRequestHandler):
         return SafeNullWriter()
 
 
+def _is_loopback_origin(origin: str) -> bool:
+    """Chấp nhận origin loopback của server hiện tại, từ chối website ngoài."""
+    if not origin:
+        return True  # pywebview/native IPC và một số fallback request không đặt Origin.
+    try:
+        parsed = urllib.parse.urlparse(origin)
+        return parsed.scheme in ("http", "https") and parsed.hostname in ("127.0.0.1", "localhost", "::1")
+    except Exception:
+        return False
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Chặn DNS-rebinding: Host header phải trỏ loopback (hoặc vắng với client native)."""
+    if not host:
+        return True
+    try:
+        parsed = urllib.parse.urlparse("//" + host)
+        return parsed.hostname in ("127.0.0.1", "localhost", "::1")
+    except Exception:
+        return False
+
+
 @server_app.hook("before_request")
 def verify_session_token():
     """
@@ -127,12 +178,21 @@ def verify_session_token():
         # custom.css & ảnh nền theme được nạp qua <link>/<img> nên trình duyệt không gửi được header token.
         # An toàn vẫn bảo đảm: chỉ phục vụ file trong thư mục theme + validate_safe_path chống traversal.
         return
-    if request.path.startswith("/api/window/") or request.path.startswith("/api/achievements/"):
+    if request.path.startswith("/api/heartbeat"):
+        # Ping nhịp sống của giao diện: chỉ cập nhật 1 timestamp, không đọc/ghi dữ liệu người dùng
+        # nên an toàn khi miễn token (watchdog Fallback Browser cần ping cả khi chưa kịp đọc token).
         return
     if request.path.startswith("/api/"):
-        token = request.headers.get("X-App-Auth-Token") or request.query.get("token")
-        if token != SESSION_AUTH_TOKEN:
+        if not _is_loopback_host(request.headers.get("Host", "")):
+            abort(403, "Forbidden: Invalid Host header")
+        # Chỉ nhận token qua header: query string dễ lọt vào lịch sử, proxy và log.
+        token = request.headers.get("X-App-Auth-Token")
+        if not SESSION_AUTH_TOKEN or token != SESSION_AUTH_TOKEN:
             abort(403, "Forbidden: Unauthorized local API access")
+        # Chỉ chặn Origin lạ cho request có thể đổi trạng thái. Origin trống vẫn hợp lệ
+        # cho native WebView; server chỉ bind 127.0.0.1.
+        if request.method not in ("GET", "HEAD", "OPTIONS") and not _is_loopback_origin(request.headers.get("Origin", "")):
+            abort(403, "Forbidden: Unauthorized request origin")
 
 @server_app.route("/")
 @server_app.route("/index.html")
@@ -224,6 +284,17 @@ def api_game_apply_avatar():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/game/steam_install", method="POST")
+def api_game_steam_install():
+    """Mở Steam để cài game Ghost Library theo AppID."""
+    data = request.json or {}
+    res = api_instance.install_game_from_steam(data.get("appid"))
+    if not res.get("success"):
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+
 @server_app.route("/api/game/remap", method="POST")
 def api_game_remap():
     data = request.json or {}
@@ -279,6 +350,26 @@ def api_toggle_favorite():
 def api_get_favorites():
     response.content_type = "application/json"
     return json.dumps({"success": True, "favorites": get_favorite_games()}, ensure_ascii=False)
+
+
+@server_app.route("/api/bookmark/toggle", method="POST")
+def api_toggle_bookmark():
+    """Bật/tắt "Thêm vào Thư viện" và đồng bộ ngay vào Hồ Sơ .congu_save."""
+    data = request.json or {}
+    payload = data.get("game") if isinstance(data.get("game"), dict) else data
+    res = toggle_bookmark(payload)
+    if res.get("success"):
+        res["vault_synced"] = sync_bookmarks_to_vault()
+    else:
+        response.status = 400
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/bookmarks", method="GET")
+def api_get_bookmarks():
+    response.content_type = "application/json"
+    return json.dumps({"success": True, "bookmarks": get_bookmarked_games()}, ensure_ascii=False)
 
 
 # ==============================================================================
@@ -468,7 +559,18 @@ def api_emergency_restore():
 def api_launch():
     data = request.json or {}
     game_id = data.get("game_id")
-    res = api_instance.launch_game(game_id)
+    force = bool(data.get("force", False))
+    res = api_instance.launch_game(game_id, force=force)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/game/doctor", method=["GET", "POST"])
+def api_game_doctor():
+    """Pre-Flight Game Doctor: kiểm tra runtime / DirectX / BepInEx / font trước khi chơi."""
+    data = request.json or {}
+    game_id = data.get("game_id") or request.query.get("game_id")
+    res = api_instance.run_game_doctor(game_id)
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
@@ -564,6 +666,45 @@ def api_check_updates():
     data = request.json or {}
     game_id = data.get("game_id")
     res = api_instance.check_updates(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/check_compatibility", method="POST")
+def api_check_compatibility():
+    data = request.json or {}
+    game_id = data.get("game_id")
+    res = api_instance.check_compatibility(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/troubleshoot/guides", method="GET")
+def api_troubleshoot_guides():
+    res = api_instance.get_troubleshooting_guides()
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/troubleshoot/inspect_backups", method="POST")
+def api_troubleshoot_inspect_backups():
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    res = api_instance.inspect_game_backups(game_id)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/troubleshoot/audit_logs", method="POST")
+def api_troubleshoot_audit_logs():
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    limit = data.get("limit", 50)
+    res = api_instance.get_recent_audit_logs(game_id, limit)
+    response.content_type = "application/json"
+    return json.dumps(res, ensure_ascii=False)
+
+@server_app.route("/api/troubleshoot/support_report", method="POST")
+def api_troubleshoot_support_report():
+    data = request.json or {}
+    game_id = data.get("game_id", "")
+    res = api_instance.generate_support_report(game_id)
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
@@ -875,6 +1016,17 @@ def api_cloud_save_restore_backup():
 
 
 # ==============================================================================
+# HỒ SƠ GAME THỦ (PROFILE, HUY HIỆU, TOP GAME)
+# ==============================================================================
+
+@server_app.route("/api/profile/overview", method="GET")
+def api_profile_overview():
+    """Tổng hợp Hồ Sơ: level/XP, huy hiệu nền tảng, top game, hoạt động gần đây."""
+    response.content_type = "application/json"
+    return json.dumps(api_instance.get_profile_overview(), ensure_ascii=False)
+
+
+# ==============================================================================
 # HỒ SƠ DI ĐỘNG HỢP NHẤT (PORTABLE SAVE VAULT - .congu_save) API
 # ==============================================================================
 
@@ -993,6 +1145,37 @@ def api_vault_import_standard_zip():
     return json.dumps(res, ensure_ascii=False)
 
 
+@server_app.route("/api/vault/revisions", method=["GET", "POST"])
+def api_vault_revisions():
+    """Time Machine: liệt kê 3 thế hệ save (current / prev_1 / prev_2) của 1 game."""
+    data = request.json or {}
+    game_id = data.get("game_id") or request.query.get("game_id")
+    response.content_type = "application/json"
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Thiếu game_id"}, ensure_ascii=False)
+    res = api_instance.get_save_revisions(game_id)
+    if not res.get("success"):
+        response.status = 404
+    return json.dumps(res, ensure_ascii=False)
+
+
+@server_app.route("/api/vault/restore_revision", method="POST")
+def api_vault_restore_revision():
+    """Time Machine: khôi phục save của phiên chơi trước (prev_1 / prev_2 / current)."""
+    data = request.json or {}
+    game_id = data.get("game_id")
+    revision = data.get("revision") or "prev_1"
+    response.content_type = "application/json"
+    if not game_id:
+        response.status = 400
+        return json.dumps({"success": False, "error": "Thiếu game_id"}, ensure_ascii=False)
+    res = api_instance.restore_previous_save(game_id, revision=revision)
+    if not res.get("success"):
+        response.status = 400
+    return json.dumps(res, ensure_ascii=False)
+
+
 @server_app.route("/api/vault/import", method="POST")
 def api_vault_import():
     """Nạp file .congu_save từ USB hoặc file được chọn vào hệ thống."""
@@ -1013,6 +1196,14 @@ def api_vault_import():
             res["restored_custom_games"] = merge_vault_custom_games()
         except Exception as e:
             print(f"[VaultImport] merge custom games warning: {e}")
+        try:
+            res["restored_bookmarks"] = merge_vault_bookmarks()
+        except Exception as e:
+            print(f"[VaultImport] merge bookmarks warning: {e}")
+        try:
+            res["restored_playtime_games"] = merge_vault_playtime()
+        except Exception as e:
+            print(f"[VaultImport] merge playtime warning: {e}")
         games = get_games()
         cfg = load_user_config()
         unpack_res = vault.unpack_all_installed_games(games, cfg)
@@ -1062,6 +1253,10 @@ def api_vault_cloud_download():
     auto_unpack = data.get("auto_unpack", True)
     vault = get_vault_instance()
     res = CLOUD_SYNC_MGR.download_vault_from_drive(vault.vault_path)
+    if res.get("success"):
+        merge_vault_custom_games()
+        merge_vault_bookmarks()
+        merge_vault_playtime()
     if res.get("success") and auto_unpack:
         games = get_games()
         cfg = load_user_config()
@@ -1133,7 +1328,15 @@ def api_community_cloud_download():
     data = request.json or {}
     auto_unpack = data.get("auto_unpack", True)
     res = COMMUNITY_CLOUD_MGR.download_save(auto_unpack=auto_unpack)
-    if not res.get("success"):
+    if res.get("success"):
+        # Hồ Sơ vừa được thay bằng bản trên Mây -> đồng bộ lại game lẻ, Chưa tải, giờ chơi
+        try:
+            merge_vault_custom_games()
+            merge_vault_bookmarks()
+            merge_vault_playtime()
+        except Exception as e:
+            print(f"[CommunityCloud] Post-download merge warning: {e}")
+    else:
         response.status = 400
     return json.dumps(res, ensure_ascii=False)
 
@@ -1622,6 +1825,28 @@ def api_window_minimize():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
+@server_app.route("/api/heartbeat", method=["GET", "POST"])
+def api_heartbeat():
+    """
+    Nhịp sống của giao diện (gọi mỗi 5 giây từ frontend).
+    Watchdog ở chế độ Fallback Browser dùng endpoint này để phát hiện cửa sổ Edge/Chrome
+    đã bị người dùng đóng -> tự thoát tiến trình (Zero-Leak Clean Exit).
+    """
+    mark_ui_heartbeat()
+    if (request.method == "POST" and SESSION_AUTH_TOKEN
+            and request.headers.get("X-App-Auth-Token") == SESSION_AUTH_TOKEN
+            and _is_loopback_host(request.headers.get("Host", ""))
+            and _is_loopback_origin(request.headers.get("Origin", ""))):
+        try:
+            from core.config_manager import CURRENT_VERSION
+            from core.update_startup import acknowledge_update_startup
+            acknowledge_update_startup(CURRENT_VERSION)
+        except OSError as error:
+            print(f"[Updater] Startup acknowledgement failed: {error}")
+    response.content_type = "application/json"
+    return json.dumps({"success": True, "server_time": time.time()}, ensure_ascii=False)
+
+
 @server_app.route("/api/window/minimize_tray", method="POST")
 def api_window_minimize_tray():
     """Minimize the desktop window to system tray"""
@@ -1646,11 +1871,8 @@ def api_window_close():
     """
     Nút X thông minh: ẩn xuống Khay Hệ Thống nếu đang theo dõi phiên chơi game,
     ngược lại thoát hẳn ứng dụng (Zero-Leak Clean Exit).
+    Hoạt động cả ở chế độ Fallback Browser (khi api_instance.window là None).
     """
-    if not api_instance.window:
-        response.status = 404
-        response.content_type = "application/json"
-        return json.dumps({"success": False, "error": "No window instance"})
     res = api_instance.request_close()
     response.content_type = "application/json"
     if not res.get("success"):
@@ -1665,14 +1887,14 @@ def api_window_maximize():
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
-@server_app.route("/api/window/drag", method=["GET", "POST"])
+@server_app.route("/api/window/drag", method="POST")
 def api_window_drag():
     """Trigger ultra-smooth native Windows OS window dragging on titlebar mouse down"""
     res = api_instance.drag_window()
     response.content_type = "application/json"
     return json.dumps(res, ensure_ascii=False)
 
-@server_app.route("/api/window/drag_stop", method=["GET", "POST"])
+@server_app.route("/api/window/drag_stop", method="POST")
 def api_window_drag_stop():
     """Stop window dragging"""
     res = api_instance.drag_stop()
