@@ -7,7 +7,7 @@ import sys
 import time
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Callable
 
 from . import process_utils as pu
@@ -67,6 +67,20 @@ class PlaytimeManager:
     def is_game_running(self, game_id: str) -> bool:
         with self.lock:
             return game_id in self.active_games
+
+    def has_active_session(self) -> bool:
+        """
+        Kiểm tra xem có phiên chơi game nào đang được theo dõi trực tiếp hay không.
+        Dùng để quyết định hành vi nút X: ẩn xuống Khay Hệ Thống (giữ luồng đếm giờ +
+        hook đóng gói .congu_save/Cloud) thay vì thoát hẳn ứng dụng.
+        """
+        with self.lock:
+            return bool(self.active_games)
+
+    def get_active_session_ids(self) -> list:
+        """Danh sách game_id đang có phiên chơi hoạt động (dùng cho thông báo Balloon)."""
+        with self.lock:
+            return list(self.active_games.keys())
 
     def get_game_stats(self, game_id: str, game_dir: str = None) -> dict:
         """Lấy thông tin giờ chơi đã định dạng đẹp để gửi lên Frontend (Hỗ trợ Live Playtime khi đang chơi)."""
@@ -198,6 +212,13 @@ class PlaytimeManager:
 
     def start_tracking(self, game_id: str, game_dir: str):
         """Bắt đầu luồng theo dõi đếm giờ tự động (Daemon Watcher)."""
+        if pu._CONFIG_GETTER:
+            try:
+                cfg = pu._CONFIG_GETTER()
+                if not cfg.get("cloud_save", {}).get("track_playtime", True):
+                    return
+            except Exception:
+                pass
         with self.lock:
             if game_id in self.active_games:
                 return
@@ -311,6 +332,86 @@ class PlaytimeManager:
                     self._add_seconds(gid, gdir, delta)
                     info["last_chk"] = now
 
+    def merge_manifest_playtime(self, manifest: dict) -> int:
+        """
+        Gộp giờ chơi từ profile_manifest.json của .congu_save vào DB máy này.
+        Chỉ nâng số giây đã có (không bao giờ làm giảm lịch sử), dùng khi import
+        Hồ Sơ sang PC mới để game chưa cài vẫn hiển thị đúng giờ chơi.
+        """
+        games = (manifest or {}).get("games")
+        if not isinstance(games, dict):
+            return 0
+
+        imported = 0
+        with self.lock:
+            for gid, info in games.items():
+                if not isinstance(info, dict):
+                    continue
+                try:
+                    imported_sec = int(info.get("playtime_seconds") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if imported_sec <= 0:
+                    continue
+
+                rec = self._data.setdefault(gid, {
+                    "total_seconds": 0, "last_played_ts": None,
+                    "sessions_count": 0, "daily_log": {},
+                })
+                if imported_sec > int(rec.get("total_seconds") or 0):
+                    rec["total_seconds"] = imported_sec
+                    imported += 1
+
+                last_played = info.get("last_played")
+                if last_played:
+                    try:
+                        ts = int(datetime.fromisoformat(str(last_played)).timestamp())
+                        if ts > int(rec.get("last_played_ts") or 0):
+                            rec["last_played_ts"] = ts
+                    except Exception:
+                        pass
+
+            if imported:
+                self._save_db()
+        return imported
+
+    def get_profile_snapshot(self) -> dict:
+        """
+        Tổng hợp số liệu thô cho trang Hồ Sơ: tổng giây, số phiên, chuỗi ngày chơi
+        và giờ chơi từng game. Không ghi file, không quét mạng.
+        """
+        with self.lock:
+            now = time.time()
+            games = {}
+            total_sec = 0
+            total_sessions = 0
+            active_days = set()
+
+            for gid, rec in self._data.items():
+                sec = int(rec.get("total_seconds", 0))
+                if gid in self.active_games:
+                    info = self.active_games.get(gid) or {}
+                    sec += max(0, int(now - info.get("last_chk", info.get("start_ts", now))))
+                games[gid] = {
+                    "total_seconds": sec,
+                    "last_played_ts": rec.get("last_played_ts"),
+                    "sessions_count": int(rec.get("sessions_count", 0) or 0),
+                }
+                total_sec += sec
+                total_sessions += games[gid]["sessions_count"]
+                for day_key in (rec.get("daily_log") or {}).keys():
+                    active_days.add(str(day_key))
+
+            current_streak, longest_streak = _calculate_streaks(active_days)
+            return {
+                "total_seconds": total_sec,
+                "sessions": total_sessions,
+                "games": games,
+                "active_days": len(active_days),
+                "current_streak": current_streak,
+                "longest_streak": longest_streak,
+            }
+
     def get_all_stats(self) -> dict:
         """Trả về toàn bộ thống kê giờ chơi và trạng thái đang chạy cho tất cả game."""
         with self.lock:
@@ -343,6 +444,35 @@ class PlaytimeManager:
                     "sessions_count": rec.get("sessions_count", 0)
                 }
             return result
+
+
+def _calculate_streaks(day_keys) -> tuple:
+    """Tính chuỗi ngày chơi liên tiếp hiện tại và dài nhất từ daily_log (YYYY-MM-DD)."""
+    parsed = set()
+    for key in day_keys or ():
+        try:
+            parsed.add(datetime.strptime(str(key), "%Y-%m-%d").date())
+        except Exception:
+            continue
+    if not parsed:
+        return 0, 0
+
+    ordered = sorted(parsed)
+    longest = run = 1
+    for prev, curr in zip(ordered, ordered[1:]):
+        run = run + 1 if (curr - prev).days == 1 else 1
+        longest = max(longest, run)
+
+    today = datetime.now().date()
+    cursor = today if today in parsed else None
+    if cursor is None:
+        yesterday = today - timedelta(days=1)
+        cursor = yesterday if yesterday in parsed else None
+    current = 0
+    while cursor is not None and cursor in parsed:
+        current += 1
+        cursor -= timedelta(days=1)
+    return current, longest
 
 
 # ==============================================================================

@@ -4,6 +4,7 @@ Core Installer Pipeline - Atomic Actions & Step Executor
 """
 import os
 import sys
+import json
 import shutil
 import zipfile
 import hashlib
@@ -21,6 +22,8 @@ from core.backup_rollback import (
     record_backup_manifest, record_modded_state, norm_rel_path,
     compute_file_sha256
 )
+
+_norm_rel = norm_rel_path
 
 
 def patch_ini_file(file_path: str, section: Optional[str], key: str, value: str, encoding: str = "utf-8") -> bool:

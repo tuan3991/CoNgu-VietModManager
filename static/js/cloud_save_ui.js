@@ -12,7 +12,7 @@
       const contentOAuth = document.getElementById('subtabContent-gdriveOAuth');
 
       if (tab === 'community') {
-        if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-emerald-400 text-emerald-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
+        if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-cyan-400 text-cyan-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
         if (btnOAuth) btnOAuth.className = 'py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center space-x-1.5 transition cursor-pointer';
         if (contentComm) contentComm.classList.remove('hidden');
         if (contentOAuth) contentOAuth.classList.add('hidden');
@@ -32,7 +32,7 @@
       const formLog = document.getElementById('commLoginForm');
 
       if (mode === 'register') {
-        if (btnReg) btnReg.className = 'flex-1 py-1.5 font-bold rounded text-center transition bg-emerald-600 text-white shadow cursor-pointer';
+        if (btnReg) btnReg.className = 'flex-1 py-1.5 font-bold rounded text-center transition bg-[#00F0FF] text-[#061418] shadow cursor-pointer';
         if (btnLog) btnLog.className = 'flex-1 py-1.5 font-bold rounded text-center transition text-slate-400 hover:text-white bg-transparent cursor-pointer';
         if (formReg) formReg.classList.remove('hidden');
         if (formLog) formLog.classList.add('hidden');
@@ -111,7 +111,7 @@
 
         if (topBtn) {
           if (isCommCloudLoggedIn) {
-            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/70 bg-[#061e16] text-emerald-300 hover:bg-emerald-900 transition shadow-[0_0_12px_rgba(16,185,129,0.3)]';
+            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/70 bg-[#061e16] text-emerald-300 hover:bg-emerald-900 transition shadow-[0_0_12px_rgba(0,240,255,0.3)]';
             if (topText) topText.textContent = commCloudInfo.cloud_id || 'Đám Mây';
             if (topBadge) {
               topBadge.classList.remove('hidden');
@@ -119,7 +119,7 @@
               topBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 font-pixel border border-emerald-500/50';
             }
           } else {
-            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/40 bg-[#081a14]/90 text-emerald-300/80 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[2px_2px_0px_#05050a]';
+            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/40 bg-[#081a14]/90 text-emerald-300/80 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[0_2px_8px_rgba(0,0,0,0.35)]';
             if (topText) topText.textContent = 'Đám Mây';
             if (topBadge) {
               topBadge.classList.remove('hidden');
@@ -190,6 +190,9 @@
         }
 
         if (window.lucide) lucide.createIcons();
+        try {
+          window.dispatchEvent(new CustomEvent('congu:community-cloud-changed', { detail: commCloudInfo || {} }));
+        } catch (e) { /* ignore */ }
       } catch (err) {
         console.warn('[Check Community Cloud Status Error]', err);
       }
@@ -417,6 +420,15 @@
       }
     }
 
+    // Khi tạo/đăng nhập/đăng xuất Cloud ID, nếu Cài đặt đang mở thì nạp lại
+    // để ô Cloud ID/Mật khẩu phản ánh đúng tài khoản vừa tạo.
+    window.addEventListener('congu:community-cloud-changed', () => {
+      const settingsModal = document.getElementById('settingsModal');
+      if (settingsModal && !settingsModal.classList.contains('hidden') && typeof loadSettings === 'function') {
+        loadSettings();
+      }
+    });
+
     // ========================================================
     // GOOGLE DRIVE CLOUD SAVE & ECOSYSTEM FUNCTIONS
     // ========================================================
@@ -434,14 +446,14 @@
         const btnGdrive = document.getElementById('btnGdriveCloud');
         if (btnGdrive) {
           if (isCloudConnected) {
-            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-emerald-950/60 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)] rounded-[2px] transition';
+            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-emerald-950/60 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(0,240,255,0.3)] rounded-[2px] transition';
             btnGdrive.innerHTML = `
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
               <span class="font-bold truncate max-w-[120px]">${escapeHtml(data.name || 'Cloud Drive')}</span>
             `;
           } else {
-            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-[#17192e] text-slate-300 hover:text-white border border-[#2b2f52] rounded-[2px] transition';
+            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-[#1C2536] text-slate-300 hover:text-white border border-[#2A3548] rounded-[2px] transition';
             btnGdrive.innerHTML = `
               <i data-lucide="cloud" class="w-3.5 h-3.5 text-slate-400"></i>
               <span>Google Drive</span>
@@ -1072,7 +1084,7 @@
         const saveMtime = ginfo.save_updated_at ? new Date(ginfo.save_updated_at * 1000).toLocaleString('vi-VN') : 'Chưa có save';
 
         html += `
-          <div class="p-3 rounded-[6px] bg-[#070914] border border-white/5 hover:border-amber-500/30 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="p-3 rounded-[6px] bg-[#0A0E1A] border border-white/5 hover:border-amber-500/30 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="space-y-1">
               <div class="text-xs font-bold text-white flex items-center space-x-2">
                 <span>${title}</span>
@@ -1094,12 +1106,65 @@
                 <i data-lucide="layers" class="w-3 h-3"></i>
                 <span>Bung Ra Máy</span>
               </button>
+              <button onclick="openSaveTimeMachine('${gid}')" class="pixel-btn px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs flex items-center space-x-1" title="Time Machine: khôi phục save của phiên chơi trước nếu save mới nhất bị hỏng">
+                <i data-lucide="history" class="w-3 h-3"></i>
+                <span>Lịch Sử</span>
+              </button>
             </div>
           </div>
         `;
       }
       container.innerHTML = html;
       if (window.lucide) lucide.createIcons();
+    }
+
+    async function exportStandardSaveZip() {
+      const btn = document.getElementById('btnExportStandardZip');
+      if (btn) btn.disabled = true;
+      try {
+        showToast('Đang mở hộp thoại xuất ZIP chuẩn...', 'info');
+        const resp = await fetch('/api/vault/export_standard_zip', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (data.cancelled) return;
+        if (data.success) {
+          showToast(`Đã xuất ZIP chuẩn: ${data.games_count || 0} game, ${data.files_count || 0} tệp. Có thể mở bằng WinRAR/7-Zip.`, 'success');
+        } else {
+          showToast(data.error || 'Xuất ZIP chuẩn thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi xuất ZIP save tiêu chuẩn!', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function importStandardSaveZip() {
+      if (!confirm('Khôi phục save từ ZIP chuẩn? Save hiện có sẽ được sao lưu thành .congu_bak trước khi ghi đè.')) return;
+      const btn = document.getElementById('btnImportStandardZip');
+      if (btn) btn.disabled = true;
+      try {
+        showToast('Đang mở hộp thoại chọn ZIP chuẩn...', 'info');
+        const resp = await fetch('/api/vault/import_standard_zip', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ backup_existing: true })
+        });
+        const data = await resp.json();
+        if (data.cancelled) return;
+        if (data.success) {
+          const total = Object.values(data.results || {}).reduce((n, r) => n + (r.unpacked_saves || 0), 0);
+          showToast(`Đã khôi phục ZIP chuẩn: ${total} tệp save.`, 'success');
+          await refreshVaultModalData();
+          if (typeof refreshData === 'function') refreshData();
+        } else {
+          showToast(data.error || 'Nạp ZIP chuẩn thất bại!', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi nạp ZIP save tiêu chuẩn!', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     async function exportVault() {
@@ -1136,6 +1201,8 @@
           showToast(`Nạp Hồ Sơ thành công! Đã khôi phục ${data.imported_games_count} tựa game và tự động bung save vào máy!`, 'success');
           await refreshVaultModalData();
           if (typeof refreshData === 'function') refreshData();
+          // Đồng bộ lại các yêu cầu Việt hóa đi kèm Hồ Sơ (có thể đã có bản Việt Hóa chính thức)
+          if (typeof syncLocalizationRequestsOnStartup === 'function') syncLocalizationRequestsOnStartup();
         } else {
           showToast(data.error || 'Nạp file Hồ Sơ thất bại!', 'error');
         }
@@ -1184,7 +1251,7 @@
       const origHtml = btn ? btn.innerHTML : '';
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-fuchsia-400"></i><span class="text-xs text-fuchsia-300">Đang bung save...</span>`;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-cyan-400"></i><span class="text-xs text-cyan-300">Đang bung save...</span>`;
         if (window.lucide) lucide.createIcons();
       }
       try {
@@ -1333,3 +1400,114 @@
       }
     }
 
+
+    // =========================================================================
+    // SAVE TIME MACHINE - Lịch sử 3 thế hệ save trong .congu_save
+    // =========================================================================
+    async function openSaveTimeMachine(gameId) {
+      const old = document.getElementById('conguTimeMachine');
+      if (old) old.remove();
+
+      const box = document.createElement('div');
+      box.id = 'conguTimeMachine';
+      box.style.cssText =
+        'position:fixed;inset:0;z-index:100002;display:flex;align-items:center;justify-content:center;' +
+        'background:rgba(4,6,14,0.82);font-family:Inter,system-ui,sans-serif;';
+      box.innerHTML =
+        '<div style="width:520px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;' +
+        'background:rgba(12,16,30,0.99);border:1px solid rgba(217,70,239,0.55);border-radius:8px;' +
+        'box-shadow:0 24px 60px rgba(0,0,0,0.8);overflow:hidden;">' +
+        '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(217,70,239,0.16),rgba(0,240,255,0.08));' +
+        'border-bottom:1px solid rgba(217,70,239,0.28);font-size:12px;font-weight:700;letter-spacing:1px;color:#8B9BB4;">' +
+        '🕰 // TIME MACHINE — LỊCH SỬ PHIÊN BẢN SAVE</div>' +
+        '<div id="conguTimeMachineBody" style="padding:14px 16px;overflow:auto;flex:1;color:#dbe9f6;font-size:12.5px;">' +
+        'Đang tải lịch sử save…</div>' +
+        '<div style="display:flex;justify-content:flex-end;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.07);">' +
+        '<button id="conguTmClose" style="padding:7px 14px;font-size:12px;border-radius:4px;cursor:pointer;' +
+        'background:#171a2c;color:#c7d5e4;border:1px solid #2b3050;">Đóng</button></div>' +
+        '</div>';
+      document.body.appendChild(box);
+      box.querySelector('#conguTmClose').addEventListener('click', () => box.remove());
+
+      const body = box.querySelector('#conguTimeMachineBody');
+      try {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_save_revisions === 'function') {
+          data = await window.pywebview.api.get_save_revisions(gameId);
+        } else {
+          const r = await fetch('/api/vault/revisions?game_id=' + encodeURIComponent(gameId));
+          data = await r.json();
+        }
+        if (!data || !data.success) {
+          body.innerHTML = '<div style="color:#FF8FA3;">' + String((data && (data.error || data.message)) || 'Không đọc được lịch sử save.') + '</div>';
+          return;
+        }
+        const revs = data.revisions || [];
+        const rows = revs.map((rev) => {
+          const isCurrent = rev.revision === 'current';
+          const size = rev.bytes ? (rev.bytes / 1024).toFixed(1) + ' KB' : '';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;' +
+            'padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">' +
+            '<div><div style="font-size:12.5px;font-weight:700;color:' + (isCurrent ? '#34D399' : '#8B9BB4') + ';">' +
+            rev.label + '</div>' +
+            '<div style="font-size:11.5px;color:#8fa6bd;margin-top:3px;">' + rev.packed_at_text +
+            (rev.files ? ' · ' + rev.files + ' tệp' : '') + (size ? ' · ' + size : '') + '</div></div>' +
+            (isCurrent
+              ? '<span style="font-size:11px;color:#5f7288;">đang dùng</span>'
+              : '<button data-rev="' + rev.revision + '" class="conguTmRestore pixel-btn" ' +
+                'style="padding:5px 11px;font-size:11.5px;border-radius:4px;cursor:pointer;background:#7e22ce;color:#fff;border:1px solid #D946EF;font-weight:700;">Khôi phục</button>') +
+            '</div>';
+        }).join('');
+
+        body.innerHTML =
+          '<div style="margin-bottom:8px;color:#9fb3c8;font-size:11.5px;">' +
+          'CỔ NGỮ giữ luân phiên <b>3 phiên bản save</b> gần nhất. Nếu save mới nhất bị hỏng (mất điện khi auto-save), ' +
+          'hãy khôi phục về phiên trước.</div>' +
+          (rows || '<div style="color:#8fa6bd;">Chưa có dữ liệu save nào trong .congu_save.</div>') +
+          (!data.has_history
+            ? '<div style="margin-top:10px;padding:8px 10px;border-radius:4px;background:rgba(255,176,32,0.10);' +
+              'border:1px solid rgba(255,176,32,0.35);color:#FBBF24;font-size:11.5px;">' +
+              'Chưa có bản sao lưu phiên trước. Bản prev_1 sẽ xuất hiện sau lần chơi kế tiếp (mỗi lần CỔ NGỮ đóng gói save).</div>'
+            : '');
+
+        body.querySelectorAll('.conguTmRestore').forEach((btn) => {
+          btn.addEventListener('click', () => restoreSaveRevision(gameId, btn.getAttribute('data-rev')));
+        });
+        if (window.lucide) lucide.createIcons();
+      } catch (e) {
+        body.innerHTML = '<div style="color:#FF8FA3;">Lỗi tải lịch sử save: ' + String(e) + '</div>';
+      }
+    }
+
+    async function restoreSaveRevision(gameId, revision) {
+      const labels = { current: 'bản hiện tại', prev_1: 'phiên chơi trước', prev_2: '2 phiên chơi trước' };
+      const label = labels[revision] || revision;
+      if (!window.confirm(`Khôi phục save từ ${label}?\nSave hiện tại sẽ được sao lưu thành .congu_prevbak trước khi ghi đè.`)) {
+        return;
+      }
+      try {
+        let res = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.restore_previous_save === 'function') {
+          res = await window.pywebview.api.restore_previous_save(gameId, revision);
+        } else {
+          const r = await fetch('/api/vault/restore_revision', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: gameId, revision: revision })
+          });
+          res = await r.json();
+        }
+        if (typeof showToast === 'function') {
+          showToast(res.message || (res.success ? 'Đã khôi phục save.' : 'Khôi phục thất bại.'),
+            res.success ? 'success' : 'error');
+        }
+        if (res.success) {
+          const tm = document.getElementById('conguTimeMachine');
+          if (tm) tm.remove();
+          if (typeof refreshVaultModalData === 'function') refreshVaultModalData();
+          if (typeof refreshData === 'function') refreshData();
+        }
+      } catch (e) {
+        if (typeof showToast === 'function') showToast('Lỗi khôi phục save: ' + e, 'error');
+      }
+    }

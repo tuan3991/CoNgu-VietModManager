@@ -61,24 +61,30 @@ def handle_game_exit_hook(game_id: str, game_dir: str):
     - Tự động đóng gói Save + Thành tựu vào Hồ Sơ Di Động Hợp Nhất (PlayerProfile.congu_save).
     """
     _internal_log(f"[PlaytimeTracker] Kích hoạt Post-Exit Hook cho '{game_id}' tại '{game_dir}'")
+    cfg = _CONFIG_GETTER() if _CONFIG_GETTER else {}
+    cloud_cfg = cfg.get("cloud_save", {})
+    auto_sync = cloud_cfg.get("auto_sync_on_exit", True)
+    scan_ach = cloud_cfg.get("offline_achievements_scan", True)
+
     try:
-        if ACHIEVEMENT_MGR:
+        if ACHIEVEMENT_MGR and scan_ach:
             ACHIEVEMENT_MGR.check_game_live_achievements(game_id, game_dir)
     except Exception as e:
         print(f"[AchievementTracker] Post-exit scan error: {e}")
 
     try:
-        vault = get_vault_instance()
-        games = _GAMES_GETTER() if _GAMES_GETTER else []
-        g_cfg = next((g for g in games if g.get("id") == game_id), None)
-        if g_cfg:
-            vault.pack_game_to_vault(g_cfg, game_dir)
-            _internal_log(f"[SaveVault] Đã tự động gom Save + Thành tựu của '{game_id}' vào Hồ Sơ Di Động (.congu_save)")
+        if auto_sync:
+            vault = get_vault_instance()
+            games = _GAMES_GETTER() if _GAMES_GETTER else []
+            g_cfg = next((g for g in games if g.get("id") == game_id), None)
+            if g_cfg:
+                vault.pack_game_to_vault(g_cfg, game_dir)
+                _internal_log(f"[SaveVault] Đã tự động gom Save + Thành tựu của '{game_id}' vào Hồ Sơ Di Động (.congu_save)")
     except Exception as e:
         print(f"[SaveVault] Post-exit vault pack error: {e}")
 
     try:
-        if CLOUD_SYNC_MGR:
+        if CLOUD_SYNC_MGR and auto_sync:
             games = _GAMES_GETTER() if _GAMES_GETTER else []
             g_cfg = next((g for g in games if g.get("id") == game_id), None)
             if g_cfg:

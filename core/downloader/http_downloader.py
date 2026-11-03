@@ -19,6 +19,8 @@ import sys
 import time
 import re
 import json
+import tempfile
+import threading
 import urllib.request
 import urllib.parse
 import http.cookiejar
@@ -29,12 +31,27 @@ from torrent_downloader import TorrentDownloader, TorrentDownloadManager, BEST_P
 from hydra_source_manager import HydraSourceManager, DEFAULT_HYDRA_SOURCES
 
 
+_replace_locks: Dict[str, threading.Lock] = {}
+_replace_locks_guard = threading.Lock()
+
+
+def _replace_lock_for(dest_path: str) -> threading.Lock:
+    key = os.path.normcase(os.path.abspath(dest_path))
+    with _replace_locks_guard:
+        lock = _replace_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _replace_locks[key] = lock
+        return lock
+
+
 def download_file_with_progress(
     url: str,
     dest_path: str,
     progress_callback: Optional[Callable[[int, int, int, float], None]] = None,
     timeout: float = 15.0,
-    cancel_check: Optional[Callable[[], bool]] = None
+    cancel_check: Optional[Callable[[], bool]] = None,
+    validate_download: Optional[Callable[[str], None]] = None
 ) -> bool:
     """
     Download file from HTTP/HTTPS URL or Google Drive with progress tracking.
@@ -46,6 +63,7 @@ def download_file_with_progress(
     :param progress_callback: Callback(downloaded_bytes, total_bytes, percent, speed_kb_s).
     :param timeout: Giới hạn thời gian kết nối và đọc socket (mặc định 15s).
     :param cancel_check: Hàm kiểm tra xem người dùng có yêu cầu hủy tải hay không.
+    :param validate_download: Kiểm tra file tạm, ném lỗi nếu không hợp lệ trước khi thay đích.
     :return: True nếu tải thành công, ngược lại False hoặc ném lỗi.
     """
     dest_dir = os.path.dirname(dest_path)
@@ -83,11 +101,13 @@ def download_file_with_progress(
     chunk_size = 65536
     start_time = time.time()
 
-    # Sử dụng file tạm .downloading để tránh hỏng file đích nếu mạng bị rớt giữa chừng
-    tmp_path = dest_path + f".downloading_{os.getpid()}"
+    # File tạm cùng ổ với file đích: tên unique theo mỗi job để không va chạm
+    # khi hai request cùng tải về một cache archive.
+    temp_dir = dest_dir or "."
+    fd, tmp_path = tempfile.mkstemp(prefix=".congu-download-", suffix=".tmp", dir=temp_dir)
 
     try:
-        with open(tmp_path, "wb") as f:
+        with os.fdopen(fd, "wb") as f:
             while True:
                 if cancel_check and cancel_check():
                     raise InterruptedError("Tiến trình tải xuống đã bị hủy.")
@@ -103,22 +123,31 @@ def download_file_with_progress(
                     speed_kb = (downloaded / 1024) / elapsed if elapsed > 0 else 0
                     progress_callback(downloaded, total_size, percent, speed_kb)
 
-        # Hoàn tất thành công: thay thế nguyên tử sang file đích
-        if os.path.exists(dest_path):
-            try:
-                os.remove(dest_path)
-            except Exception:
-                pass
-        os.replace(tmp_path, dest_path)
+        # Content-Length là cam kết của response; thiếu byte thì giữ file cũ.
+        if total_size > 0 and downloaded != total_size:
+            raise IOError(f"Tải không đầy đủ: nhận {downloaded} / {total_size} byte.")
+
+        if validate_download is not None:
+            validate_download(tmp_path)
+
+        # os.replace thay thế nguyên tử file cùng filesystem, không xóa đích trước.
+        # Khóa theo đích: Windows từ chối replace khi hai job cùng thay một file.
+        with _replace_lock_for(dest_path):
+            os.replace(tmp_path, dest_path)
         return True
 
-    except Exception as e:
-        # Tự động dọn dẹp file tạm không hoàn chỉnh khi gặp lỗi hoặc timeout
+    except Exception:
+        # Tự động dọn tệp tạm không hoàn chỉnh khi lỗi/hủy, không tác động tệp đích.
         if os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
             except Exception:
                 pass
-        raise e
+        raise
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
 
 

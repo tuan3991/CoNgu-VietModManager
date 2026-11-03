@@ -20,6 +20,8 @@ import zipfile
 import hashlib
 import secrets
 import base64
+import shutil
+import tempfile
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -743,8 +745,6 @@ class CloudSyncManager:
                         full_path = os.path.join(root, f)
                         rel_path = os.path.relpath(full_path, folder_path)
                         zf.write(full_path, arcname=rel_path)
-            if os.path.exists(dest_zip_path):
-                os.remove(dest_zip_path)
             os.replace(tmp_zip, dest_zip_path)
             return True
         except Exception as e:
@@ -756,34 +756,99 @@ class CloudSyncManager:
             print(f"[CloudSyncManager] Nén zip save thất bại: {e}")
             return False
 
+    def _safe_save_restore_destination(self, base_dir: str, member_name: str) -> str:
+        """Thẩm định đích ZIP dưới thư mục save, kể cả qua symlink/junction."""
+        name = str(member_name or "").replace("\\", "/")
+        parts = name.split("/")
+        if not name or name.startswith("/") or any(part in ("", ".", "..") or ":" in part for part in parts):
+            raise ValueError(f"Đường dẫn save không an toàn: {member_name}")
+        base_real = os.path.realpath(base_dir)
+        destination = os.path.realpath(os.path.join(base_real, *parts))
+        try:
+            common = os.path.commonpath([os.path.normcase(base_real), os.path.normcase(destination)])
+        except ValueError as exc:
+            raise ValueError(f"Đường dẫn save không an toàn: {member_name}") from exc
+        if common != os.path.normcase(base_real):
+            raise ValueError(f"Đường dẫn save không an toàn: {member_name}")
+        return destination
+
     def unzip_save_directory(self, zip_path: str, target_folder: str) -> bool:
         """Giải nén tệp .zip với bảo vệ Zip-Slip (chống Path Traversal)."""
         if not os.path.exists(zip_path):
             return False
 
         target_real = os.path.realpath(target_folder)
-        os.makedirs(target_real, exist_ok=True)
+        os.makedirs(self.backups_dir, exist_ok=True)
+        work = tempfile.mkdtemp(prefix="restore-", dir=self.backups_dir)
+        plan = []
+        applied = []
+        preserve = False
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                seen = set()
+                for member in zf.infolist():
+                    if member.is_dir():
+                        continue
+                    name = member.filename.replace("\\", "/")
+                    dest = self._safe_save_restore_destination(target_real, name)
+                    key = os.path.normcase(dest)
+                    if key in seen:
+                        raise ValueError(f"Đường dẫn save trùng lặp: {member.filename}")
+                    seen.add(key)
+                    staged = os.path.join(work, f"new-{len(plan)}")
+                    with zf.open(member) as src, open(staged, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    plan.append({"destination": dest, "staged": staged, "backup": None})
+            if not plan:
+                raise ValueError("Gói save không chứa tệp")
+            for index, item in enumerate(plan):
+                dest = item["destination"]
+                if os.path.exists(dest):
+                    item["backup"] = os.path.join(work, f"old-{index}")
+                    shutil.copy2(dest, item["backup"])
+            with open(os.path.join(work, "manifest.json"), "w", encoding="utf-8") as f:
+                json.dump(plan, f, ensure_ascii=False, indent=2)
+            try:
+                for item in plan:
+                    dest = item["destination"]
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    fd, sibling = tempfile.mkstemp(prefix=".congu-restore-", dir=os.path.dirname(dest))
+                    try:
+                        with os.fdopen(fd, "wb") as dst, open(item["staged"], "rb") as src:
+                            shutil.copyfileobj(src, dst)
+                        os.replace(sibling, dest)
+                        applied.append(item)
+                    finally:
+                        if os.path.exists(sibling):
+                            os.remove(sibling)
+            except Exception as error:
+                failures = []
+                for item in reversed(applied):
+                    try:
+                        if item["backup"]:
+                            dest = item["destination"]
+                            fd, rollback_tmp = tempfile.mkstemp(prefix=".congu-rollback-", dir=os.path.dirname(dest) or ".")
+                            os.close(fd)
+                            try:
+                                shutil.copy2(item["backup"], rollback_tmp)
+                                os.replace(rollback_tmp, dest)
+                            finally:
+                                if os.path.exists(rollback_tmp):
+                                    os.remove(rollback_tmp)
+                        else:
+                            os.remove(item["destination"])
+                    except Exception as rollback_error:
+                        failures.append(f"{item['destination']}: {rollback_error}")
+                if failures:
+                    preserve = True
+                    raise RuntimeError(f"Khôi phục thất bại: {error}; rollback thất bại: {'; '.join(failures)}; dữ liệu phục hồi: {work}") from error
+                raise
+            return True
+        finally:
+            if not preserve:
+                shutil.rmtree(work, ignore_errors=True)
 
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            for member in zf.infolist():
-                norm_name = os.path.normpath(member.filename)
-                if norm_name.startswith("..") or os.path.isabs(norm_name):
-                    raise RuntimeError(f"Cảnh báo bảo mật Zip Slip: '{member.filename}'")
-
-                dest_file = os.path.realpath(os.path.join(target_real, norm_name))
-                if not dest_file.startswith(target_real):
-                    raise RuntimeError(f"Zip Slip detected outside target folder: '{dest_file}'")
-
-                if member.is_dir():
-                    os.makedirs(dest_file, exist_ok=True)
-                else:
-                    os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-                    with zf.open(member) as src, open(dest_file, "wb") as dst:
-                        while chunk := src.read(65536):
-                            dst.write(chunk)
-        return True
-
-    def create_local_backup(self, game_id: str, save_folder: str) -> str:
+    def create_local_backup(self, game_id: str, save_folder: str, exclude_filenames=None) -> str:
         """
         Tự động tạo bản sao lưu cục bộ trước khi ghi đè save mới từ Cloud.
         Duy trì tối đa 3 bản sao lưu gần nhất (xoay vòng an toàn).
@@ -796,13 +861,17 @@ class CloudSyncManager:
 
         now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_filename = f"save_backup_{now_str}.zip"
+        if os.path.exists(os.path.join(game_backup_dir, backup_filename)):
+            backup_filename = f"save_backup_{now_str}_{secrets.token_hex(2)}.zip"
         backup_path = os.path.join(game_backup_dir, backup_filename)
 
         if self.zip_save_directory(save_folder, backup_path):
-            # Xoay vòng giữ 3 bản mới nhất
+            # Xoay vòng giữ 3 bản mới nhất, không xóa bản đang được khôi phục.
+            protected = {str(name) for name in (exclude_filenames or [])}
             try:
                 files = sorted(
-                    [f for f in os.listdir(game_backup_dir) if f.startswith("save_backup_") and f.endswith(".zip")],
+                    [f for f in os.listdir(game_backup_dir)
+                     if f.startswith("save_backup_") and f.endswith(".zip") and f not in protected],
                     key=lambda x: os.path.getmtime(os.path.join(game_backup_dir, x)),
                     reverse=True
                 )
@@ -838,16 +907,29 @@ class CloudSyncManager:
 
     def restore_local_backup(self, game_id: str, backup_filename: str, game_config: dict, game_dir: str = None) -> dict:
         """Khôi phục lại save từ một bản backup cục bộ đã lưu."""
+        game_id = str(game_id or "")
+        backup_filename = str(backup_filename or "")
+        if (not game_id or not backup_filename
+                or os.path.basename(game_id) != game_id or ":" in game_id
+                or os.path.basename(backup_filename) != backup_filename or ":" in backup_filename
+                or game_id in (".", "..") or backup_filename in (".", "..")):
+            return {"success": False, "error": "Tên game hoặc tệp backup không hợp lệ"}
+
         backup_path = os.path.join(self.backups_dir, game_id, backup_filename)
         if not os.path.isfile(backup_path):
             return {"success": False, "error": "Tệp backup không tồn tại"}
 
         target_dir = self.get_existing_save_directory(game_config, game_dir)
-        if not target_dir:
-            return {"success": False, "error": "Không xác định được thư mục save game"}
+        if not target_dir or not os.path.isdir(target_dir):
+            return {"success": False, "error": "Không tìm thấy thư mục save game để khôi phục"}
 
         try:
-            self.unzip_save_directory(backup_path, target_dir)
+            snapshot = self.create_local_backup(game_id, target_dir, exclude_filenames={backup_filename})
+            if not snapshot:
+                return {"success": False, "error": "Không thể sao lưu save hiện tại; đã dừng khôi phục"}
+            print(f"[CloudSyncManager] Đã sao lưu save hiện tại vào '{snapshot}' trước khi khôi phục")
+            if not self.unzip_save_directory(backup_path, target_dir):
+                return {"success": False, "error": "Tệp backup không tồn tại hoặc không đọc được"}
             return {"success": True, "message": f"Đã khôi phục thành công từ '{backup_filename}'"}
         except Exception as e:
             return {"success": False, "error": f"Lỗi khôi phục: {e}"}
@@ -894,6 +976,7 @@ class CloudSyncManager:
                         "size": int(cloud_file.get("size", 0)),
                         "modifiedTime": cloud_file.get("modifiedTime", ""),
                         "sha256": app_props.get("sha256", ""),
+                        "zip_sha256": app_props.get("zip_sha256"),
                         "mtime": float(app_props.get("mtime", 0.0)),
                         "file_count": int(app_props.get("file_count", 0))
                     }
@@ -966,7 +1049,11 @@ class CloudSyncManager:
                 return {"success": False, "error": "Không tìm thấy thư mục save cục bộ để tải lên"}
 
             # Nén save ra tệp zip tạm
-            zip_tmp = os.path.join(self.appdata_dir, f"temp_{game_id}_upload.zip")
+            try:
+                fd, zip_tmp = tempfile.mkstemp(prefix="congu-save-upload-", suffix=".zip", dir=self.appdata_dir)
+                os.close(fd)
+            except OSError as e:
+                return {"success": False, "error": f"Không thể tạo file tạm để tải save lên: {e}"}
             try:
                 ok = self.zip_save_directory(
                     save_folder, zip_tmp, game_config.get("cloud_sync", {}).get("exclude_patterns", [])
@@ -977,8 +1064,13 @@ class CloudSyncManager:
                 root_id, saves_id = self.client.get_cloud_root_folders()
                 cloud_file_id = check["cloud"].get("id")
 
+                zip_hasher = hashlib.sha256()
+                with open(zip_tmp, "rb") as zip_file:
+                    for chunk in iter(lambda: zip_file.read(1024 * 1024), b""):
+                        zip_hasher.update(chunk)
                 app_props = {
                     "sha256": check["local"]["sha256"],
+                    "zip_sha256": zip_hasher.hexdigest(),
                     "mtime": str(check["local"]["mtime"]),
                     "game_id": game_id,
                     "file_count": str(check["local"]["file_count"])
@@ -1022,14 +1114,32 @@ class CloudSyncManager:
 
             # Bước an toàn: Tạo bản sao lưu máy hiện tại trước khi đè
             if check["local"]["exists"]:
-                backup_path = self.create_local_backup(game_id, save_folder)
-                if backup_path:
-                    print(f"[CloudSyncManager] Đã sao lưu bản máy hiện tại vào '{backup_path}' trước khi tải đè")
+                try:
+                    backup_path = self.create_local_backup(game_id, save_folder)
+                except Exception as e:
+                    return {"success": False, "error": f"Không thể sao lưu save hiện tại: {e}"}
+                if not backup_path:
+                    return {"success": False, "error": "Không thể sao lưu save hiện tại; đã dừng khôi phục"}
+                print(f"[CloudSyncManager] Đã sao lưu bản máy hiện tại vào '{backup_path}' trước khi tải đè")
 
             # Tải tệp zip từ Cloud về
-            zip_tmp = os.path.join(self.appdata_dir, f"temp_{game_id}_download.zip")
+            try:
+                fd, zip_tmp = tempfile.mkstemp(prefix="congu-save-download-", suffix=".zip", dir=self.appdata_dir)
+                os.close(fd)
+            except OSError as e:
+                return {"success": False, "error": f"Không thể tạo file tạm để tải save về: {e}"}
             try:
                 self.client.download_file(cloud_file_id, zip_tmp)
+                expected_sha = check["cloud"].get("zip_sha256")
+                if expected_sha is not None:
+                    if not isinstance(expected_sha, str) or len(expected_sha) != 64 or any(c not in "0123456789abcdefABCDEF" for c in expected_sha):
+                        raise ValueError("SHA-256 ZIP save trên Drive không hợp lệ")
+                    hasher = hashlib.sha256()
+                    with open(zip_tmp, "rb") as downloaded:
+                        for chunk in iter(lambda: downloaded.read(1024 * 1024), b""):
+                            hasher.update(chunk)
+                    if not secrets.compare_digest(hasher.hexdigest(), expected_sha.lower()):
+                        raise ValueError("SHA-256 ZIP save tải về không khớp metadata Drive")
                 self.unzip_save_directory(zip_tmp, save_folder)
 
                 # Cập nhật hash mới sau khi bung
@@ -1048,6 +1158,8 @@ class CloudSyncManager:
                     "action": "downloaded",
                     "message": "Đã tải bản save từ Google Drive và bung vào máy thành công!"
                 }
+            except Exception as e:
+                return {"success": False, "error": f"Khôi phục save thất bại: {e}"}
             finally:
                 if os.path.exists(zip_tmp):
                     try:
@@ -1165,6 +1277,7 @@ class CloudSyncManager:
         if not self.is_connected():
             return {"success": False, "error": "Chưa kết nối Google Drive"}
 
+        tmp_download = None
         try:
             root_id, _ = self.client.get_cloud_root_folders()
             cloud_files = self.client.list_files_in_folder(root_id)
@@ -1182,9 +1295,27 @@ class CloudSyncManager:
                 return {"success": False, "error": "Không tìm thấy file Hồ Sơ (.congu_save) trên Google Drive của bạn."}
 
             cloud_file_id = cloud_file["id"]
-            tmp_download = target_vault_path + f".tmp_{secrets.token_hex(4)}"
-
+            target_dir = os.path.dirname(os.path.abspath(target_vault_path))
+            os.makedirs(target_dir, exist_ok=True)
+            fd, tmp_download = tempfile.mkstemp(prefix=".congu-vault-download-", dir=target_dir)
+            os.close(fd)
             self.client.download_file(cloud_file_id, tmp_download)
+
+            # Older Drive uploads may not have a SHA-256 property. When present,
+            # fail closed on malformed or mismatching metadata before any backup.
+            properties = cloud_file.get("appProperties") or {}
+            if not isinstance(properties, dict):
+                raise ValueError("Metadata Drive không hợp lệ")
+            expected_sha = properties.get("sha256")
+            if expected_sha is not None:
+                if not isinstance(expected_sha, str) or len(expected_sha) != 64 or any(c not in "0123456789abcdefABCDEF" for c in expected_sha):
+                    raise ValueError("SHA-256 Vault trên Drive không hợp lệ")
+                hasher = hashlib.sha256()
+                with open(tmp_download, "rb") as downloaded:
+                    for chunk in iter(lambda: downloaded.read(1024 * 1024), b""):
+                        hasher.update(chunk)
+                if not secrets.compare_digest(hasher.hexdigest(), expected_sha.lower()):
+                    raise ValueError("SHA-256 Vault tải về không khớp metadata Drive")
 
             # Kiểm tra tính toàn vẹn của tệp .congu_save vừa tải về
             try:
@@ -1192,6 +1323,11 @@ class CloudSyncManager:
                     if "profile_manifest.json" not in zf.namelist():
                         raise ValueError("Tệp tải về thiếu profile_manifest.json")
                     manifest = json.loads(zf.read("profile_manifest.json").decode("utf-8"))
+                    if not isinstance(manifest, dict) or not isinstance(manifest.get("games", {}), dict):
+                        raise ValueError("Manifest Vault không hợp lệ")
+                    bad_entry = zf.testzip()
+                    if bad_entry:
+                        raise ValueError(f"File trong Vault bị hỏng: {bad_entry}")
             except Exception as val_err:
                 if os.path.exists(tmp_download):
                     os.remove(tmp_download)
@@ -1201,9 +1337,16 @@ class CloudSyncManager:
             if os.path.exists(target_vault_path):
                 bak_path = target_vault_path + ".congu_vault_bak"
                 try:
-                    shutil.copy2(target_vault_path, bak_path)
-                except Exception:
-                    pass
+                    fd, backup_tmp = tempfile.mkstemp(prefix=".congu-vault-backup-", dir=target_dir)
+                    os.close(fd)
+                    try:
+                        shutil.copy2(target_vault_path, backup_tmp)
+                        os.replace(backup_tmp, bak_path)
+                    finally:
+                        if os.path.exists(backup_tmp):
+                            os.remove(backup_tmp)
+                except Exception as e:
+                    return {"success": False, "error": f"Không thể sao lưu Vault hiện tại: {e}"}
 
             os.makedirs(os.path.dirname(os.path.abspath(target_vault_path)), exist_ok=True)
             os.replace(tmp_download, target_vault_path)
@@ -1216,6 +1359,12 @@ class CloudSyncManager:
             }
         except Exception as e:
             return {"success": False, "error": f"Tải Vault từ Google Drive thất bại: {e}"}
+        finally:
+            if tmp_download and os.path.exists(tmp_download):
+                try:
+                    os.remove(tmp_download)
+                except OSError:
+                    pass
 
     def get_vault_cloud_info(self, vault_name: str = "PlayerProfile.congu_save") -> dict:
         """Kiểm tra thông tin file Vault đang lưu trên Google Drive."""

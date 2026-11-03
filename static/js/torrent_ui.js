@@ -91,9 +91,9 @@
       const tags = document.querySelectorAll('#catalogueQuickTags .cat-tag-btn');
       tags.forEach(t => {
         if ((!keyword && t.innerText.includes('Tất Cả')) || (keyword && t.innerText.toLowerCase().includes(keyword.toLowerCase()))) {
-          t.className = 'cat-tag-btn px-2.5 py-1 rounded-[3px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold transition';
+          t.className = 'cat-tag-btn px-3 py-1.5 rounded-full bg-white/[0.14] text-white border border-transparent text-[11px] font-medium transition';
         } else {
-          t.className = 'cat-tag-btn px-2.5 py-1 rounded-[3px] bg-slate-800 text-slate-300 border border-slate-700 text-[11px] hover:text-white transition';
+          t.className = 'cat-tag-btn px-3 py-1.5 rounded-full bg-white/[0.04] text-zinc-400 hover:text-white border border-white/[0.06] text-[11px] transition';
         }
       });
 
@@ -188,19 +188,20 @@
 
       container.innerHTML = games.map((g, idx) => {
         const cover = g.cover_url || 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/480/header.jpg';
+        const bmActive = typeof isGameBookmarked === 'function' && isGameBookmarked({ title: g.title });
         const sourcePills = (g.sources || []).map(src => {
-          let sClass = 'bg-[#151c2c] text-slate-300 border-slate-700/80';
+          let sClass = 'bg-white/[0.05] text-zinc-300 border-white/10';
           const lower = src.toLowerCase();
-          if (lower.includes('fitgirl')) sClass = 'bg-purple-950/60 text-purple-300 border-purple-500/40';
-          else if (lower.includes('dodi')) sClass = 'bg-rose-950/60 text-rose-300 border-rose-500/40';
-          else if (lower.includes('gog')) sClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40';
-          else if (lower.includes('xatab')) sClass = 'bg-amber-950/60 text-amber-300 border-amber-500/40';
-          else if (lower.includes('kaos')) sClass = 'bg-blue-950/60 text-blue-300 border-blue-500/40';
-          return `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${sClass}">${src}</span>`;
+          if (lower.includes('fitgirl')) sClass = 'bg-amber-500/10 text-amber-200 border-amber-500/20';
+          else if (lower.includes('dodi')) sClass = 'bg-rose-500/10 text-rose-200 border-rose-500/20';
+          else if (lower.includes('gog')) sClass = 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20';
+          else if (lower.includes('xatab')) sClass = 'bg-amber-500/10 text-amber-200 border-amber-500/20';
+          else if (lower.includes('kaos')) sClass = 'bg-sky-500/10 text-sky-200 border-sky-500/20';
+          return `<span class="px-2.5 py-1 rounded-full text-[10px] font-medium border ${sClass}">${src}</span>`;
         }).join('');
 
         const vietModBadge = g.has_viet_mod ? `
-          <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/60 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+          <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
             <i data-lucide="check-check" class="w-3 h-3 text-emerald-400"></i>
             <span>Có Bản Dịch Cổ Ngữ</span>
           </span>
@@ -208,14 +209,14 @@
 
         return `
           <div onclick="openCatalogueDownloadOptions(${idx})" 
-               class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 sm:p-3.5 rounded-[6px] bg-[#070e1c] hover:bg-[#0b162c] border border-cyan-500/20 hover:border-cyan-400 transition-all duration-200 cursor-pointer shadow-[0_2px_10px_rgba(0,0,0,0.4)] hover:shadow-[0_4px_20px_rgba(6,182,212,0.2)] gap-3.5">
+               class="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-[#0F1522] hover:bg-[#141418] border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-3.5">
             
-            <!-- Left: Cover Image Thumbnail (Screenshot 1 Aspect Ratio) -->
+            <!-- Left: Cover Image Thumbnail -->
             <div class="flex items-center space-x-3.5 min-w-0">
-              <div class="w-full sm:w-36 h-24 sm:h-20 rounded-[4px] overflow-hidden bg-black/40 border border-slate-800 shrink-0 relative">
-                <img src="${cover}" alt="${g.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/480/header.jpg'" />
+              <div class="w-full sm:w-36 h-24 sm:h-20 rounded-xl overflow-hidden bg-black/40 border border-white/10 shrink-0 relative">
+                <img src="${cover}" alt="${g.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null;this.src='/static/icons/game_placeholder.png'" />
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80"></div>
-                <div class="absolute bottom-1 right-1.5 text-[9px] font-pixel px-1 rounded bg-black/80 text-cyan-300 border border-cyan-500/30">
+                <div class="absolute bottom-1 right-1.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-black/80 text-zinc-300 border border-white/10">
                   ${g.total_repacks} Repack
                 </div>
               </div>
@@ -223,17 +224,17 @@
               <!-- Middle: Title, Genres, Source Badges -->
               <div class="min-w-0 space-y-1.5 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
-                  <h4 class="font-display font-bold text-sm sm:text-base text-slate-100 group-hover:text-cyan-300 transition-colors leading-snug">
+                  <h4 class="font-display font-semibold text-sm sm:text-base text-zinc-100 group-hover:text-white transition-colors leading-snug">
                     ${g.title}
                   </h4>
                   ${vietModBadge}
                 </div>
 
-                <div class="text-xs text-slate-400 font-sans line-clamp-1">
+                <div class="text-xs text-zinc-500 line-clamp-1">
                   ${g.genres || 'Action, Adventure'}
                 </div>
 
-                <!-- Source Repack Badges (Screenshot 1: DODI, fitgirl, Xatab, GOG...) -->
+                <!-- Source Repack Badges -->
                 <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
                   ${sourcePills}
                 </div>
@@ -241,21 +242,50 @@
             </div>
 
             <!-- Right: Action Button -->
-            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800/80">
-              <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">
+            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-white/[0.06]">
+              <span class="text-[11px] text-zinc-500 hidden sm:inline">
                 ${g.total_repacks} nguồn tải
               </span>
-              <button onclick="event.stopPropagation(); openCatalogueDownloadOptions(${idx})" 
-                      class="pixel-btn px-3.5 py-1.5 text-xs font-bold bg-cyan-950 group-hover:bg-cyan-600 text-cyan-300 group-hover:text-white border border-cyan-500/50 group-hover:border-cyan-400 rounded flex items-center space-x-1.5 transition shadow-[0_0_10px_rgba(6,182,212,0.2)]">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                <span>Tùy Chọn Tải</span>
-              </button>
+              <div class="flex items-center gap-2">
+                <button onclick="event.stopPropagation(); catalogueToggleBookmark(${idx}, this)"
+                        class="pixel-btn w-8 h-8 flex items-center justify-center ${bmActive ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50' : 'bg-[#1C2536] text-slate-300 border-white/10 hover:text-cyan-300'}"
+                        title="${bmActive ? 'Bỏ khỏi Thư viện (Chưa tải)' : 'Thêm vào Thư viện để tải sau'}">
+                  <i data-lucide="bookmark${bmActive ? '-check' : '-plus'}" class="w-4 h-4"></i>
+                </button>
+                <button onclick="event.stopPropagation(); openCatalogueDownloadOptions(${idx})" 
+                        class="pixel-btn px-3.5 py-1.5 text-xs flex items-center space-x-1.5">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Tùy Chọn Tải</span>
+                </button>
+              </div>
             </div>
 
           </div>
         `;
       }).join('');
       if (window.lucide) lucide.createIcons();
+    }
+
+    function rerenderCatalogueCards() {
+      if (Array.isArray(catalogueCachedGames) && catalogueCachedGames.length) {
+        renderCatalogueCards(catalogueCachedGames, true);
+      }
+    }
+
+    async function catalogueToggleBookmark(idx, sourceEl) {
+      const game = catalogueCachedGames && catalogueCachedGames[idx];
+      if (!game || typeof toggleGameBookmark !== 'function') return;
+      const row = sourceEl && sourceEl.closest ? sourceEl.closest('[onclick*="openCatalogueDownloadOptions"]') : null;
+      const sourceImg = row ? row.querySelector('img') : null;
+      const added = await toggleGameBookmark({
+        title: game.title,
+        slug: game.slug || '',
+        genre: game.genres || '',
+        cover_url: game.cover_url || '',
+        source: 'hydra'
+      });
+      if (added && typeof flyCoverToLibrary === 'function') flyCoverToLibrary(sourceImg);
+      rerenderCatalogueCards();
     }
 
     // =============================================================
@@ -266,7 +296,12 @@
         console.error("openCatalogueDownloadOptions: Invalid index", idx);
         return;
       }
-      const game = catalogueCachedGames[idx];
+      openCatalogueDownloadOptionsForGame(catalogueCachedGames[idx]);
+    }
+
+    // Mở thẳng bảng tùy chọn tải cho một game bất kỳ (dùng cho Omnibox / kết quả tìm kiếm)
+    function openCatalogueDownloadOptionsForGame(game) {
+      if (!game) return;
       activeCatalogueGame = game;
 
       const modal = document.getElementById('catalogueDownloadOptionsModal');
@@ -279,7 +314,7 @@
 
       if (sourceSelect) {
         const uniqueSources = game.sources || [];
-        sourceSelect.innerHTML = `<option value="">Filter by source (Tất cả ${uniqueSources.length} nguồn)</option>` + 
+        sourceSelect.innerHTML = `<option value="">Filter by source (Tất cả ${uniqueSources.length} nguồn)</option>` +
           uniqueSources.map(s => `<option value="${s}">${s}</option>`).join('');
       }
 
@@ -367,7 +402,7 @@
               <button onclick="openExternalTorrentLink('${encodeURIComponent(primaryUri)}')" 
                       class="pixel-btn px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded flex items-center space-x-1 transition" 
                       title="Mở bằng phần mềm Torrent trên máy (qBittorrent / uTorrent)">
-                <i data-lucide="magnet" class="w-3.5 h-3.5 text-purple-400"></i>
+                <i data-lucide="magnet" class="w-3.5 h-3.5 text-cyan-400"></i>
                 <span class="hidden md:inline">qBittorrent</span>
               </button>
             </div>
@@ -431,7 +466,7 @@
           const isUrl = s.startsWith('http://') || s.startsWith('https://');
           const shortName = isUrl ? s.split('/').pop() : s;
           return `
-            <div class="p-3 rounded-[4px] bg-[#0c1628] border border-slate-800 hover:border-cyan-500/40 flex items-center justify-between gap-3 transition">
+            <div class="p-3 rounded-[4px] bg-[#0F1522] border border-slate-800 hover:border-cyan-500/40 flex items-center justify-between gap-3 transition">
               <div class="flex items-center space-x-3 min-w-0">
                 <div class="w-8 h-8 rounded bg-cyan-950 text-cyan-400 flex items-center justify-center shrink-0 border border-cyan-500/30">
                   <i data-lucide="${isUrl ? 'link' : 'file-code'}" class="w-4 h-4"></i>
@@ -613,7 +648,7 @@
             const isMagnet = primaryUri.startsWith('magnet:');
             const safeTitle = (r.title || 'Game Repack').replace(/'/g, "\\'");
             return `
-              <div class="p-4 rounded-[6px] bg-[#0c1628] border border-cyan-500/30 hover:border-cyan-400 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="p-4 rounded-[6px] bg-[#0F1522] border border-cyan-500/30 hover:border-cyan-400 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="space-y-1.5 flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-[10px] font-pixel font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 uppercase">
@@ -838,7 +873,7 @@
         }
 
         return `
-          <div class="p-4 rounded-[6px] bg-[#0c1628] border border-cyan-500/30 space-y-3">
+          <div class="p-4 rounded-[6px] bg-[#0F1522] border border-cyan-500/30 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div class="space-y-0.5 min-w-0">
                 <div class="flex items-center space-x-2">

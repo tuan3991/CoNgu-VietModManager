@@ -1,19 +1,20 @@
     :root {
-      --font-pixel: 'Chakra Petch', 'JetBrains Mono', monospace;
-      --font-display: 'Chakra Petch', sans-serif;
-      --font-sans: 'Be Vietnam Pro', sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      /* ART DIRECTION: chỉ một họ font sans duy nhất (không mono/display) */
+      --font-sans: 'Be Vietnam Pro', 'Inter', system-ui, sans-serif;
+      --font-pixel: var(--font-sans);
+      --font-display: var(--font-sans);
+      --font-mono: var(--font-sans);
 
       /* 4 Core Neon Colors */
       --neon-cyan: #00F0FF;
-      --neon-magenta: #FF2A85;
-      --neon-amber: #FFB800;
-      --neon-green: #00FF9D;
-      --neon-crimson: #FF3344;
+      --neon-magenta: #00F0FF;
+      --neon-amber: #FBBF24;
+      --neon-green: #34D399;
+      --neon-crimson: #F87171;
 
-      --bg-deep: #0b0c1a;
-      --bg-night: #161129;
-      --bg-card: #111224;
+      --bg-deep: #0A0E1A;
+      --bg-night: #0F1522;
+      --bg-card: #0F1522;
       --shadow-pixel: 4px 4px 0px #05050a;
       --shadow-pixel-sm: 2px 2px 0px #05050a;
       --shadow-pixel-lg: 6px 6px 0px #05050a;
@@ -21,30 +22,91 @@
       /* =========================================================
          CUSTOM THEMES (Theme Studio) — 9 biến chuẩn + lớp wallpaper
          Giá trị mặc định trùng khớp theme builtin cyberpunk_default.
+         Palette: Cyberpunk Neon (tweakcn preset) — accent neon cyan
+         #00F0FF đồng bộ với màu thương hiệu, nền xanh đen sâu.
          ========================================================= */
-      --bg-primary: #090d16;
-      --bg-secondary: rgba(15, 23, 42, 0.85);
-      --text-primary: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent-color: #06b6d4;
-      --accent-hover: #22d3ee;
-      --border-color: rgba(6, 182, 212, 0.25);
+      --bg-primary: #0a0e1a;
+      --bg-secondary: rgba(20, 27, 46, 0.85);
+      --text-primary: #f2f6fc;
+      --text-muted: #8b9bb4;
+      --accent-color: #00f0ff;
+      --accent-hover: #66f5ff;
+      --border-color: rgba(0, 240, 255, 0.22);
       --card-radius: 12px;
       --glass-blur: 12px;
 
       /* Lớp ảnh nền do theme cung cấp (mặc định tắt). */
       --bg-wallpaper: none;
       --bg-opacity: 0.22;
+
+      /* =========================================================
+         TWEAKCN DESIGN TOKENS — Cyberpunk Neon (dark-first)
+         Semantic layer theo chuẩn shadcn/tweakcn. Các token có
+         đối tác trong 9 biến theme được cầu nối bằng var(--...)
+         để theme người dùng vẫn đổi màu toàn bộ hệ thống; các
+         token không có đối tác (chart, shadow, surface phụ) giữ
+         giá trị OKLCH gốc đúng định dạng xuất của tweakcn.
+         ========================================================= */
+      --radius: var(--card-radius);
+
+      --background: var(--bg-primary);
+      --foreground: var(--text-primary);
+      --card: var(--bg-secondary);
+      --card-foreground: var(--text-primary);
+      --popover: oklch(0.226 0.039 267.864);
+      --popover-foreground: oklch(0.972 0.009 258.335);
+
+      --primary: var(--accent-color);
+      --primary-foreground: oklch(0.169 0.021 248.761);
+      --secondary: oklch(0.226 0.039 267.864);
+      --secondary-foreground: oklch(0.972 0.009 258.335);
+      --muted: oklch(0.25 0.042 265.784);
+      --muted-foreground: var(--text-muted);
+      --accent: var(--accent-color);
+      --accent-foreground: oklch(0.169 0.021 248.761);
+      --destructive: oklch(0.651 0.235 23.173);
+      --destructive-foreground: oklch(0.969 0.015 12.422);
+
+      --border: var(--border-color);
+      --input: oklch(0.282 0.045 264.179);
+      --ring: var(--accent-hover);
+
+      /* Chart colors: accent cyan + neutral phụ, không tạo palette riêng */
+      --chart-1: var(--accent-color);
+      --chart-2: oklch(0.72 0.08 222);
+      --chart-3: oklch(0.62 0.02 250);
+      --chart-4: oklch(0.50 0.015 250);
+      --chart-5: oklch(0.40 0.01 250);
+
+      --shadow-2xs: 0 1px 2px rgb(5 5 10 / 0.5);
+      --shadow-xs: 0 1px 2px rgb(5 5 10 / 0.5), 0 1px 3px rgb(5 5 10 / 0.35);
+      --shadow-sm: 0 2px 4px rgb(5 5 10 / 0.5), 0 2px 8px rgb(5 5 10 / 0.35);
+
+      /* =========================================================
+         MONOCHROME SCALE (80/20/10) — Graphite + Cyan
+         80% nền/bề mặt neutral lạnh, 20% bề mặt nâng, 10% accent
+         cyan duy nhất. Màu semantic chỉ dành cho trạng thái.
+         ========================================================= */
+      --surface-0: #0a0e1a;
+      --surface-1: #0f1522;
+      --surface-2: #151c2c;
+      --surface-3: #1c2536;
+      --surface-4: #2a3548;
+      --accent-tint: #0c1b24;
+      --accent-tint-hover: #12303d;
+      --success: #34d399;
+      --success-tint: #0a1f16;
+      --warning: #fbbf24;
+      --error: #f87171;
     }
 
     body {
       font-family: var(--font-sans);
-      background: 
-        radial-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
-        linear-gradient(135deg, #0b0c1a 0%, #161129 50%, #0d0e1a 100%);
-      background-size: 16px 16px, 100% 100%;
+      background:
+        radial-gradient(1000px 600px at 50% -20%, rgba(0, 240, 255, 0.045), transparent 65%),
+        var(--background);
       background-attachment: fixed;
-      color: #F1F5F9;
+      color: var(--foreground);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
@@ -69,11 +131,11 @@
       letter-spacing: normal !important;
     }
 
-    /* Custom Retro Pixel Scrollbar */
+    /* Modern Minimal Scrollbar (mảnh, trung tính, không neon) */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #070812; border-left: 1px solid #1a1d36; }
-    ::-webkit-scrollbar-thumb { background: #00F0FF; border: 1px solid #05050a; }
-    ::-webkit-scrollbar-thumb:hover { background: #FF2A85; }
+    ::-webkit-scrollbar-track { background: transparent; border-left: none; }
+    ::-webkit-scrollbar-thumb { background: #2a2a31; border: none; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f47; }
 
     /* Sleek 4px Slim Scrollbar in Modals (Fix 6) */
     .pixel-modal ::-webkit-scrollbar,
@@ -87,22 +149,22 @@
     #gameModal ::-webkit-scrollbar-track,
     #updateModal ::-webkit-scrollbar-track,
     #requestModal ::-webkit-scrollbar-track {
-      background: rgba(7, 8, 18, 0.4) !important;
+      background: transparent !important;
       border-left: none !important;
     }
     .pixel-modal ::-webkit-scrollbar-thumb,
     #gameModal ::-webkit-scrollbar-thumb,
     #updateModal ::-webkit-scrollbar-thumb,
     #requestModal ::-webkit-scrollbar-thumb {
-      background: #00F0FF !important;
+      background: #2f2f37 !important;
       border: none !important;
-      border-radius: 2px !important;
+      border-radius: 999px !important;
     }
     .pixel-modal ::-webkit-scrollbar-thumb:hover,
     #gameModal ::-webkit-scrollbar-thumb:hover,
     #updateModal ::-webkit-scrollbar-thumb:hover,
     #requestModal ::-webkit-scrollbar-thumb:hover {
-      background: #FF2A85 !important;
+      background: #45454f !important;
     }
 
     /* Sidebar Custom Cyber Scrollbar (Steam Style) */
@@ -110,14 +172,14 @@
       width: 4px !important;
     }
     .custom-sidebar-scroll::-webkit-scrollbar-track {
-      background: rgba(7, 8, 20, 0.4) !important;
+      background: transparent !important;
     }
     .custom-sidebar-scroll::-webkit-scrollbar-thumb {
-      background: rgba(0, 240, 255, 0.35) !important;
-      border-radius: 2px !important;
+      background: rgba(255, 255, 255, 0.18) !important;
+      border-radius: 999px !important;
     }
     .custom-sidebar-scroll::-webkit-scrollbar-thumb:hover {
-      background: #00F0FF !important;
+      background: rgba(255, 255, 255, 0.32) !important;
     }
 
     /* Modal Action Buttons - Single Line No Wrap (Fix 4) */
@@ -131,35 +193,35 @@
       justify-content: center !important;
     }
 
-    /* Brand Title Cyber Neon */
+    /* Brand Title — Modern Minimal */
     .app-brand-title {
       font-family: var(--font-display) !important;
-      font-weight: 800 !important;
-      font-size: 24px !important;
-      letter-spacing: 0.1em !important;
+      font-weight: 700 !important;
+      font-size: 18px !important;
+      letter-spacing: 0.02em !important;
       text-transform: uppercase !important;
-      color: #F8FAFC !important;
+      color: #F4F4F5 !important;
       display: inline-flex !important;
       align-items: center !important;
       line-height: 1 !important;
     }
 
     .brand-slashes {
-      color: #00F0FF !important;
-      font-family: var(--font-pixel) !important;
-      font-weight: 800 !important;
-      font-size: 18px !important;
-      margin-right: 6px !important;
-      text-shadow: 0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.4) !important;
+      color: #3F3F46 !important;
+      font-family: var(--font-sans) !important;
+      font-weight: 600 !important;
+      font-size: 15px !important;
+      margin-right: 4px !important;
+      text-shadow: none !important;
       display: inline-block !important;
     }
 
     .brand-name {
-      color: #FFFFFF !important;
+      color: #FAFAFA !important;
       font-family: var(--font-display) !important;
-      font-weight: 800 !important;
-      letter-spacing: 0.1em !important;
-      text-shadow: 0 0 14px rgba(255, 255, 255, 0.3), 0 0 25px rgba(0, 240, 255, 0.3) !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.02em !important;
+      text-shadow: none !important;
     }
 
     /* Pixel Badge */
@@ -169,194 +231,190 @@
       letter-spacing: 0.05em !important;
     }
 
-    /* Glass Effect with Cyber Border */
+    /* Glass Effect — Modern Minimal (neutral, không viền cyan) */
     .glass {
-      background: rgba(10, 12, 26, 0.42);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border-bottom: 1px solid rgba(0, 240, 255, 0.35);
+      background: rgba(9, 9, 12, 0.72);
+      backdrop-filter: blur(20px) saturate(120%);
+      -webkit-backdrop-filter: blur(20px) saturate(120%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Tactile Pixel Buttons */
+    /* =============================================================
+       BUTTON SYSTEM — MODERN MINIMAL
+       Nền neutral + một CTA cyan; destructive giữ màu semantic.
+       ============================================================= */
     .pixel-btn {
-      border-radius: 2px !important;
-      box-shadow: 3px 3px 0px #05050a !important;
-      transition: all 0.12s ease-in-out !important;
-      font-family: var(--font-display) !important;
-      text-transform: none !important;
-      letter-spacing: 0.02em !important;
+      border-radius: 9999px !important;
+      box-shadow: none !important;
+      border: 1px solid rgba(255, 255, 255, 0.06) !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      color: #D4D4D8 !important;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease !important;
+      font-family: var(--font-sans) !important;
+      font-weight: 500 !important;
+      letter-spacing: 0 !important;
       position: relative;
     }
     .pixel-btn:hover {
-      transform: translate(-1px, -1px) !important;
-      box-shadow: 4px 4px 0px #05050a !important;
+      background: rgba(255, 255, 255, 0.12) !important;
+      color: #FFFFFF !important;
+      border-color: rgba(255, 255, 255, 0.16) !important;
+      transform: none !important;
+      box-shadow: none !important;
     }
     .pixel-btn:active {
-      transform: translate(2px, 2px) !important;
-      box-shadow: 1px 1px 0px #05050a !important;
+      transform: scale(0.98) !important;
+      box-shadow: none !important;
     }
 
-    /* Neon Color Button Variants */
     .btn-neon-green {
-      background: #00FF9D !important;
-      color: #05050a !important;
-      border: 1px solid #00FF9D !important;
-      font-weight: 800 !important;
-      box-shadow: 3px 3px 0px #05050a, 0 0 12px rgba(0, 255, 157, 0.35) !important;
+      background: var(--accent-color) !important;
+      color: var(--primary-foreground) !important;
+      border: 1px solid var(--accent-color) !important;
+      font-weight: 700 !important;
+      box-shadow: 0 8px 20px -10px rgba(0, 240, 255, 0.35) !important;
     }
     .btn-neon-green:hover {
-      background: #33FFAE !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 18px rgba(0, 255, 157, 0.55) !important;
+      background: var(--accent-hover) !important;
+      color: var(--primary-foreground) !important;
+      border-color: var(--accent-hover) !important;
+      box-shadow: 0 10px 24px -10px rgba(0, 240, 255, 0.45) !important;
     }
 
     .btn-arcade-amber {
-      background: #FFB800 !important;
-      color: #05050a !important;
-      border: 1px solid #FFE600 !important;
-      font-weight: 900 !important;
-      box-shadow: 3px 3px 0px #05050a, 0 0 14px rgba(255, 184, 0, 0.4) !important;
+      background: rgba(255, 255, 255, 0.05) !important;
+      color: var(--text-primary) !important;
+      border: 1px solid rgba(255, 255, 255, 0.07) !important;
+      font-weight: 600 !important;
+      box-shadow: none !important;
     }
     .btn-arcade-amber:hover {
-      background: #FFC72C !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 20px rgba(255, 184, 0, 0.6) !important;
+      background: rgba(255, 255, 255, 0.10) !important;
+      color: #FFFFFF !important;
+      box-shadow: none !important;
     }
 
-    .btn-cyber-magenta {
-      background: rgba(255, 42, 133, 0.12) !important;
-      color: #FF2A85 !important;
-      border: 1px solid #FF2A85 !important;
-      font-weight: 700 !important;
-      box-shadow: 3px 3px 0px #05050a !important;
-    }
-    .btn-cyber-magenta:hover {
-      background: #FF2A85 !important;
-      color: #ffffff !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(255, 42, 133, 0.5) !important;
-    }
-
+    .btn-cyber-magenta,
     .btn-neon-cyan {
-      background: rgba(0, 240, 255, 0.12) !important;
-      color: #00F0FF !important;
-      border: 1px solid #00F0FF !important;
-      font-weight: 700 !important;
-      box-shadow: 3px 3px 0px #05050a !important;
+      background: rgba(255, 255, 255, 0.045) !important;
+      color: #D4D4D8 !important;
+      border: 1px solid rgba(255, 255, 255, 0.07) !important;
+      font-weight: 600 !important;
+      box-shadow: none !important;
     }
+    .btn-cyber-magenta:hover,
     .btn-neon-cyan:hover {
-      background: #00F0FF !important;
-      color: #05050a !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(0, 240, 255, 0.5) !important;
+      background: rgba(255, 255, 255, 0.10) !important;
+      color: #FFFFFF !important;
+      box-shadow: none !important;
     }
 
     .btn-retro-crimson {
-      background: rgba(255, 51, 68, 0.15) !important;
-      color: #FF6677 !important;
-      border: 1px solid #FF3344 !important;
-      font-weight: 700 !important;
-      box-shadow: 3px 3px 0px #05050a !important;
+      background: rgba(239, 68, 68, 0.10) !important;
+      color: #FCA5A5 !important;
+      border: 1px solid rgba(239, 68, 68, 0.25) !important;
+      font-weight: 600 !important;
+      box-shadow: none !important;
     }
     .btn-retro-crimson:hover {
-      background: #FF3344 !important;
-      color: #ffffff !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 16px rgba(255, 51, 68, 0.5) !important;
+      background: rgba(239, 68, 68, 0.18) !important;
+      color: #FECACA !important;
+      box-shadow: none !important;
     }
 
-    /* Pixel Game Card */
+    /* (Các biến thể màu neon cũ đã được gộp vào khối BUTTON SYSTEM phía trên) */
+
+    /* =============================================================
+       POSTER CARD — MODERN MINIMAL
+       Bo tròn 16px, không viền sáng, nổi nhẹ bằng shadow khi hover.
+       ============================================================= */
     .pixel-card {
-      border-radius: 2px !important;
-      background: #111224 !important;
-      border: 1px solid rgba(0, 240, 255, 0.25) !important;
-      box-shadow: 4px 4px 0px #05050a !important;
-      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+      border-radius: 16px !important;
+      background: rgba(24, 24, 27, 0.55) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      box-shadow: none !important;
+      transition: transform .3s cubic-bezier(0.2, 0, 0, 1), box-shadow .3s ease, border-color .3s ease !important;
+      will-change: transform;
     }
     .pixel-card:hover {
-      border-color: #00F0FF !important;
-      box-shadow: 6px 6px 0px #05050a, 0 0 20px rgba(0, 240, 255, 0.3) !important;
-      transform: translate(-2px, -2px) !important;
+      border-color: rgba(255, 255, 255, 0.20) !important;
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.65) !important;
+      transform: translateY(-6px) !important;
     }
 
-    /* CRT Scanlines Overlay */
+    /* CRT Scanlines: tắt hoàn toàn cho giao diện tối giản */
     .crt-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 15;
-      background: repeating-linear-gradient(
-        0deg,
-        rgba(0, 0, 0, 0.20) 0px,
-        rgba(0, 0, 0, 0.20) 1px,
-        transparent 1px,
-        transparent 3px
-      );
-      opacity: 0.8;
+      display: none !important;
     }
 
-    /* Hero Arcade Frame with Double Neon Glow */
+    /* Hero Banner — bo 24px, viền mờ, hoà vào nền */
     .hero-arcade-frame {
       position: relative;
-      border-radius: 2px !important;
-      border: 2px solid #00F0FF !important;
-      box-shadow: 6px 6px 0px #05050a, 0 0 25px rgba(0, 240, 255, 0.25), inset 0 0 30px rgba(0, 240, 255, 0.1) !important;
-      outline: 1px solid rgba(255, 42, 133, 0.45);
-      outline-offset: 4px;
+      border-radius: 24px !important;
+      border: 1px solid rgba(255, 255, 255, 0.06) !important;
+      outline: none !important;
+      box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.85) !important;
     }
 
-    /* Pixel Segmented EXP / Health Bar */
     .pixel-exp-bar {
       display: flex;
       gap: 2.5px;
-      background: #080914;
+      background: var(--surface-0);
       padding: 2px;
-      border: 1px solid rgba(255, 184, 0, 0.6);
-      box-shadow: 2px 2px 0px #05050a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: none;
       height: 8px;
-      border-radius: 1px;
+      border-radius: 2px;
     }
     .pixel-exp-seg {
       flex: 1;
-      background: #1e223b;
+      background: var(--surface-2);
       height: 100%;
     }
-    .pixel-exp-seg.active-amber {
-      background: linear-gradient(180deg, #FFE600 0%, #FFB800 100%);
-      box-shadow: 0 0 4px rgba(255, 184, 0, 0.7);
-    }
+    .pixel-exp-seg.active-amber,
     .pixel-exp-seg.active-cyan {
-      background: linear-gradient(180deg, #80F8FF 0%, #00F0FF 100%);
-      box-shadow: 0 0 4px rgba(0, 240, 255, 0.7);
+      background: var(--accent-color);
+      box-shadow: none;
     }
 
-    /* Pixel Filter Tabs */
+    /* Segmented Tabs — dạng viên thuốc, không viền sáng */
     .pixel-tab {
-      border-radius: 2px !important;
-      background: #111326 !important;
-      border: 1px solid #232747 !important;
-      color: #94A3B8 !important;
-      box-shadow: 3px 3px 0px #05050a !important;
-      font-family: var(--font-display) !important;
+      border-radius: 9999px !important;
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      color: #A1A1AA !important;
+      box-shadow: none !important;
+      font-family: var(--font-sans) !important;
+      font-weight: 500 !important;
       text-transform: none !important;
-      letter-spacing: 0.02em !important;
-      transition: all 0.15s ease !important;
+      letter-spacing: 0 !important;
+      transition: background-color .18s ease, color .18s ease !important;
     }
     .pixel-tab:hover {
-      border-color: #00F0FF !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-color: transparent !important;
       color: #FFFFFF !important;
-      transform: translate(-1px, -1px) !important;
-      box-shadow: 4px 4px 0px #05050a !important;
+      transform: none !important;
+      box-shadow: none !important;
     }
     .pixel-tab.active-filter-tab {
-      background: #00F0FF !important;
-      color: #05050a !important;
-      border-color: #00F0FF !important;
-      font-weight: 800 !important;
-      box-shadow: 3px 3px 0px #05050a, 0 0 15px rgba(0, 240, 255, 0.45) !important;
+      background: rgba(255, 255, 255, 0.14) !important;
+      color: #FFFFFF !important;
+      border-color: transparent !important;
+      font-weight: 600 !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
     }
 
-    /* Modals with Softened Cyber Borders (25% Opacity, Non-Distracting) */
+    /* Modals — Atmospheric Glass: bo 24px, kính khói, viền hairline */
     .pixel-modal {
-      border-radius: 6px !important;
-      border: 1px solid rgba(0, 240, 255, 0.25) !important;
-      background: #0e0f22 !important;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 240, 255, 0.08) !important;
+      border-radius: 24px !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      background: rgba(9, 9, 11, 0.92) !important;
+      backdrop-filter: blur(28px) saturate(120%);
+      -webkit-backdrop-filter: blur(28px) saturate(120%);
+      box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.9) !important;
       outline: none !important;
     }
     /* Frameless Window Drag Region (Native + Webkit Drag) */
@@ -403,11 +461,10 @@
       transform: scale(0.88);
     }
     .fav-heart-btn:focus-visible {
-      outline: 1px solid var(--neon-magenta);
+      outline: 1px solid var(--accent-color);
       outline-offset: 2px;
     }
 
-    /* Tim CHƯA yêu thích: viền xám, rỗng ruột, chỉ rõ khi hover */
     .fav-heart-btn .fav-heart-icon {
       color: #64748B;
       fill: none;
@@ -415,19 +472,18 @@
       transition: color 0.16s ease, fill 0.16s ease, filter 0.16s ease;
     }
     .fav-heart-btn:hover .fav-heart-icon {
-      color: var(--neon-magenta);
-      fill: rgba(255, 42, 133, 0.18);
+      color: var(--accent-color);
+      fill: rgba(0, 240, 255, 0.12);
     }
 
-    /* Tim ĐÃ yêu thích: hồng neon, fill kín, glow nhẹ */
     .fav-heart-btn.is-favorite .fav-heart-icon {
-      color: var(--neon-magenta);
-      fill: var(--neon-magenta);
-      stroke: var(--neon-magenta);
-      filter: drop-shadow(0 0 4px rgba(255, 42, 133, 0.75));
+      color: var(--accent-color);
+      fill: var(--accent-color);
+      stroke: var(--accent-color);
+      filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.35));
     }
     .fav-heart-btn.is-favorite:hover .fav-heart-icon {
-      filter: drop-shadow(0 0 7px rgba(255, 42, 133, 0.95));
+      filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
     }
 
     /* Chỉ nút tim vừa được bấm mới nảy nhẹ (class do render gắn 1 lần, tránh blink hàng loạt) */
@@ -445,21 +501,197 @@
     }
     .fav-heart-badge:hover {
       background: rgba(7, 8, 20, 0.95);
-      border-color: var(--neon-magenta);
+      border-color: var(--accent-color);
     }
     .fav-heart-badge.is-favorite {
-      border-color: rgba(255, 42, 133, 0.7);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55), 0 0 10px rgba(255, 42, 133, 0.35);
+      border-color: rgba(0, 240, 255, 0.55);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
     }
 
-    /* Poster đang Yêu thích: viền + glow hồng rất nhẹ, giữ nguyên tông cyan của lưới */
+    /* Poster đang Yêu thích: chỉ nhấn nhẹ bằng màu tim, không glow */
     .pixel-card.is-favorite {
-      border-color: rgba(255, 42, 133, 0.4) !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 14px rgba(255, 42, 133, 0.18) !important;
+      border-color: rgba(255, 255, 255, 0.10) !important;
+      box-shadow: none !important;
     }
     .pixel-card.is-favorite:hover {
-      border-color: var(--neon-magenta) !important;
-      box-shadow: 6px 6px 0px #05050a, 0 0 22px rgba(255, 42, 133, 0.32) !important;
+      border-color: rgba(255, 255, 255, 0.18) !important;
+      box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.75) !important;
+    }
+
+    /* =============================================================
+       MODERN MINIMAL — HEADER / NAV / ICON BUTTONS
+       ============================================================= */
+    /* Nav dạng chữ, không viền — chỉ gạch chân cyan cho mục đang chọn */
+    .ui-tab-nav {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #A1A1AA;
+      white-space: nowrap;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: color .18s ease;
+    }
+    .ui-tab-nav:hover { color: #FFFFFF; }
+    .ui-tab-nav.is-active { color: #FFFFFF; font-weight: 600; }
+    .ui-tab-nav.is-active::after {
+      content: "";
+      position: absolute;
+      left: 0.7rem;
+      right: 0.7rem;
+      bottom: -1px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--accent-color);
+      box-shadow: none;
+    }
+
+    /* Segmented nhỏ kiểu PS5 | PC */
+    .ui-seg {
+      padding: 0.32rem 0.7rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #A1A1AA;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color .18s ease, color .18s ease;
+    }
+    .ui-seg:hover { color: #FFFFFF; }
+    .ui-seg.is-active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+
+    /* ==== MODAL THÊM GAME NGOÀI: đồng bộ tông xám (bỏ tím/indigo) ==== */
+    #customGameModal [class*="border-purple"] { border-color: rgba(255, 255, 255, 0.08) !important; }
+    #customGameModal [class*="bg-purple"] { background-color: rgba(255, 255, 255, 0.04) !important; }
+    #customGameModal [class*="bg-[#0d091e]"] { background-color: rgba(255, 255, 255, 0.03) !important; }
+    #customGameModal [class*="text-purple"] { color: #D4D4D8 !important; }
+    #customGameModal input:focus,
+    #customGameModal select:focus {
+      border-color: var(--accent-color) !important;
+      box-shadow: 0 0 0 3px var(--border-color) !important;
+      outline: none !important;
+    }
+
+    .vote-btn-active {
+      background: var(--accent-tint) !important;
+      color: var(--accent-color) !important;
+      border-color: var(--border-color) !important;
+    }
+    .vote-btn-active:hover {
+      background: var(--accent-tint-hover) !important;
+      color: var(--accent-hover) !important;
+    }
+
+    /* Nút viên thuốc trên header */
+    .ui-pill { border-radius: 9999px !important; }
+
+    /* Ô thể loại nhanh */
+    .ui-genre-chip {
+      padding: 0.42rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #A1A1AA;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+    .ui-genre-chip:hover { background: rgba(255, 255, 255, 0.08); color: #FFFFFF; border-color: rgba(255, 255, 255, 0.14); }
+    .ui-genre-chip.is-active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #FFFFFF;
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    .ui-nav-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #A1A1AA;
+      white-space: nowrap;
+      background: transparent;
+      transition: background-color .18s ease, color .18s ease;
+      cursor: pointer;
+      border: none;
+    }
+    .ui-nav-pill:hover { background: rgba(255, 255, 255, 0.06); color: #FFFFFF; }
+    .ui-nav-pill.is-active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #FFFFFF;
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+    }
+
+    .ui-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 9999px;
+      color: #A1A1AA;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background-color .18s ease, color .18s ease;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .ui-icon-btn:hover { background: rgba(255, 255, 255, 0.08); color: #FFFFFF; }
+    .ui-icon-btn:active { transform: scale(0.96); }
+
+    /* Ép nút Đám Mây luôn là icon tròn dù JS ghi đè className */
+    #btnCommunityCloud {
+      width: 2.25rem !important;
+      height: 2.25rem !important;
+      padding: 0 !important;
+      border-radius: 9999px !important;
+      justify-content: center !important;
+    }
+    /* Badge ON/OFF chữ nhỏ được thay bằng trạng thái trong menu xổ xuống */
+    #communityCloudBadge { display: none !important; }
+
+    /* Badge số lượt tải đang hoạt động (Hydra) — chấm nhỏ góc trên */
+    #hydraActiveDownloadsBadge {
+      position: absolute !important;
+      top: -2px !important;
+      right: -2px !important;
+      min-width: 15px !important;
+      height: 15px !important;
+      padding: 0 4px !important;
+      border-radius: 9999px !important;
+      background: var(--accent-color) !important;
+      color: var(--primary-foreground) !important;
+      font-size: 9px !important;
+      font-weight: 700 !important;
+      line-height: 15px !important;
+      text-align: center;
+      border: none !important;
+    }
+    #hydraActiveDownloadsBadge.hidden { display: none !important; }
+
+    /* Sidebar: bỏ viền trái neon, dùng bo tròn mềm */
+    #librarySidebar .sidebar-game-row {
+      border-left-width: 0 !important;
+      border-radius: 10px !important;
     }
 
     /* =============================================================
@@ -511,10 +743,10 @@
     body[data-theme]:not([data-theme="cyberpunk_default"]) #collapsedSidebarStrip,
     body[data-theme]:not([data-theme="cyberpunk_default"]) #viewGameDetail > div:first-child,
     body[data-theme]:not([data-theme="cyberpunk_default"]) footer {
-      background-color: var(--bg-secondary) !important;
-      border-color: var(--border-color) !important;
-      backdrop-filter: blur(var(--glass-blur));
-      -webkit-backdrop-filter: blur(var(--glass-blur));
+      background-color: rgba(9, 9, 11, 0.72) !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) #appTitlebar {
@@ -532,35 +764,24 @@
       border-radius: var(--card-radius) !important;
     }
 
-    /* --- Thẻ poster game --- */
+    /* --- Thẻ poster & modal: giữ vật liệu kính của Art Direction --- */
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-card {
-      background-color: var(--bg-secondary) !important;
-      border-color: var(--border-color) !important;
-      border-radius: var(--card-radius) !important;
-      backdrop-filter: blur(var(--glass-blur));
-      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-color: rgba(255, 255, 255, 0.08) !important;
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-card:hover {
-      border-color: var(--accent-color) !important;
-      box-shadow: 6px 6px 0px #05050a, 0 0 22px var(--border-color) !important;
+      border-color: rgba(255, 255, 255, 0.20) !important;
     }
 
     /* --- Modal / panel kính --- */
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-modal {
-      background-color: var(--bg-secondary) !important;
-      border-color: var(--border-color) !important;
-      border-radius: var(--card-radius) !important;
-      backdrop-filter: blur(var(--glass-blur));
-      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-color: rgba(255, 255, 255, 0.08) !important;
     }
 
-    /* --- Hero spotlight, thanh tìm kiếm, tab lọc, nút accent --- */
+    /* --- Hero spotlight --- */
     body[data-theme]:not([data-theme="cyberpunk_default"]) #heroBanner.hero-arcade-frame {
-      background-color: var(--bg-secondary) !important;
-      border-color: var(--accent-color) !important;
-      outline-color: var(--accent-hover);
-      box-shadow: 6px 6px 0px #05050a, 0 0 25px var(--border-color) !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      outline: none !important;
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) #searchInput {
@@ -571,22 +792,23 @@
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab {
-      background-color: var(--bg-secondary) !important;
-      border-color: var(--border-color) !important;
+      background-color: transparent !important;
+      border-color: transparent !important;
       color: var(--text-muted) !important;
-      border-radius: var(--card-radius) !important;
+      border-radius: 9999px !important;
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab:hover {
-      border-color: var(--accent-color) !important;
+      background-color: rgba(255, 255, 255, 0.06) !important;
+      border-color: transparent !important;
       color: var(--text-primary) !important;
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab.active-filter-tab {
-      background-color: var(--accent-color) !important;
-      border-color: var(--accent-color) !important;
-      color: #05050a !important;
-      box-shadow: 3px 3px 0px #05050a, 0 0 15px var(--border-color) !important;
+      background-color: rgba(255, 255, 255, 0.14) !important;
+      border-color: transparent !important;
+      color: var(--text-primary) !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-cyan {
@@ -598,7 +820,7 @@
     body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-cyan:hover {
       background-color: var(--accent-color) !important;
       color: #05050a !important;
-      box-shadow: 4px 4px 0px #05050a, 0 0 16px var(--border-color) !important;
+      box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.8) !important;
     }
 
     /* =============================================================
@@ -608,7 +830,7 @@
       background-color: var(--bg-secondary) !important;
       border: 1px solid var(--border-color) !important;
       border-radius: var(--card-radius) !important;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 24px var(--border-color) !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
       backdrop-filter: blur(var(--glass-blur));
       -webkit-backdrop-filter: blur(var(--glass-blur));
     }
@@ -720,13 +942,368 @@
     }
     .theme-card:hover {
       border-color: var(--accent-color);
-      box-shadow: 0 0 18px var(--border-color);
+      box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.8);
       transform: translateY(-1px);
     }
     .theme-card.is-active {
       border-color: var(--accent-color);
-      box-shadow: 0 0 0 1px var(--accent-color), 0 0 18px var(--border-color);
+      box-shadow: 0 0 0 1px var(--accent-color);
     }
     .theme-card-body {
       background-color: var(--bg-primary);
+    }
+
+    /* Settings Modal Navigation Tabs — pill kính, accent chỉ ở chấm/nền nhẹ */
+    .settings-nav-btn {
+      border: 1px solid transparent;
+      border-radius: 12px !important;
+      color: #A1A1AA;
+      transition: background-color .18s ease, color .18s ease;
+    }
+    .settings-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #FFFFFF;
+    }
+    .settings-nav-btn.is-active {
+      background: rgba(255, 255, 255, 0.10) !important;
+      color: #FFFFFF !important;
+      border-color: rgba(255, 255, 255, 0.10) !important;
+      box-shadow: none !important;
+    }
+
+    /* =============================================================
+       SETTINGS MODAL — Atmospheric Glass (đồng bộ art direction)
+       ============================================================= */
+    #settingsModal > div.pixel-modal {
+      background: rgba(9, 9, 11, 0.94) !important;
+      backdrop-filter: blur(28px) saturate(120%);
+      -webkit-backdrop-filter: blur(28px) saturate(120%);
+      max-height: calc(100vh - 32px) !important;
+    }
+    #settingsModal .flex-1.flex.flex-col { min-height: 0 !important; }
+    #settingsModal [class*="bg-[#0A0E1A]"],
+    #settingsModal [class*="bg-[#0a0c1e]"],
+    #settingsModal [class*="bg-[#0a0c20]"] {
+      background-color: transparent !important;
+    }
+    #settingsModal [class*="bg-[#0F1522]"] {
+      background-color: rgba(24, 24, 27, 0.55) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    #settingsModal [class*="border-[#00F0FF]"] { border-color: rgba(255, 255, 255, 0.08) !important; }
+    #settingsModal [class*="text-[#00F0FF]"] { color: #E4E4E7 !important; }
+    #settingsModal [class*="bg-[#00F0FF]"] { background-color: rgba(255, 255, 255, 0.06) !important; }
+    #settingsModal [class*="bg-[#0F1522]"] { background-color: rgba(255, 255, 255, 0.06) !important; }
+    #settingsModal .text-cyan-400,
+    #settingsModal .text-cyan-400,
+    #settingsModal .text-amber-400,
+    #settingsModal .text-cyan-300,
+    #settingsModal .text-[#00F0FF] { color: #A1A1AA !important; }
+    #settingsModal [class*="rounded-[6px]"] { border-radius: 16px !important; }
+    #settingsModal .font-mono { font-family: var(--font-sans) !important; }
+
+    /* =============================================================
+       DISCOVERY HUB (TAB KHÁM PHÁ) — Thẻ game 2:3, badge nguồn tải,
+       hover micro-trailer, skeleton lazy-load poster 600x900.
+       ============================================================= */
+    .discovery-card {
+      will-change: transform;
+    }
+    .discovery-card-poster {
+      background: #080a15;
+    }
+    .discovery-poster-img {
+      display: block;
+      transition: transform 0.55s ease, filter 0.3s ease;
+    }
+    .discovery-card:hover .discovery-poster-img {
+      transform: scale(1.06);
+      filter: saturate(1.12);
+    }
+    .discovery-poster-skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, #0F1522 8%, #141a33 22%, #0F1522 36%);
+      background-size: 220% 100%;
+      animation: discoveryShimmer 1.5s linear infinite;
+    }
+    @keyframes discoveryShimmer {
+      to { background-position-x: -220%; }
+    }
+    .discovery-poster-missing::after {
+      content: 'CHƯA CÓ ẢNH BÌA';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      text-align: center;
+      font-family: var(--font-pixel);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: #475569;
+      background: repeating-linear-gradient(45deg, #0F1522, #0F1522 8px, #0d1224 8px, #0d1224 16px);
+    }
+    .discovery-hover-video-el {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 5;
+      background: #000;
+      pointer-events: none;
+      animation: discoveryFadeIn 0.35s ease;
+    }
+    @keyframes discoveryFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .discovery-play-btn {
+      z-index: 6;
+    }
+
+    /* Hai nút tác vụ trên poster chỉ hiện khi rê chuột (giữ poster sạch) */
+    .discovery-card-actions {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+    .discovery-card:hover .discovery-card-actions,
+    .discovery-card:focus-within .discovery-card-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    @media (hover: none) {
+      .discovery-card-actions {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+
+    /* Thanh bộ lọc Khám Phá: luôn 1 hàng ngang, ẩn scrollbar */
+    .discovery-filter-row {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .discovery-filter-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Badge nguồn tải trong modal chọn nguồn — pill mềm, viền nhẹ */
+    .discovery-badge-cyan,
+    .discovery-badge-pink {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-family: var(--font-sans);
+      font-size: 9.5px;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0;
+      box-shadow: none;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      white-space: nowrap;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      color: #D4D4D8;
+    }
+    .discovery-badge-cyan {
+      background: rgba(255, 255, 255, 0.06);
+      color: #D4D4D8;
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+    .discovery-badge-pink {
+      background: rgba(244, 114, 182, 0.12);
+      color: #F9A8D4;
+      border-color: rgba(244, 114, 182, 0.22);
+    }
+
+    /* =============================================================
+       iOS MOTION PACK — Spring physics, tactile press, island toast
+       Chỉ animate transform/opacity để giữ 60–120 FPS trên WebView2.
+       ============================================================= */
+    :root {
+      --ios-ease: cubic-bezier(0.32, 0.72, 0, 1);
+      --ios-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ios-out: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* 1. Tactile press (iOS squish) */
+    .pixel-btn {
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease,
+                  box-shadow .18s ease, transform .22s var(--ios-ease) !important;
+    }
+    .pixel-btn:hover {
+      transform: translateY(-1px) !important;
+    }
+    .pixel-btn:active {
+      transform: scale(0.95) !important;
+      transition-duration: .09s !important;
+    }
+    .ui-icon-btn {
+      transition: background-color .18s ease, color .18s ease, transform .2s var(--ios-ease);
+    }
+    .ui-icon-btn:active { transform: scale(0.90); }
+    .ui-tab-nav {
+      transition: color .18s ease, transform .12s var(--ios-ease);
+    }
+    .ui-tab-nav:active { transform: scale(0.94); }
+    .pixel-card {
+      transition: transform .35s var(--ios-ease), box-shadow .3s ease, border-color .3s ease !important;
+    }
+    .pixel-card:active {
+      transform: translateY(-2px) scale(0.985) !important;
+      transition-duration: .12s !important;
+    }
+
+    /* 2. Sliding pill cho main nav */
+    #mainNav.ios-pill-track { position: relative; }
+    #mainNav.ios-pill-track .ui-tab-nav { position: relative; z-index: 1; }
+    #mainNav.ios-pill-track .ui-tab-nav.is-active::after { display: none; }
+    .ios-nav-pill {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      left: 0;
+      width: 0;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      transition: transform .45s var(--ios-ease), width .45s var(--ios-ease), opacity .25s ease;
+    }
+
+    /* 3. View Transition (EdgeChromium / WebView2) */
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: .34s;
+      animation-timing-function: var(--ios-ease);
+    }
+    ::view-transition-old(root) { animation-name: iosVtOut; }
+    ::view-transition-new(root) { animation-name: iosVtIn; }
+    @keyframes iosVtOut { to { opacity: 0; } }
+    @keyframes iosVtIn { from { opacity: 0; } }
+
+    /* 4. Dynamic Island toast */
+    .ios-island {
+      border-radius: 9999px !important;
+      background: rgba(11, 15, 25, 0.90) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55) !important;
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      transform-origin: top center;
+      animation: iosIslandIn .42s var(--ios-spring) both;
+    }
+    .ios-island.is-leaving {
+      animation: iosIslandOut .22s var(--ios-ease) both;
+    }
+    @keyframes iosIslandIn {
+      0% { opacity: 0; transform: translateY(-16px) scale(0.88); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes iosIslandOut {
+      to { opacity: 0; transform: translateY(-10px) scale(0.92); }
+    }
+
+    /* 5. Staggered blur-in cho lưới game */
+    @keyframes iosCardAppear {
+      0% { opacity: 0; transform: translateY(14px) scale(0.985); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .game-card-enter {
+      opacity: 1;
+      animation: iosCardAppear .5s var(--ios-out) backwards;
+    }
+
+    /* 6. Tôn trọng người dùng giảm chuyển động */
+    @media (prefers-reduced-motion: reduce) {
+      .game-card-enter,
+      .ios-island,
+      .ios-nav-pill,
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation: none !important;
+        transition: none !important;
+      }
+      .game-card-enter { opacity: 1; }
+      .pixel-btn:hover,
+      .pixel-card:hover,
+      .pixel-card:active,
+      .pixel-btn:active,
+      .ui-icon-btn:active,
+      .ui-tab-nav:active {
+        transform: none !important;
+      }
+    }
+
+    /* =============================================================
+       iOS SCROLL & MICRO-INTERACTIONS
+       ============================================================= */
+    .ios-parallax-bg {
+      transition: none !important;
+      will-change: transform;
+      transform-origin: center top;
+    }
+    #scrollProgressBar {
+      transition: transform 80ms linear;
+    }
+
+    /* Ripple khi bấm nút */
+    .ios-ripple-host {
+      position: relative;
+      overflow: hidden;
+    }
+    .ios-ripple {
+      position: absolute;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.22);
+      transform: scale(0);
+      opacity: 1;
+      animation: iosRipple .55s var(--ios-out) forwards;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes iosRipple {
+      to { transform: scale(2.8); opacity: 0; }
+    }
+
+    /* Vệt sáng lướt qua poster khi hover */
+    .pixel-card[data-game-id]::after {
+      content: "";
+      position: absolute;
+      inset: -40% -60%;
+      background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.09) 50%, transparent 62%);
+      transform: translateX(-60%) rotate(8deg);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 15;
+      transition: transform .75s var(--ios-out), opacity .3s ease;
+    }
+    .pixel-card[data-game-id]:hover::after {
+      opacity: 1;
+      transform: translateX(60%) rotate(8deg);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ios-ripple,
+      .pixel-card[data-game-id]::after {
+        display: none !important;
+      }
+      #scrollProgressBar { transition: none !important; }
+      .ios-parallax-bg { will-change: auto; }
+    }
+
+    .ios-reveal-pending { opacity: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .ios-reveal-pending { opacity: 1; }
     }

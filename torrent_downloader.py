@@ -84,6 +84,20 @@ class TorrentDownloader:
         self.task_metadata = self._load_task_metadata()
         self.lock = threading.Lock()
 
+    def _read_download_settings(self) -> tuple:
+        """Lấy giới hạn băng thông và số tác vụ tải từ user_config.json."""
+        try:
+            config_path = os.path.join(self.appdata_dir, "user_config.json")
+            with open(config_path, "r", encoding="utf-8") as handle:
+                cfg = json.load(handle)
+            settings = cfg.get("downloader", {})
+            return (
+                max(0, int(settings.get("max_download_limit_kb", 0) or 0)),
+                max(1, min(10, int(settings.get("max_concurrent_downloads", 3) or 3)))
+            )
+        except Exception:
+            return 0, 3
+
     def _find_free_port(self, default_port: int = 6800) -> int:
         for port in range(default_port, default_port + 50):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -158,6 +172,13 @@ class TorrentDownloader:
             "--check-certificate=false",
             "--quiet=true",
         ]
+
+        # Đọc cấu hình Menu Cài Đặt để áp dụng ngay khi khởi động daemon
+        limit_kb, max_concurrent = self._read_download_settings()
+        if limit_kb > 0:
+            cmd.append(f"--max-overall-download-limit={limit_kb}K")
+        if max_concurrent > 0:
+            cmd.append(f"--max-concurrent-downloads={max_concurrent}")
 
         try:
             creationflags = 0
@@ -507,6 +528,26 @@ class TorrentDownloader:
             return {"success": True, "message": "Đã mở thư mục tải về."}
         except Exception as e:
             return {"success": False, "message": f"Không thể mở thư mục: {e}"}
+
+    def set_speed_limit(self, limit_kb: int = 0) -> bool:
+        """Đặt giới hạn tốc độ tải xuống tối đa (0 = Không giới hạn, >0 = KB/s)."""
+        try:
+            val = "0" if limit_kb <= 0 else f"{limit_kb}K"
+            res = self._call_rpc("aria2.changeGlobalOption", [{"max-overall-download-limit": val}])
+            return res == "OK"
+        except Exception as e:
+            print(f"[TorrentDownloader] Lỗi đặt giới hạn tốc độ: {e}")
+            return False
+
+    def set_max_concurrent(self, max_concurrent: int = 3) -> bool:
+        """Đặt số lượng file tải đồng thời tối đa (1-10)."""
+        try:
+            val = str(max(1, min(10, max_concurrent)))
+            res = self._call_rpc("aria2.changeGlobalOption", [{"max-concurrent-downloads": val}])
+            return res == "OK"
+        except Exception as e:
+            print(f"[TorrentDownloader] Lỗi đặt số lượng tải đồng thời: {e}")
+            return False
 
 
 # Tương thích ngược với tên gọi cũ

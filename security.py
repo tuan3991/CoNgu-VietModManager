@@ -10,9 +10,20 @@ Security Hardening & Anti-Hijacking Protections:
 3. ANTI-DUMPING & TARGET VERIFICATION: Validates that destination directory is a genuine game installation
    containing legitimate game executables before performing any installation.
 4. CALLER HANDSHAKE: Ephemeral HMAC session ticket bound to the host process PID prevents external scripts
-   from hijacking the .pyd module.
-5. ZERO DISK LEAKAGE (ConguStreamReader): In-memory chunk sliding window streaming (io.RawIOBase).
+   from hijacking the .pyd module. Ticket TTL is capped at 300s (5 minutes) with 30s future-drift tolerance,
+   eliminating replay of stale/forged tickets.
+5. ZERO DISK LEAKAGE (streaming reader): In-memory chunk sliding window streaming (io.RawIOBase).
    Never uses SpooledTemporaryFile, zero disk spill-over to %TEMP%, transient buffers destroyed immediately.
+6. ANTI-EXPORT / ANTI-REFLECTION (Point #1 hardening):
+   - The decryption reader class, master key bytes, XOR mask, ticket signing secret and SteamGridDB
+     key material are NEVER declared at module level. They live only as function-local C constants
+     or inside a private closure, so they are absent from sys.modules['security'].__dict__.
+   - The reader cannot be instantiated directly: its constructor requires an internal 32-byte token
+     that only exists inside the closure; external callers always hit PermissionError/AttributeError.
+   - A module-dict purge at import time removes any residual sensitive symbol from globals and
+     from the module object, defeating dir()/vars()/getattr() extraction.
+   - Net effect: `import security; security.ConguStreamReader(...)` and `security._O_KEY_BYTES`
+     both fail; only execute_secure_install() can reach the decryption path.
 """
 
 import os
@@ -34,31 +45,125 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 
+
+# ------------------------------------------------------------------------------
+# Điểm yếu #5b: Windows Defender / antivirus quét file vừa ghi xong và giữ khóa
+# 50-150ms. os.replace()/os.rename() ngay sau đó sẽ ném PermissionError (WinError 5/32)
+# và làm hỏng cả giao dịch (rollback oan ở giây cuối). Hai helper dưới đây retry
+# ngắn trước khi bỏ cuộc.
+# ------------------------------------------------------------------------------
+def _safe_replace(src, dst, retries=5, delay=0.15):
+    """
+    os.replace(src, dst) có retry ngắn cho khóa tạm thời của antivirus/Defender.
+    - FileNotFoundError (nguồn không tồn tại) KHÔNG retry: ném ngay để lộ lỗi thật.
+    - Các OSError/PermissionError khác: thử lại tối đa `retries` lần, cách nhau `delay` giây.
+    """
+    attempts = max(1, int(retries))
+    last_err = None
+    for attempt in range(attempts):
+        try:
+            os.replace(src, dst)
+            return True
+        except FileNotFoundError:
+            raise
+        except OSError as e:
+            last_err = e
+            if not os.path.exists(src):
+                raise            # nguồn đã biến mất -> retry vô nghĩa
+            if attempt < attempts - 1:
+                time.sleep(delay)
+    if last_err is not None:
+        raise last_err
+    return False
+
+
+def _safe_rename(src, dst, retries=5, delay=0.15):
+    """
+    os.rename(src, dst) có retry ngắn cho khóa tạm thời của antivirus/Defender.
+    Dùng cho các thao tác tạm dời backup/tx_tmp/rename trong giao dịch cài đặt.
+    """
+    attempts = max(1, int(retries))
+    last_err = None
+    for attempt in range(attempts):
+        try:
+            os.rename(src, dst)
+            return True
+        except FileNotFoundError:
+            raise
+        except OSError as e:
+            last_err = e
+            if not os.path.exists(src):
+                raise
+            if attempt < attempts - 1:
+                time.sleep(delay)
+    if last_err is not None:
+        raise last_err
+    return False
+
+
 # Container Magic Headers
 CONGU_MAGIC_V1 = b"CONGU\x01"
 CONGU_MAGIC_V2 = b"CONGU\x02"
 CONGU_MAGIC = CONGU_MAGIC_V1
 ASSOC_METADATA = b"CO_NGU_SECURITY_LOCALIZATION_V1"
 
-# Master Key & Ticket secrets are strictly encapsulated within private C-callables/closures,
-# never declared as module-level constants to prevent reflection/dictionary leakage.
+# ------------------------------------------------------------------------------
+# Điểm yếu #5a: Chống Binary Planting / PATH hijacking.
+# SHA-256 của các công cụ nhị phân được phép thực thi. Tuyệt đối KHÔNG chạy
+# xdelta3.exe / hpatchz.exe / hdiffz.exe nếu mã băm không khớp whitelist này,
+# kể cả khi tìm thấy chúng trong os.getcwd() hay PATH hệ thống.
+# Cập nhật lại sau khi nâng cấp công cụ hợp lệ: python tools/gen_tool_hashes.py
+# ------------------------------------------------------------------------------
+_TOOL_SHA256 = {
+    "xdelta3.exe": frozenset({
+        "732980d52f9220dc81817ccdd0c295eadce8a0048a24c2a771a73f791ac824e9",
+    }),
+    "hpatchz.exe": frozenset({
+        "9703c694b5955c576d9f0e26e98b60941f0bbb53b382b1f1988d75d461e580cb",
+    }),
+    "hdiffz.exe": frozenset({
+        "f5ed7ac622a2daf4a31cc21ffa8ea1717f92323e79ef5ae695c5c9238a282f52",
+    }),
+}
 
-# ------------------------------------------------------------------------------
-# SteamGridDB API Key (kho poster doc 600x900 cong dong).
-# Luu duoi dang XOR-masked, KHONG bao gio de plaintext trong ma nguon.
-# Khi dong goi bang compile_security_pyd.py, hang so nay nam trong binary .pyd.
-# ------------------------------------------------------------------------------
-_SGD_KEY_MASK = 0xA7
-_SGD_KEY_BYTES = bytes([
-    147, 149, 145, 195, 145, 149, 159, 149, 198, 148, 196, 146, 196, 148, 159, 144,
-    195, 197, 194, 194, 148, 194, 147, 194, 194, 148, 198, 148, 144, 145, 149, 159
-])
+# Master Key, Ticket secret và SteamGridDB API key đều được nhúng TRỰC TIẾP trong
+# thân hàm (function-local constants), không bao giờ khai báo ở cấp module.
+# Nhờ đó Cython biên dịch chúng thành hằng số C inline, hoàn toàn vắng mặt trong
+# sys.modules['security'].__dict__ => không thể trích xuất bằng reflection/dir()/vars().
 
 
 def get_steamgriddb_key():
-    """Giai ma va tra ve SteamGridDB API key trong RAM (khong luu plaintext)."""
+    """
+    Giải mã và trả về SteamGridDB API key trong RAM (không lưu plaintext).
+
+    Chống trích xuất từ script ngoài:
+    - Masked bytes là hằng số CỤC BỘ trong thân hàm, không tồn tại trong module __dict__
+      (không thể đọc qua reflection/dir()/vars()).
+    - Chỉ phục vụ module nội bộ của VietModHub nằm trong cùng thư mục ứng dụng;
+      mọi lời gọi từ `python -c "import security; ..."` hoặc script ngoài đều nhận chuỗi rỗng.
+    """
     try:
-        raw = bytes(b ^ _SGD_KEY_MASK for b in _SGD_KEY_BYTES)
+        # Caller origin guard: chỉ module nội bộ cùng cây thư mục ứng dụng mới được lấy khóa.
+        caller_file = ""
+        try:
+            _frm = sys._getframe(1)
+            caller_file = str((_frm.f_globals or {}).get("__file__") or "")
+        except Exception:
+            caller_file = ""
+        if not caller_file:
+            return ""
+        _app_root = os.path.dirname(os.path.abspath(__file__))
+        if not os.path.normcase(os.path.abspath(caller_file)).startswith(
+            os.path.normcase(_app_root) + os.sep
+        ):
+            return ""
+
+        _sgd_mask = 0xA7
+        _sgd_masked = (
+            147, 149, 145, 195, 145, 149, 159, 149, 198, 148, 196, 146, 196, 148, 159, 144,
+            195, 197, 194, 194, 148, 194, 147, 194, 194, 148, 198, 148, 144, 145, 149, 159
+        )
+        raw = bytes(b ^ _sgd_mask for b in _sgd_masked)
         key = raw.decode("ascii")
         del raw
         return key
@@ -264,6 +369,27 @@ def compute_file_sha256(file_path):
         return None
 
 
+def _write_stream_with_sha256(src_stream, dst_path, chunk_size=1048576):
+    """
+    Ghi luồng dữ liệu (đã giải mã từ zip) xuống đĩa VÀ tính SHA-256 trong CÙNG một lượt đọc.
+
+    Tối ưu I/O (Điểm yếu #2): thay vì shutil.copyfileobj() rồi cuối hàm lại
+    compute_file_sha256() đọc lại toàn bộ file từ ổ cứng (gấp đôi I/O với file 4 GB),
+    ta băm ngay trên các chunk đang nằm trong RAM. Số lượt đọc đĩa: 1 thay vì 2.
+
+    Trả về hex digest (lowercase) của nội dung đã ghi.
+    """
+    h = hashlib.sha256()
+    with open(dst_path, "wb") as dst_stream:
+        while True:
+            chunk = src_stream.read(chunk_size)
+            if not chunk:
+                break
+            dst_stream.write(chunk)
+            h.update(chunk)
+    return h.hexdigest().lower()
+
+
 def pure_python_bspatch(src_bytes, patch_bytes):
     """
     Pure Python Colin Percival BSDIFF40 patch implementation.
@@ -327,42 +453,86 @@ def pure_python_bspatch(src_bytes, patch_bytes):
     return bytes(new_buf)
 
 
+def _verify_tool_hash(path, exe_name):
+    """
+    Kiểm tra mã băm SHA-256 của công cụ nhị phân với whitelist _TOOL_SHA256.
+    Trả về (ok: bool, actual_sha256: str | None).
+
+    Điểm yếu #5a: mọi file .exe không khớp hash đều bị từ chối, kể cả khi nằm
+    trong os.getcwd() hoặc PATH — vô hiệu hóa Binary Planting / PATH hijacking.
+    """
+    allowed = _TOOL_SHA256.get(str(exe_name).lower())
+    if not allowed:
+        return False, None
+    actual = compute_file_sha256(path)
+    if not actual:
+        return False, None
+    return actual.lower() in allowed, actual
+
+
 def find_tool_exe(tool_name: str):
     """
     Tìm đường dẫn tệp thực thi của công cụ nhị phân (ví dụ: xdelta3.exe, hpatchz.exe, hdiffz.exe)
     trong nhiều môi trường: IDE dev, PyInstaller _MEIPASS, Portable tools, và PATH hệ thống.
+
+    AN TOÀN: chỉ trả về đường dẫn khi mã băm SHA-256 khớp whitelist _TOOL_SHA256.
+    Nếu tìm thấy file nhưng hash sai (bị thay thế/planted), file đó bị bỏ qua và
+    hàm trả về None để caller từ chối chạy thay vì thực thi mã lạ.
     """
     exe_name = tool_name if tool_name.lower().endswith(".exe") else f"{tool_name}.exe"
-    
+
     candidates = []
     # 1. PyInstaller frozen app (_MEIPASS)
     if hasattr(sys, "_MEIPASS"):
         candidates.append(os.path.join(sys._MEIPASS, "tools", exe_name))
         candidates.append(os.path.join(sys._MEIPASS, exe_name))
-        
+
     # 2. Thư mục file security.py hiện tại
     current_dir = os.path.dirname(os.path.abspath(__file__))
     candidates.append(os.path.join(current_dir, "tools", exe_name))
     candidates.append(os.path.join(current_dir, exe_name))
-    
+
     # 3. Thư mục sys.executable (ví dụ python.exe hoặc VietModHub.exe)
     exe_dir = os.path.dirname(os.path.abspath(sys.executable))
     candidates.append(os.path.join(exe_dir, "tools", exe_name))
     candidates.append(os.path.join(exe_dir, exe_name))
-    
-    # 4. Thư mục làm việc hiện tại os.getcwd()
+
+    # 4. Thư mục làm việc hiện tại os.getcwd()  (nguồn rủi ro Binary Planting -> phải verify hash)
     candidates.append(os.path.join(os.getcwd(), "tools", exe_name))
     candidates.append(os.path.join(os.getcwd(), exe_name))
-    
+
+    rejected = []
+    seen = set()
     for path in candidates:
-        if os.path.isfile(path):
-            return os.path.abspath(path)
-            
-    # 5. Hệ thống PATH
+        try:
+            if not os.path.isfile(path):
+                continue
+            real = os.path.abspath(path)
+            if real.lower() in seen:
+                continue
+            seen.add(real.lower())
+        except Exception:
+            continue
+        ok, actual = _verify_tool_hash(real, exe_name)
+        if ok:
+            return real
+        rejected.append((real, actual))
+
+    # 5. Hệ thống PATH (cũng phải verify hash)
     found = shutil.which(exe_name) or shutil.which(tool_name)
     if found:
-        return os.path.abspath(found)
-        
+        real = os.path.abspath(found)
+        ok, actual = _verify_tool_hash(real, exe_name)
+        if ok:
+            return real
+        rejected.append((real, actual))
+
+    if rejected:
+        print(f"[Security Tool Integrity] TỪ CHỐI '{exe_name}': không có bản nào khớp SHA-256 whitelist.")
+        for path, actual in rejected[:5]:
+            print(f"    - {path} | sha256={actual or 'unreadable'}")
+        print("    Nếu đây là bản nâng cấp hợp lệ, cập nhật _TOOL_SHA256 (tools/gen_tool_hashes.py).")
+
     return None
 
 
@@ -420,13 +590,13 @@ def apply_binary_patch(src_file, dst_file, patch_data_or_file):
                     raise RuntimeError(f"Lỗi hpatchz vá tệp VCDIFF thất bại (code {res.returncode}): {res.stderr.strip()}")
                 return os.path.getsize(dst_file)
 
-            raise RuntimeError("Tệp vá nhị phân định dạng VCDIFF (xdelta3) yêu cầu công cụ 'xdelta3.exe' hoặc 'hpatchz.exe' trong thư mục tools/.")
+            raise RuntimeError("Tệp vá nhị phân định dạng VCDIFF (xdelta3) yêu cầu công cụ 'xdelta3.exe' hoặc 'hpatchz.exe' hợp lệ (khớp SHA-256 whitelist) trong thư mục tools/.")
 
         # Case 2: Định dạng HDiffPatch (HDIFF13, HDIFF20, HDIFFW...)
         elif magic.startswith(b"HDIFF"):
             hpatchz_exe = find_tool_exe("hpatchz")
             if not hpatchz_exe:
-                raise RuntimeError("Tệp vá định dạng HDiffPatch yêu cầu công cụ 'hpatchz.exe' trong thư mục tools/.")
+                raise RuntimeError("Tệp vá định dạng HDiffPatch yêu cầu công cụ 'hpatchz.exe' hợp lệ (khớp SHA-256 whitelist) trong thư mục tools/.")
             cmd = [hpatchz_exe, "-f", "-s-64m", src_file, patch_path, dst_file]
             res = subprocess.run(cmd, capture_output=True, text=True, creationflags=no_window)
             if res.returncode != 0:
@@ -541,7 +711,7 @@ def create_binary_patch(src_file, modded_file, patch_file, algorithm="auto"):
 
     if chosen_alg == "xdelta":
         if not xdelta_exe:
-            raise RuntimeError("Không tìm thấy 'xdelta3.exe' trong thư mục tools/ hoặc PATH hệ thống.")
+            raise RuntimeError("Không tìm thấy 'xdelta3.exe' hợp lệ (khớp SHA-256 whitelist) trong thư mục tools/ hoặc PATH hệ thống.")
         cmd = [xdelta_exe, "-e", "-f", "-B", "67108864", "-s", src_file, modded_file, patch_file]
         res = subprocess.run(cmd, capture_output=True, text=True, creationflags=no_window)
         if res.returncode != 0:
@@ -550,7 +720,7 @@ def create_binary_patch(src_file, modded_file, patch_file, algorithm="auto"):
 
     elif chosen_alg == "hdiff":
         if not hdiff_exe:
-            raise RuntimeError("Không tìm thấy 'hdiffz.exe' trong thư mục tools/ hoặc PATH hệ thống.")
+            raise RuntimeError("Không tìm thấy 'hdiffz.exe' hợp lệ (khớp SHA-256 whitelist) trong thư mục tools/ hoặc PATH hệ thống.")
         cmd = [hdiff_exe, "-f", "-s-64k", src_file, modded_file, patch_file]
         res = subprocess.run(cmd, capture_output=True, text=True, creationflags=no_window)
         if res.returncode != 0:
@@ -640,6 +810,11 @@ def _find_zip_member(zf, relative_path):
     Finds a member inside the zip archive matching relative_path.
     Supports exact match, slash normalization, Mod_Files subfolder, and basename fallback.
     Prevents path traversal by rejecting '..' elements.
+
+    Điểm yếu #4a: fallback theo basename CHỈ được phép khi trong toàn bộ gói ZIP
+    có DUY NHẤT một tệp mang tên đó. Nếu có nhiều tệp trùng tên ở các thư mục khác
+    (Data/level0 vs DLC/level0, hai config.ini...), trả về None để caller báo lỗi
+    thay vì bốc nhầm tệp của thư mục khác đè vào game.
     """
     clean_target = relative_path.replace("\\", "/").lstrip("/")
     if ".." in clean_target.split("/"):
@@ -655,18 +830,55 @@ def _find_zip_member(zf, relative_path):
         if name.lower() == target_lower:
             return name
 
+    # Khớp theo hậu tố đường dẫn.
+    # - Có ngữ cảnh thư mục (vd "data/config.ini"): nếu nhiều member cùng khớp, chọn tệp
+    #   "nông" nhất (ít thành phần đường dẫn nhất) để kết quả tất định, không phụ thuộc thứ tự ZIP.
+    # - Tên trần (vd "level0"): hậu tố chính là basename nên phải DUY NHẤT; nếu mơ hồ thì
+    #   rơi xuống nhánh dưới và trả None (tránh bốc nhầm Data/level0 vs DLC/level0).
+    suffix_matches = []
     for name in namelist:
         norm = name.replace("\\", "/").lstrip("/")
         if norm.endswith("/" + clean_target):
-            return name
+            suffix_matches.append(name)
+    if suffix_matches:
+        if len(suffix_matches) == 1:
+            return suffix_matches[0]
+        if "/" in clean_target:
+            return min(suffix_matches, key=lambda n: (n.count("/"), len(n)))
 
     base = os.path.basename(clean_target).lower()
-    for name in namelist:
-        if not name.endswith("/"):
-            if os.path.basename(name).lower() == base:
-                return name
 
+    def _base_of(name):
+        return name.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
+
+    base_matches = [name for name in namelist if not name.endswith("/") and _base_of(name) == base]
+    if len(base_matches) == 1:
+        return base_matches[0]
+    if len(base_matches) > 1:
+        print(f"[Security Zip Ambiguity] Có {len(base_matches)} tệp cùng tên '{base}' trong gói; "
+              f"từ chối fallback mơ hồ: {base_matches[:5]}")
     return None
+
+
+def _zip_member_candidates(zf, relative_path):
+    """
+    Trả về danh sách các member có cùng basename với relative_path.
+    Dùng để phân biệt lỗi 'không tìm thấy' và 'mơ hồ do trùng tên ở nhiều thư mục'
+    (Điểm yếu #4a) khi báo lỗi cho người đóng gói mod.
+    """
+    try:
+        base = os.path.basename(str(relative_path).replace("\\", "/")).lower()
+        if not base:
+            return []
+        out = []
+        for name in zf.namelist():
+            if name.endswith("/"):
+                continue
+            if name.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower() == base:
+                out.append(name)
+        return out
+    except Exception:
+        return []
 
 
 def _find_zip_folder_members(zf, folder_path):
@@ -674,11 +886,16 @@ def _find_zip_folder_members(zf, folder_path):
     Finds all file members in zip that belong to folder_path.
     Returns list of tuples: (member_info, relative_path_inside_folder)
     Includes Anti-Zip-Slip sanitation to guarantee sub_rel does not traverse backwards.
+
+    Điểm yếu #4b: chỉ so khớp tên thư mục trong các THÀNH PHẦN THƯ MỤC CHA
+    (norm_parts[:-1]), không bao giờ so với tên tệp. Trước đây nếu trong ZIP có
+    một TỆP tên là 'config/data' và folder_path='data' thì sub_rel rỗng và
+    validate_safe_path() sẽ cố ghi đè lên chính thư mục đích -> crash.
     """
     clean_folder = folder_path.replace("\\", "/").strip("/")
     results = []
     folder_lower = clean_folder.lower()
-    folder_base = os.path.basename(clean_folder).lower()
+    folder_parts = [p for p in folder_lower.split("/") if p]
 
     for member in zf.infolist():
         if member.is_dir() or member.filename.endswith("/"):
@@ -692,13 +909,28 @@ def _find_zip_folder_members(zf, folder_path):
 
         if norm.lower().startswith(folder_lower + "/"):
             sub_rel = norm[len(folder_lower) + 1:]
-            if ".." not in sub_rel.split("/"):
+            if sub_rel and ".." not in sub_rel.split("/"):
                 results.append((member, sub_rel))
-        elif folder_base in [p.lower() for p in norm_parts]:
-            idx = [p.lower() for p in norm_parts].index(folder_base)
-            sub_rel = "/".join(norm_parts[idx + 1:])
-            if ".." not in sub_rel.split("/"):
-                results.append((member, sub_rel))
+            continue
+
+        # Khớp dãy thư mục cha đầy đủ (vd: 'BepInEx/plugins'), bỏ phần tử cuối là tên tệp
+        if not folder_parts:
+            continue
+        dir_parts = [p.lower() for p in norm_parts[:-1]]
+        n = len(folder_parts)
+        match_idx = None
+        for i in range(len(dir_parts) - n + 1):
+            if dir_parts[i:i + n] == folder_parts:
+                match_idx = i   # lấy lần khớp CUỐI (gần tệp nhất)
+
+        if match_idx is None:
+            continue
+
+        sub_rel = "/".join(norm_parts[match_idx + n:])
+        # sub_rel bắt buộc phải là đường dẫn TỆP thật, không được rỗng
+        if not sub_rel or ".." in sub_rel.split("/"):
+            continue
+        results.append((member, sub_rel))
 
     return results
 
@@ -1067,6 +1299,65 @@ def record_preexisting_environment(game_id, game_path):
     return winhttp_pre, bepinex_pre
 
 
+def _persist_backup_manifest(game_id, backed_up_files):
+    """
+    Điểm yếu #5c: ghi thẳng danh sách backed_up_files vào
+    %APPDATA%/VietModHub/backups/<game_id>/backup_manifest.json ngay khi cài xong,
+    thay vì chỉ return về cho caller (nếu app crash trước khi caller kịp ghi thì
+    manifest mất trạng thái -> mất khả năng Smart Update Detection & gỡ mod chuẩn).
+
+    - Merge theo 'relative_in_game' (idempotent, không tạo bản ghi trùng).
+    - Giữ nguyên các khóa khác của manifest (winhttp_preexisting, bepinex_preexisting...).
+    - Ghi atomic: file .tmp + _safe_replace, tránh JSON hỏng nếu bị kill giữa chừng.
+    - Best-effort: mọi lỗi chỉ cảnh báo, KHÔNG làm hỏng giao dịch cài đặt.
+    """
+    if not game_id or not backed_up_files:
+        return False
+    appdata_base = os.environ.get("APPDATA", "")
+    if not appdata_base:
+        return False
+    try:
+        manifest_dir = os.path.join(appdata_base, "VietModHub", "backups", str(game_id))
+        os.makedirs(manifest_dir, exist_ok=True)
+        manifest_path = os.path.join(manifest_dir, "backup_manifest.json")
+
+        manifest = {"game_id": game_id, "backup_type": "inplace", "files": []}
+        if os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    manifest = loaded
+            except Exception:
+                pass
+
+        existing = manifest.get("files")
+        if not isinstance(existing, list):
+            existing = []
+            manifest["files"] = existing
+
+        for item in backed_up_files:
+            rel = _norm_rel(item.get("relative_in_game"))
+            idx = -1
+            for i, f in enumerate(existing):
+                if _norm_rel(f.get("relative_in_game")) == rel:
+                    idx = i
+                    break
+            if idx >= 0:
+                existing[idx].update(item)
+            else:
+                existing.append(dict(item))
+
+        tmp_manifest = f"{manifest_path}.{os.getpid()}.tmp"
+        with open(tmp_manifest, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False, indent=2)
+        _safe_replace(tmp_manifest, manifest_path)
+        return True
+    except Exception as e:
+        print(f"[Security Manifest Warning] Không ghi được backup_manifest.json: {e}")
+        return False
+
+
 def _rollback_transaction(game_path, executed_journal, game_def=None):
     """
     Transaction Rollback Engine (Tri-Tier Hardened Architecture):
@@ -1104,7 +1395,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                     except Exception:
                         pass
                 try:
-                    os.replace(tx_tmp_abs, target_abs)
+                    _safe_replace(tx_tmp_abs, target_abs)
                     print(f"[Rollback Smart Reversal] Đã hoàn nguyên '{target_rel}' về phiên bản mod v1.0 từ .congu_tx_tmp.")
                     continue
                 except Exception as e_tx:
@@ -1123,7 +1414,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             pass
                     if created_new_bak:
                         try:
-                            os.replace(bak_abs, target_abs)
+                            _safe_replace(bak_abs, target_abs)
                         except Exception:
                             try:
                                 if os.path.isdir(bak_abs):
@@ -1168,7 +1459,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                         except Exception:
                             pass
                     try:
-                        os.replace(bak_abs, target_abs)
+                        _safe_replace(bak_abs, target_abs)
                     except Exception:
                         shutil.copy2(bak_abs, target_abs)
                         try:
@@ -1207,7 +1498,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             pass
                     try:
                         if created_new_bak:
-                            os.replace(bak_abs, target_abs)
+                            _safe_replace(bak_abs, target_abs)
                         else:
                             shutil.copy2(bak_abs, target_abs)
                     except Exception as e:
@@ -1238,7 +1529,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             except Exception:
                                 pass
                         try:
-                            os.replace(f_tx, f_abs)
+                            _safe_replace(f_tx, f_abs)
                             continue
                         except Exception:
                             pass
@@ -1250,7 +1541,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             except Exception:
                                 pass
                         try:
-                            os.replace(b_abs, f_abs)
+                            _safe_replace(b_abs, f_abs)
                         except Exception:
                             shutil.copy2(b_abs, f_abs)
                             try:
@@ -1290,7 +1581,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             except Exception:
                                 pass
                         try:
-                            os.replace(f_tx, f_abs)
+                            _safe_replace(f_tx, f_abs)
                             continue
                         except Exception:
                             pass
@@ -1302,7 +1593,7 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                             except Exception:
                                 pass
                         try:
-                            os.replace(b_abs, f_abs)
+                            _safe_replace(b_abs, f_abs)
                         except Exception:
                             shutil.copy2(b_abs, f_abs)
                             try:
@@ -1319,12 +1610,42 @@ def _rollback_transaction(game_path, executed_journal, game_def=None):
                                 pass
 
             elif action == "rename":
+                # Điểm yếu #3: hoàn nguyên ĐẦY ĐỦ hai chiều.
+                # 1) Dời tệp đã đổi tên (dst) trở về tên gốc (src).
+                # 2) Phục hồi tệp đích nguyên bản đã bị ghi đè (nếu trước đó dst_abs đã tồn tại).
+                dst_tx = entry.get("dst_tx_tmp")
+                dst_existed = entry.get("dst_existed", False)
                 src_orig = entry.get("source_orig")
-                if src_orig and os.path.exists(target_abs):
+                if "src_moved" in entry:
+                    src_moved = entry.get("src_moved", False)
+                else:
+                    # Journal cũ (chưa có cờ): suy luận theo sự tồn tại của tệp
+                    src_moved = bool(src_orig and os.path.exists(target_abs))
+
+                if src_moved and src_orig and os.path.exists(target_abs):
                     try:
-                        os.replace(target_abs, os.path.join(game_path, src_orig))
-                    except Exception:
-                        pass
+                        src_rb = validate_safe_path(game_path, src_orig, allow_base_itself=False)
+                        os.makedirs(os.path.dirname(src_rb), exist_ok=True)
+                        _safe_replace(target_abs, src_rb)
+                    except Exception as e:
+                        print(f"[Rollback] Lỗi hoàn nguyên đổi tên {src_orig}: {e}")
+                        journal_errors.append((entry, str(e)))
+
+                if dst_existed and dst_tx and os.path.exists(dst_tx):
+                    if os.path.exists(target_abs):
+                        try:
+                            if os.path.isdir(target_abs):
+                                shutil.rmtree(target_abs, ignore_errors=True)
+                            else:
+                                os.remove(target_abs)
+                        except Exception:
+                            pass
+                    try:
+                        _safe_replace(dst_tx, target_abs)
+                        print(f"[Rollback] Đã phục hồi tệp đích nguyên bản '{target_rel}' bị bước rename ghi đè.")
+                    except Exception as e:
+                        print(f"[Rollback] Lỗi phục hồi tệp đích {target_rel}: {e}")
+                        journal_errors.append((entry, str(e)))
         except Exception as rb_e:
             print(f"[Rollback Exception] {action} {target_rel}: {rb_e}")
             journal_errors.append((entry, str(rb_e)))
@@ -1647,7 +1968,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                     created_new_bak = True
                                 else:
                                     try:
-                                        os.rename(target_abs, bak_abs)
+                                        _safe_rename(target_abs, bak_abs)
                                         created_new_bak = True
                                     except Exception:
                                         try:
@@ -1713,6 +2034,13 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         if not member_name:
                             if step.get("optional", False):
                                 continue
+                            _cands = _zip_member_candidates(zf, src_rel)
+                            if len(_cands) > 1:
+                                raise SecurityError(
+                                    f"Tên tệp '{src_rel}' MƠ HỒ: gói chứa {len(_cands)} tệp cùng tên ở các thư mục "
+                                    f"khác nhau {_cands[:5]}. Vui lòng khai báo 'source' bằng đường dẫn đầy đủ "
+                                    f"để tránh ghi nhầm tệp của thư mục khác."
+                                )
                             raise FileNotFoundError(f"Không tìm thấy tệp '{src_rel}' trong gói bảo mật Cổ Ngữ!")
 
                         existed_before = os.path.exists(dst_abs)
@@ -1722,11 +2050,12 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         tx_tmp_abs = f"{dst_abs}.congu_tx_tmp"
 
                         # Auto-Backup ngầm: Cứ hễ đích đến đã tồn tại file trước khi chép đè, tự động tạo .congu_bak nếu chưa có
+                        dst_backup_entry = None
                         if existed_before and os.path.isfile(dst_abs):
                             if not os.path.exists(bak_abs):
                                 try:
                                     os.makedirs(os.path.dirname(bak_abs), exist_ok=True)
-                                    os.rename(dst_abs, bak_abs)
+                                    _safe_rename(dst_abs, bak_abs)
                                     created_new_bak = True
                                     orig_hash = compute_file_sha256(bak_abs)
                                     backed_up_files.append({
@@ -1738,6 +2067,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                         "original_size": os.path.getsize(bak_abs),
                                         "original_mtime": os.path.getmtime(bak_abs)
                                     })
+                                    dst_backup_entry = backed_up_files[-1]
                                 except Exception as e:
                                     print(f"[Security Auto-Backup Warning] copy_file {dst_abs}: {e}")
                             else:
@@ -1748,10 +2078,22 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                     tx_temp_files.append(tx_tmp_abs)
                                 except Exception as e:
                                     print(f"[Security Tx-Tmp Warning] copy_file {dst_abs}: {e}")
+                                for _b in backed_up_files:
+                                    if _b.get("target_file") == dst_abs:
+                                        dst_backup_entry = _b
+                                        break
 
+                        # Điểm yếu #2: ghi + băm trong CÙNG một lượt -> không đọc lại file ở cuối hàm
                         os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-                        with zf.open(member_name, "r") as src_stream, open(dst_abs, "wb") as dst_stream:
-                            shutil.copyfileobj(src_stream, dst_stream, length=65536)
+                        with zf.open(member_name, "r") as src_stream:
+                            dst_sha = _write_stream_with_sha256(src_stream, dst_abs)
+                        if dst_backup_entry is not None:
+                            dst_backup_entry["modded_sha256"] = dst_sha
+                            try:
+                                dst_backup_entry["modded_size"] = os.path.getsize(dst_abs)
+                                dst_backup_entry["modded_mtime"] = os.path.getmtime(dst_abs)
+                            except Exception:
+                                pass
                         installed_files_count += 1
                         executed_journal.append({
                             "action": "copy_file",
@@ -1777,6 +2119,13 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
 
                         member_name = _find_zip_member(zf, patch_rel)
                         if not member_name:
+                            _cands = _zip_member_candidates(zf, patch_rel)
+                            if len(_cands) > 1:
+                                raise SecurityError(
+                                    f"Tên tệp patch '{patch_rel}' MƠ HỒ: gói chứa {len(_cands)} tệp cùng tên "
+                                    f"ở các thư mục khác nhau {_cands[:5]}. Vui lòng khai báo 'patch' bằng "
+                                    f"đường dẫn đầy đủ."
+                                )
                             raise FileNotFoundError(f"Không tìm thấy tệp patch '{patch_rel}' trong gói bảo mật Cổ Ngữ!")
 
                         # 1. Xác định tệp nguồn để vá (Hỗ trợ cài đè/cập nhật bản dịch nếu target đã bị mod)
@@ -1790,13 +2139,17 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         if not target_exists and not bak_exists:
                             raise FileNotFoundError(f"Không tìm thấy tệp gốc của game để vá: '{target_rel}'")
 
+                        # Điểm yếu #2: băm tệp đích ĐÚNG MỘT LẦN duy nhất rồi tái sử dụng cho
+                        # cả kiểm tra phiên bản lẫn original_sha256 của manifest (trước đây đọc 2 lần).
+                        target_sha = None
+                        if target_exists and expected_orig_sha:
+                            target_sha = compute_file_sha256(target_abs)
+
                         if expected_orig_sha:
                             norm_expected = expected_orig_sha.lower().strip()
                             # A. Kiểm tra nếu tệp đích hiện tại khớp mã băm gốc
-                            if target_exists:
-                                actual_target_sha = compute_file_sha256(target_abs)
-                                if actual_target_sha and actual_target_sha.lower() == norm_expected:
-                                    source_file_for_patch = target_abs
+                            if target_exists and target_sha and target_sha.lower() == norm_expected:
+                                source_file_for_patch = target_abs
 
                             # B. Nếu tệp đích không khớp (đã cài mod trước đó), kiểm tra tệp sao lưu .congu_bak
                             if not source_file_for_patch and bak_exists:
@@ -1806,7 +2159,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
 
                             # C. Nếu cả hai đều không khớp, báo lỗi lệch phiên bản game
                             if not source_file_for_patch:
-                                t_sha = compute_file_sha256(target_abs) if target_exists else "Missing"
+                                t_sha = target_sha if target_sha else ("Missing" if not target_exists else "N/A")
                                 b_sha = compute_file_sha256(bak_abs) if bak_exists else "Missing"
                                 raise SecurityError(
                                     f"Lỗi toàn vẹn tệp gốc '{target_rel}': Mã băm không khớp! "
@@ -1821,30 +2174,57 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             else:
                                 raise FileNotFoundError(f"Không tìm thấy tệp gốc của game để vá: '{target_rel}'")
 
-                        # 2. Auto-backup tệp gốc trước khi vá nếu chưa có sao lưu
+                        # 2. Auto-backup tệp gốc trước khi vá nếu chưa có sao lưu.
+                        # Điểm yếu #2: dùng os.rename (O(1), 0 byte chép) thay cho shutil.copy2 hàng GB,
+                        # và tái dùng hash đã tính thay vì băm lại tệp backup vừa tạo.
                         has_tx_tmp = False
                         tx_tmp_abs = f"{target_abs}.congu_tx_tmp"
-                        if not os.path.exists(bak_abs) and os.path.exists(target_abs):
+                        backup_entry = None
+                        if not bak_exists and target_exists:
                             try:
                                 os.makedirs(os.path.dirname(bak_abs), exist_ok=True)
-                                shutil.copy2(target_abs, bak_abs)
+                                renamed_to_bak = False
+                                try:
+                                    _safe_rename(target_abs, bak_abs)  # O(1): không sao chép dữ liệu
+                                    renamed_to_bak = True
+                                except Exception:
+                                    # Fallback: khác phân vùng hoặc tệp bị khóa -> copy như cũ
+                                    shutil.copy2(target_abs, bak_abs)
                                 created_new_bak = True
-                                orig_hash = compute_file_sha256(bak_abs)
+                                # Nội dung bak_abs trùng khít tệp đích ban đầu -> tái dùng target_sha
+                                orig_hash = target_sha if target_sha else compute_file_sha256(bak_abs)
+                                orig_size = os.path.getsize(bak_abs)
+                                orig_mtime = os.path.getmtime(bak_abs)
                                 backed_up_files.append({
                                     "relative_in_game": target_rel,
                                     "target_file": target_abs,
                                     "backup_file": bak_abs,
-                                    "size_bytes": os.path.getsize(bak_abs),
+                                    "size_bytes": orig_size,
                                     "original_sha256": orig_hash,
-                                    "original_size": os.path.getsize(bak_abs),
-                                    "original_mtime": os.path.getmtime(bak_abs)
+                                    "original_size": orig_size,
+                                    "original_mtime": orig_mtime
                                 })
+                                backup_entry = backed_up_files[-1]
+                                if renamed_to_bak:
+                                    # target_abs vừa bị dời sang .congu_bak: nguồn vá bắt buộc là bak_abs
+                                    if source_file_for_patch in (None, target_abs):
+                                        source_file_for_patch = bak_abs
                             except Exception as e:
                                 print(f"[Security Auto-Backup Warning] patch_binary {target_abs}: {e}")
                         elif os.path.exists(bak_abs) and os.path.exists(target_abs):
-                            # bak_abs đã có, target_abs hiện tại là bản mod trước đó. Lưu tx_tmp để rollback nếu v1.1 lỗi!
+                            # bak_abs đã có, target_abs hiện tại là bản mod trước đó (v1.0).
+                            # Lưu tx_tmp để rollback nếu v1.1 lỗi.
+                            # Điểm yếu #2: dùng os.rename (O(1)) thay vì copy2 hàng GB; nội dung
+                            # tx_tmp == nội dung target cũ nên có thể dùng luôn làm nguồn vá.
                             try:
-                                shutil.copy2(target_abs, tx_tmp_abs)
+                                os.makedirs(os.path.dirname(tx_tmp_abs), exist_ok=True)
+                                try:
+                                    _safe_rename(target_abs, tx_tmp_abs)
+                                except Exception:
+                                    shutil.copy2(target_abs, tx_tmp_abs)  # fallback khác volume/bị khóa
+                                else:
+                                    if source_file_for_patch in (None, target_abs):
+                                        source_file_for_patch = tx_tmp_abs
                                 has_tx_tmp = True
                                 tx_temp_files.append(tx_tmp_abs)
                             except Exception as e:
@@ -1853,6 +2233,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         # 3. Trích xuất luồng patch trực tiếp ra tệp tạm bằng streaming chunk 64KB (không nạp toàn bộ vào RAM)
                         tmp_patch_file = f"{target_abs}.congu_patch_stream_{os.getpid()}_{int(time.time() * 1000)}.tmp"
                         tmp_patched_file = f"{target_abs}.congu_patching_{os.getpid()}.tmp"
+                        actual_patched_sha = None
                         try:
                             with zf.open(member_name, "r") as p_stream, open(tmp_patch_file, "wb") as tmp_pf:
                                 shutil.copyfileobj(p_stream, tmp_pf, length=65536)
@@ -1860,10 +2241,11 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             # 4. Áp dụng bản vá từ source_file_for_patch ra file tạm thời an toàn
                             apply_binary_patch(source_file_for_patch, tmp_patched_file, tmp_patch_file)
 
-                            # 5. Kiểm tra patched_sha256 nếu có khai báo
+                            # 5. Băm kết quả sau vá ĐÚNG MỘT LẦN: dùng cho cả kiểm tra toàn vẹn
+                            # lẫn modded_sha256 của manifest (trước đây băm 2 lần: ở đây và ở cuối hàm).
+                            actual_patched_sha = compute_file_sha256(tmp_patched_file)
                             expected_patched_sha = step.get("patched_sha256")
                             if expected_patched_sha:
-                                actual_patched_sha = compute_file_sha256(tmp_patched_file)
                                 if actual_patched_sha and actual_patched_sha.lower() != expected_patched_sha.lower().strip():
                                     raise SecurityError(
                                         f"Lỗi kiểm tra sau vá tệp '{target_rel}': Mã băm không khớp! "
@@ -1871,7 +2253,17 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                     )
 
                             # 6. Thay thế nguyên tử ghi đè lên target_abs
-                            os.replace(tmp_patched_file, target_abs)
+                            _safe_replace(tmp_patched_file, target_abs)
+
+                            # 7. Ghi nhận trạng thái sau mod NGAY TẠI ĐÂY để vòng lặp cuối hàm
+                            # không phải đọc lại toàn bộ tệp hàng GB thêm một lần nữa.
+                            if backup_entry is not None and actual_patched_sha:
+                                backup_entry["modded_sha256"] = actual_patched_sha
+                                try:
+                                    backup_entry["modded_size"] = os.path.getsize(target_abs)
+                                    backup_entry["modded_mtime"] = os.path.getmtime(target_abs)
+                                except Exception:
+                                    pass
                         finally:
                             if os.path.exists(tmp_patch_file):
                                 try:
@@ -1918,11 +2310,12 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             tx_file = f"{dst_file}.congu_tx_tmp"
 
                             # Auto-Backup ngầm trước khi ghi đè
+                            f_backup_entry = None
                             if existed_before and os.path.isfile(dst_file):
                                 if not os.path.exists(b_file):
                                     try:
                                         os.makedirs(os.path.dirname(b_file), exist_ok=True)
-                                        os.rename(dst_file, b_file)
+                                        _safe_rename(dst_file, b_file)
                                         created_new_bak = True
                                         orig_hash = compute_file_sha256(b_file)
                                         backed_up_files.append({
@@ -1934,6 +2327,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                             "original_size": os.path.getsize(b_file),
                                             "original_mtime": os.path.getmtime(b_file)
                                         })
+                                        f_backup_entry = backed_up_files[-1]
                                     except Exception as e:
                                         print(f"[Security Auto-Backup Folder Warning] {dst_file}: {e}")
                                 else:
@@ -1943,10 +2337,22 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                         tx_temp_files.append(tx_file)
                                     except Exception as e:
                                         print(f"[Security Tx-Tmp Folder Warning] {dst_file}: {e}")
+                                    for _b in backed_up_files:
+                                        if _b.get("target_file") == dst_file:
+                                            f_backup_entry = _b
+                                            break
 
+                            # Điểm yếu #2: ghi + băm trong CÙNG một lượt -> không đọc lại file ở cuối hàm
                             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
-                            with zf.open(member, "r") as src_stream, open(dst_file, "wb") as dst_stream:
-                                shutil.copyfileobj(src_stream, dst_stream, length=65536)
+                            with zf.open(member, "r") as src_stream:
+                                f_sha = _write_stream_with_sha256(src_stream, dst_file)
+                            if f_backup_entry is not None:
+                                f_backup_entry["modded_sha256"] = f_sha
+                                try:
+                                    f_backup_entry["modded_size"] = os.path.getsize(dst_file)
+                                    f_backup_entry["modded_mtime"] = os.path.getmtime(dst_file)
+                                except Exception:
+                                    pass
                             installed_files_count += 1
                             copied_files.append((d_rel, existed_before, created_new_bak, has_tx_tmp))
                         executed_journal.append({
@@ -1976,11 +2382,12 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             tx_file = f"{dst_file}.congu_tx_tmp"
 
                             # Auto-Backup ngầm trước khi trích xuất đè
+                            e_backup_entry = None
                             if existed_before and os.path.isfile(dst_file):
                                 if not os.path.exists(b_file):
                                     try:
                                         os.makedirs(os.path.dirname(b_file), exist_ok=True)
-                                        os.rename(dst_file, b_file)
+                                        _safe_rename(dst_file, b_file)
                                         created_new_bak = True
                                         orig_hash = compute_file_sha256(b_file)
                                         backed_up_files.append({
@@ -1992,6 +2399,7 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                             "original_size": os.path.getsize(b_file),
                                             "original_mtime": os.path.getmtime(b_file)
                                         })
+                                        e_backup_entry = backed_up_files[-1]
                                     except Exception as e:
                                         print(f"[Security Auto-Backup Extract Warning] {dst_file}: {e}")
                                 else:
@@ -2001,10 +2409,22 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                                         tx_temp_files.append(tx_file)
                                     except Exception as e:
                                         print(f"[Security Tx-Tmp Extract Warning] {dst_file}: {e}")
+                                    for _b in backed_up_files:
+                                        if _b.get("target_file") == dst_file:
+                                            e_backup_entry = _b
+                                            break
 
+                            # Điểm yếu #2: ghi + băm trong CÙNG một lượt -> không đọc lại file ở cuối hàm
                             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
-                            with zf.open(member, "r") as src_stream, open(dst_file, "wb") as dst_stream:
-                                shutil.copyfileobj(src_stream, dst_stream, length=65536)
+                            with zf.open(member, "r") as src_stream:
+                                e_sha = _write_stream_with_sha256(src_stream, dst_file)
+                            if e_backup_entry is not None:
+                                e_backup_entry["modded_sha256"] = e_sha
+                                try:
+                                    e_backup_entry["modded_size"] = os.path.getsize(dst_file)
+                                    e_backup_entry["modded_mtime"] = os.path.getmtime(dst_file)
+                                except Exception:
+                                    pass
                             installed_files_count += 1
                             extracted_files.append((t_rel, existed_before, created_new_bak, has_tx_tmp))
                         executed_journal.append({
@@ -2086,14 +2506,44 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                         if not target_rel:
                             raise ValueError("Bước 'delete' thiếu trường bắt buộc 'target'")
                         target_abs = validate_safe_path(game_path, target_rel, allow_base_itself=False)
+
+                        # Điểm yếu #3: KHÔNG xóa thẳng (rmtree/os.remove) vì rollback sẽ mất dữ liệu.
+                        # Thay vào đó tạm dời sang .congu_tx_tmp (O(1)) + ghi executed_journal.
+                        # - Cài đặt thành công: khối `finally` mới thực sự xóa các tệp tx_tmp (commit).
+                        # - Có sự cố: _rollback_transaction dời tx_tmp về đúng chỗ cũ (nguyên vẹn).
+                        del_tx = f"{target_abs}.congu_tx_tmp"
+                        del_moved = False
                         if os.path.exists(target_abs):
-                            if os.path.isdir(target_abs):
-                                shutil.rmtree(target_abs, ignore_errors=True)
-                            else:
+                            if os.path.exists(del_tx):
+                                # Tránh đè lên tx_tmp đang phục vụ rollback của bước khác
+                                del_tx = f"{target_abs}.congu_del_{os.getpid()}_{s_idx}.tmp"
+                            try:
+                                os.makedirs(os.path.dirname(del_tx), exist_ok=True)
+                                _safe_rename(target_abs, del_tx)
+                                del_moved = True
+                            except Exception:
+                                # Fallback: khác phân vùng hoặc bị khóa tay
                                 try:
-                                    os.remove(target_abs)
-                                except Exception:
-                                    pass
+                                    shutil.move(target_abs, del_tx)
+                                    del_moved = True
+                                except Exception as e_mv:
+                                    # Thà báo lỗi và rollback còn hơn xóa vĩnh viễn không khôi phục được
+                                    raise SecurityError(
+                                        f"Không thể tạm dời '{target_rel}' trước khi xóa để bảo đảm khả năng "
+                                        f"rollback: {e_mv}"
+                                    )
+                            if del_moved:
+                                tx_temp_files.append(del_tx)
+
+                        executed_journal.append({
+                            "action": "delete",
+                            "target": target_rel,
+                            "has_tx_tmp": del_moved,
+                            "tx_tmp": del_tx
+                        })
+
+                        if progress_callback:
+                            progress_callback(pct, f"Đang gỡ bỏ: {os.path.basename(target_rel)}")
 
                     elif action == "rename":
                         src_rel = _norm_rel(step.get("source"))
@@ -2102,22 +2552,45 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
                             raise ValueError("Bước 'rename' yêu cầu cả hai trường 'source' và 'destination'")
                         src_abs = validate_safe_path(game_path, src_rel, allow_base_itself=False)
                         dst_abs = validate_safe_path(game_path, dst_rel, allow_base_itself=False)
+
+                        # Điểm yếu #3: nếu dst_abs đã tồn tại, KHÔNG được xóa thẳng (rollback sẽ mất vĩnh viễn).
+                        # Ghi journal TRƯỚC khi thao tác để mọi lỗi giữa chừng vẫn rollback được.
+                        rename_entry = {
+                            "action": "rename",
+                            "target": dst_rel,
+                            "source_orig": src_rel,
+                            "dst_existed": False,
+                            "dst_tx_tmp": None,
+                            "src_moved": False,
+                        }
+                        executed_journal.append(rename_entry)
+
                         if os.path.exists(src_abs):
                             if os.path.exists(dst_abs):
-                                if os.path.isdir(dst_abs):
-                                    shutil.rmtree(dst_abs, ignore_errors=True)
-                                else:
+                                dst_tx = f"{dst_abs}.congu_tx_tmp"
+                                if os.path.exists(dst_tx):
+                                    dst_tx = f"{dst_abs}.congu_rename_{os.getpid()}_{s_idx}.tmp"
+                                try:
+                                    os.makedirs(os.path.dirname(dst_tx), exist_ok=True)
+                                    _safe_rename(dst_abs, dst_tx)  # O(1): giữ nguyên bản đích để rollback
+                                except Exception:
                                     try:
-                                        os.remove(dst_abs)
-                                    except Exception:
-                                        pass
+                                        shutil.move(dst_abs, dst_tx)
+                                    except Exception as e_mv:
+                                        raise SecurityError(
+                                            f"Không thể tạm dời tệp đích '{dst_rel}' đã tồn tại trước khi "
+                                            f"ghi đè để bảo đảm khả năng rollback: {e_mv}"
+                                        )
+                                rename_entry["dst_existed"] = True
+                                rename_entry["dst_tx_tmp"] = dst_tx
+                                tx_temp_files.append(dst_tx)
+
                             os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
-                            os.rename(src_abs, dst_abs)
-                            executed_journal.append({
-                                "action": "rename",
-                                "target": dst_rel,
-                                "source_orig": src_rel
-                            })
+                            _safe_rename(src_abs, dst_abs)
+                            rename_entry["src_moved"] = True
+
+                            if progress_callback:
+                                progress_callback(pct, f"Đang đổi tên: {os.path.basename(src_rel)} → {os.path.basename(dst_rel)}")
 
             except Exception as step_error:
                 # TRANSACTION ROLLBACK TRIGGER
@@ -2147,13 +2620,28 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
     if progress_callback:
         progress_callback(100, "Cài đặt an toàn hoàn tất 100%!")
 
-    # Record post-installation modded hashes for all backed up files to detect future Steam/Epic updates
+    # Record post-installation modded hashes for all backed up files to detect future Steam/Epic updates.
+    # Điểm yếu #2: phần lớn entry đã được điền modded_sha256 ngay trong lượt ghi (patch_binary/copy_file/
+    # copy_folder/extract_all) => chỉ băm bổ sung cho entry còn thiếu, tránh đọc lại file hàng GB.
     for b_item in backed_up_files:
         t_path = b_item.get("target_file")
         if t_path and os.path.exists(t_path):
-            b_item["modded_sha256"] = compute_file_sha256(t_path)
-            b_item["modded_size"] = os.path.getsize(t_path)
-            b_item["modded_mtime"] = os.path.getmtime(t_path)
+            if not b_item.get("modded_sha256"):
+                b_item["modded_sha256"] = compute_file_sha256(t_path)
+            if b_item.get("modded_size") is None:
+                try:
+                    b_item["modded_size"] = os.path.getsize(t_path)
+                except Exception:
+                    pass
+            if b_item.get("modded_mtime") is None:
+                try:
+                    b_item["modded_mtime"] = os.path.getmtime(t_path)
+                except Exception:
+                    pass
+
+    # Điểm yếu #5c: ghi manifest NGAY TẠI ENGINE (không chờ caller) để bảo đảm
+    # nguyên tử: cài xong là trạng thái backup + hash mod được lưu bền vững.
+    manifest_saved = _persist_backup_manifest(game_id, backed_up_files)
 
     return {
         "success": True,
@@ -2161,7 +2649,8 @@ def execute_secure_install(congu_path, game_path, install_steps=None, game_def=N
         "installed_files_count": installed_files_count,
         "backed_up_files": backed_up_files,
         "winhttp_preexisting": winhttp_pre,
-        "bepinex_preexisting": bepinex_pre
+        "bepinex_preexisting": bepinex_pre,
+        "manifest_saved": manifest_saved
     }
 
 
@@ -2186,6 +2675,8 @@ _SENSITIVE_SYMBOLS = (
     "_get_master_key_bytes",
     "_build_secure_stream_engine",
     "_open_congu_stream_reader",
+    "_SGD_KEY_BYTES",
+    "_SGD_KEY_MASK",
 )
 for _s_name in _SENSITIVE_SYMBOLS:
     globals().pop(_s_name, None)
@@ -2195,3 +2686,9 @@ for _s_name in _SENSITIVE_SYMBOLS:
             delattr(_m, _s_name)
         except Exception:
             pass
+del _s_name
+try:
+    del _SENSITIVE_SYMBOLS
+    del _m
+except Exception:
+    pass

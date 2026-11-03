@@ -154,13 +154,19 @@ def check_app_update() -> dict:
                     return {
                         "success": True,
                         "current_version": CURRENT_VERSION,
+                        "version": remote_ver,
                         "latest_version": remote_ver,
                         "has_update": has_update,
                         "title": info.get("name") or info.get("title", f"Bản cập nhật v{remote_ver}"),
                         "release_date": info.get("release_date", ""),
                         "changelog": info.get("changelog", []),
                         "download_url": info.get("download_url", f"https://github.com/{GITHUB_REPO}/releases/latest"),
-                        "portable_zip_url": info.get("portable_zip_url", "")
+                        "portable_zip_url": info.get("portable_zip_url", ""),
+                        # SHA-256 phải do quy trình phát hành tạo cùng ZIP, không lấy
+                        # từ chính archive/source tải xuống.
+                        "portable_zip_sha256": info.get("portable_zip_sha256", ""),
+                        # Chữ ký Ed25519 trên (version, portable_zip_url, portable_zip_sha256).
+                        "manifest_signature": info.get("manifest_signature", ""),
                     }
         except Exception:
             continue

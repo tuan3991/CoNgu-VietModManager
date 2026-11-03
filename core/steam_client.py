@@ -19,6 +19,7 @@ import socket
 import ssl
 import urllib.request
 import urllib.parse
+import urllib.error
 
 # SteamGridDB API key: uu tien nap tu module bao mat (duoc Cython bien dich thanh .pyd khi phat hanh).
 # Fallback XOR-masked de khong luu plaintext trong ma nguon (an toan khi .pyd cu chua rebuild).
@@ -61,9 +62,9 @@ def steam_direct_request(url: str, timeout: float = 4.0) -> bytes:
         path += "?" + p.query
 
     try:
+        # ClientHello vẫn có thể được phân mảnh ở dưới, nhưng certificate và
+        # hostname phải luôn được xác minh để không tin metadata bị MITM.
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
         incoming = ssl.MemoryBIO()
         outgoing = ssl.MemoryBIO()
         sslobj = ctx.wrap_bio(incoming, outgoing, server_hostname=hostname)
@@ -205,12 +206,14 @@ def fetch_steamgriddb_posters(steam_appid: str, limit: int = 4) -> list[str]:
     })
     try:
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
         with urllib.request.urlopen(req, timeout=3.5, context=ctx) as resp:
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8", "ignore"))
                 return [item["url"] for item in data.get("data", [])[:limit] if item.get("url")]
+    except urllib.error.HTTPError as e:
+        # 404 = game chưa có poster 600x900 trên SteamGridDB (chuyện bình thường, không log ồn)
+        if e.code != 404:
+            print(f"[SteamGridDB] HTTP {e.code} cho appid {steam_appid}")
     except Exception as e:
         print(f"[SteamGridDB] Error: {e}")
     return []
@@ -223,8 +226,6 @@ def search_steamgriddb_by_name(query: str, max_items: int = 6) -> list[dict]:
         return results
     try:
         ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
 
         encoded_q = urllib.parse.quote(query.strip())
         url = f"https://www.steamgriddb.com/api/v2/search/autocomplete/{encoded_q}"
@@ -275,8 +276,37 @@ def search_steamgriddb_by_name(query: str, max_items: int = 6) -> list[dict]:
     return results
 
 
+def _enrich_steam_store_item(appid: str, name: str, tiny_image: str = "") -> dict:
+    """
+    Chuẩn hoá 1 kết quả Steam Store về schema thống nhất mà toàn bộ UI/backend đang dùng
+    (steam_appid / title / avatar_url / header_url / source), đồng thời vẫn giữ các khóa cũ
+    (appid / name / tiny_image) để không phá vỡ call-site cũ.
+    """
+    appid = str(appid or "").strip()
+    base = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}"
+    return {
+        # --- Schema chuẩn ---
+        "id": int(appid) if appid.isdigit() else appid,
+        "steam_appid": appid,
+        "title": name,
+        "subtitle": "Steam Store",
+        "source": "steam",
+        "genre": "Steam Store",
+        "avatar_url": f"{base}/library_600x900.jpg",
+        "header_url": f"{base}/header.jpg",
+        "capsule": tiny_image or f"{base}/capsule_sm_120.jpg",
+        # --- Tương thích ngược ---
+        "appid": appid,
+        "name": name,
+        "tiny_image": tiny_image,
+    }
+
+
 def search_steam_online(query: str, limit: int = 15) -> list[dict]:
-    """Tìm kiếm game trực tuyến trên Steam Store và Steam Community (vượt DPI)."""
+    """
+    Tìm kiếm game trực tuyến trên Steam Store và Steam Community (vượt DPI).
+    Trả về item đã chuẩn hoá: id, steam_appid, title/name, avatar_url, header_url, source.
+    """
     clean_q = re.sub(r"\s+", " ", (query or "")).strip()
     if not clean_q or len(clean_q) < 2:
         return []
@@ -297,11 +327,7 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                 if not appid or not name or appid in seen:
                     continue
                 seen.add(appid)
-                raw_items.append({
-                    "appid": appid,
-                    "name": name,
-                    "tiny_image": it.get("tiny_image", "")
-                })
+                raw_items.append(_enrich_steam_store_item(appid, name, it.get("tiny_image", "")))
     except Exception as e:
         print(f"[SteamOnline] Store search failed: {e}")
 
@@ -319,11 +345,10 @@ def search_steam_online(query: str, limit: int = 15) -> list[dict]:
                         if not appid or not name or appid in seen:
                             continue
                         seen.add(appid)
-                        raw_items.append({
-                            "appid": appid,
-                            "name": name,
-                            "tiny_image": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/capsule_sm_120.jpg"
-                        })
+                        raw_items.append(_enrich_steam_store_item(
+                            appid, name,
+                            f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appid}/capsule_sm_120.jpg",
+                        ))
         except Exception as e:
             print(f"[SteamOnline] Community search failed: {e}")
 

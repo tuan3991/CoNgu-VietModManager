@@ -33,13 +33,13 @@
     ];
 
     const THEME_MANAGER_DEFAULT_VARIABLES = {
-      '--bg-primary': '#090d16',
-      '--bg-secondary': 'rgba(15, 23, 42, 0.85)',
-      '--text-primary': '#f8fafc',
-      '--text-muted': '#94a3b8',
-      '--accent-color': '#06b6d4',
-      '--accent-hover': '#22d3ee',
-      '--border-color': 'rgba(6, 182, 212, 0.25)',
+      '--bg-primary': '#0a0e1a',
+      '--bg-secondary': 'rgba(20, 27, 46, 0.85)',
+      '--text-primary': '#f2f6fc',
+      '--text-muted': '#8b9bb4',
+      '--accent-color': '#00f0ff',
+      '--accent-hover': '#66f5ff',
+      '--border-color': 'rgba(0, 240, 255, 0.22)',
       '--card-radius': '12px',
       '--glass-blur': '12px'
     };
@@ -637,13 +637,13 @@
           'onerror="this.style.display=\'none\'" />';
       } else {
         previewHtml =
-          '<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0b1020] via-[#111326] to-[#1a0b1e]">' +
+          '<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0F1522] via-[#151C2C] to-[#151C2C]">' +
             '<i data-lucide="palette" class="w-8 h-8 text-[#00F0FF]/40"></i>' +
           '</div>';
       }
 
       const activeBadge = isActive
-        ? '<span class="font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] bg-[#00FF9D] text-black shadow-[1px_1px_0_#05050a]">ĐANG DÙNG</span>'
+        ? '<span class="font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] bg-[#34D399] text-black shadow-[0_1px_3px_rgba(0,0,0,0.35)]">ĐANG DÙNG</span>'
         : '';
       const builtinBadge = isBuiltin
         ? '<span class="font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/60">MẶC ĐỊNH</span>'
@@ -661,9 +661,9 @@
 
       return '' +
         '<article class="theme-card group relative flex flex-col overflow-hidden border' + (isActive ? ' is-active' : '') + '">' +
-          '<div class="relative h-28 overflow-hidden bg-[#070814]">' +
+          '<div class="relative h-28 overflow-hidden bg-[#0A0E1A]">' +
             previewHtml +
-            '<div class="absolute inset-0 bg-gradient-to-t from-[#05060f]/90 via-[#05060f]/10 to-transparent"></div>' +
+            '<div class="absolute inset-0 bg-gradient-to-t from-[#0A0E1A]/90 via-[#0A0E1A]/10 to-transparent"></div>' +
             '<div class="absolute top-2 left-2 flex flex-wrap items-center gap-1">' +
               activeBadge + builtinBadge +
             '</div>' +
@@ -686,13 +686,13 @@
                 '<span>' + (isActive ? 'Đang dùng' : 'Áp dụng') + '</span>' +
               '</button>' +
               '<button type="button" onclick="exportThemePackage(\'' + id + '\')" ' +
-                'class="pixel-btn px-2 py-1.5 text-[11px] bg-[#17192e] text-slate-300 border border-[#2b2f52] hover:text-white hover:border-[#00F0FF]" ' +
+                'class="pixel-btn px-2 py-1.5 text-[11px] bg-[#1C2536] text-slate-300 border border-[#2A3548] hover:text-white hover:border-[#00F0FF]" ' +
                 'title="Xuất gói .congu_theme để chia sẻ cộng đồng">' +
                 '<i data-lucide="download" class="w-3 h-3"></i>' +
               '</button>' +
               (canDelete
                 ? '<button type="button" onclick="deleteThemeById(\'' + id + '\')" ' +
-                    'class="pixel-btn px-2 py-1.5 text-[11px] bg-[#22070f] text-[#FF6677] border border-[#FF3344]/60 hover:bg-[#FF3344] hover:text-white" ' +
+                    'class="pixel-btn px-2 py-1.5 text-[11px] bg-[#2A1216] text-[#F87171] border border-[#F87171]/60 hover:bg-[#F87171] hover:text-white" ' +
                     'title="Xóa theme này">' +
                     '<i data-lucide="trash-2" class="w-3 h-3"></i>' +
                   '</button>'

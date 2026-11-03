@@ -390,6 +390,15 @@ class AchievementManager:
 
         return schema_list
 
+    def get_progress_summary(self) -> dict:
+        """Tiến độ thành tựu đã biết theo từng cache key (game_id hoặc appid)."""
+        with self.lock:
+            return {
+                str(key): dict(val)
+                for key, val in self._progress_data.items()
+                if isinstance(val, dict)
+            }
+
     def get_game_achievements_view(self, appid: str = "", game_dir: str = "", game_id: str = "") -> dict:
         """Hàm trả dữ liệu hoàn chỉnh cho Frontend static/index.html hiển thị."""
         # 1. Tự động tìm game_dir từ user_config hoặc custom_games.json

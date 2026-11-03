@@ -21,6 +21,10 @@ from .pipeline_runner import (
     set_progress,
     get_install_progress,
     _MOD_OP_LOCK,
+    get_game_operation_lock,
+    any_game_operation_running,
+    get_pending_transaction,
+    recover_pending_transaction,
     execute_action_pipeline,
 )
 
@@ -30,6 +34,7 @@ from .install_ops import (
     uninstall_mod_impl,
     uninstall_mod,
     emergency_restore_game,
+    cleanup_cache_after_install,
 )
 
 __all__ = [
@@ -45,10 +50,15 @@ __all__ = [
     "set_progress",
     "get_install_progress",
     "_MOD_OP_LOCK",
+    "get_game_operation_lock",
+    "any_game_operation_running",
+    "get_pending_transaction",
+    "recover_pending_transaction",
     "execute_action_pipeline",
     "install_mod_impl",
     "install_mod",
     "uninstall_mod_impl",
     "uninstall_mod",
     "emergency_restore_game",
+    "cleanup_cache_after_install",
 ]

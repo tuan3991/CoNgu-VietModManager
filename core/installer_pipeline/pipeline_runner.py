@@ -4,7 +4,11 @@ Core Installer Pipeline - Pipeline Runner & Progress Tracking
 """
 import os
 import sys
+import json
+import shutil
+import tempfile
 import threading
+import time
 from typing import Dict, Any, List, Optional, Tuple, Callable
 
 from core.config_manager import (
@@ -14,8 +18,33 @@ from core.backup_rollback import (
     load_backup_manifest, save_backup_manifest, restore_files_inplace
 )
 from .actions import execute_pipeline_step
+from security import validate_safe_path
 
-_MOD_OP_LOCK = threading.Lock()
+_GAME_LOCKS_GUARD = threading.Lock()
+_GAME_OPERATION_LOCKS: Dict[str, threading.Lock] = {}
+
+
+def any_game_operation_running() -> bool:
+    """True khi ít nhất một lock theo game đang được giữ trong process."""
+    with _GAME_LOCKS_GUARD:
+        return any(lock.locked() for lock in _GAME_OPERATION_LOCKS.values())
+
+
+def get_game_operation_lock(game_id: str) -> threading.Lock:
+    """Trả về lock riêng cho mỗi game trong cùng tiến trình.
+
+    Không để install/uninstall/restore của cùng game chạy chồng; game khác vẫn
+    không phải chờ thao tác I/O dài của nhau.
+    """
+    key = str(game_id or "").strip()
+    if not key:
+        raise ValueError("game_id không được để trống khi khóa thao tác")
+    with _GAME_LOCKS_GUARD:
+        lock = _GAME_OPERATION_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _GAME_OPERATION_LOCKS[key] = lock
+        return lock
 
 
 INSTALL_PROGRESS = {
@@ -26,7 +55,8 @@ INSTALL_PROGRESS = {
     "operation": ""         # "install" | "uninstall" | "restore"
 }
 
-_MOD_OP_LOCK = threading.Lock()  # Khóa đồng bộ chống xung đột đa luồng khi cài đặt, gỡ bỏ hoặc khôi phục mod
+# Alias tương thích ngược. Wrapper mới phải dùng get_game_operation_lock(game_id).
+_MOD_OP_LOCK = threading.Lock()
 
 
 def set_progress(percent: int, message: str, status: str = "running", game_id: str = "", operation: str = "") -> None:
@@ -45,6 +75,68 @@ def get_install_progress() -> Dict[str, Any]:
     """Lấy bản sao trạng thái tiến trình hiện tại."""
     return dict(INSTALL_PROGRESS)
 
+
+def _transaction_journal_path(game_id: str, backup_root: str = None) -> str:
+    root = backup_root or BACKUP_ROOT
+    return os.path.join(root, str(game_id), "pending_transaction.json")
+
+
+def has_pending_transaction(game_id: str, backup_root: str = None) -> bool:
+    """Kiểm tra sự tồn tại, kể cả journal rỗng, hỏng hoặc là symlink."""
+    return os.path.lexists(_transaction_journal_path(game_id, backup_root))
+
+
+def _save_transaction_journal(game_id: str, data: dict, backup_root: str = None) -> str:
+    """Ghi journal atomically để crash/kill không để JSON nửa chừng."""
+    path = _transaction_journal_path(game_id, backup_root)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(prefix=".pending-transaction-", suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
+            json.dump(data, out, ensure_ascii=False, indent=2)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temp_path, path)
+        return path
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
+def _remove_transaction_journal(game_id: str, backup_root: str = None) -> None:
+    try:
+        os.remove(_transaction_journal_path(game_id, backup_root))
+    except OSError:
+        pass
+
+
+def get_pending_transaction(game_id: str, backup_root: str = None) -> dict:
+    """Đọc transaction gián đoạn; trả {} nếu không có hoặc journal lỗi."""
+    try:
+        with open(_transaction_journal_path(game_id, backup_root), "r", encoding="utf-8") as source:
+            data = json.load(source)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def recover_pending_transaction(game_id: str, game_path: str, backup_root: str = None) -> dict:
+    """Phát hiện transaction chưa hoàn tất, không tự thay đổi file game.
+
+    Journal hiện chỉ ghi số bước, không đủ để tái tạo rollback. Hàm restore cũ
+    có thể bỏ qua lỗi từng file và dọn manifest nên không được dùng tự động.
+    """
+    pending = get_pending_transaction(game_id, backup_root)
+    if not pending:
+        return {"success": True, "recovered": False}
+    return {
+        "success": False,
+        "recovered": False,
+        "message": "Phát hiện giao dịch gián đoạn; chưa thể khôi phục tự động an toàn. Giữ nguyên journal và backup để kiểm tra thủ công.",
+    }
 
 
 def execute_action_pipeline(
@@ -68,6 +160,25 @@ def execute_action_pipeline(
     p_span = max(1, p_end - p_start)
     executed_journal = []
     tx_temp_files = []
+    # Chỉ dọn transaction temp khi rollback đã hoàn tất hoặc pipeline thành công.
+    # Nếu rollback lỗi, chúng có thể là con đường khôi phục thủ công duy nhất.
+    preserve_tx_temp = False
+    journal_state = {
+        "version": 1,
+        "game_id": game_id,
+        "game_path": os.path.abspath(game_path),
+        "operation": operation,
+        "status": "running",
+        "started_at": int(time.time()),
+        "completed_steps": 0,
+        "total_steps": total,
+    }
+    # Chỉ install có transaction rollback chuẩn; persist trước thao tác đầu tiên
+    # để lần khởi động sau biết rõ install đã gián đoạn.
+    if operation == "install":
+        if has_pending_transaction(game_id):
+            raise RuntimeError("Game có journal giao dịch chưa xử lý; không bắt đầu pipeline mới để tránh ghi đè dữ liệu phục hồi.")
+        _save_transaction_journal(game_id, journal_state)
 
     try:
         for idx, step in enumerate(steps):
@@ -114,6 +225,10 @@ def execute_action_pipeline(
                             if len(e_item) == 4 and e_item[3]:
                                 f_abs = validate_safe_path(game_path, e_item[0], allow_base_itself=False)
                                 tx_temp_files.append(f"{f_abs}.congu_tx_tmp")
+                if operation == "install":
+                    journal_state["completed_steps"] = idx + 1
+                    journal_state["last_action"] = action
+                    _save_transaction_journal(game_id, journal_state)
             except Exception as e:
                 err_msg = f"Lỗi tại bước {idx+1}/{total} ({action}): {str(e)}"
                 print(f"[Pipeline Error] {err_msg}")
@@ -341,24 +456,45 @@ def execute_action_pipeline(
 
                     if not journal_failed_entries:
                         print("[Rollback] Lớp 1 (Reverse Journal) hoàn nguyên 100% thành công!")
+                        if operation == "install":
+                            _remove_transaction_journal(game_id)
+                        rollback_message = (
+                            f"{err_msg}. Hệ thống đã tự động kích hoạt Transaction Rollback: "
+                            "toàn bộ tệp tin game đã được hoàn nguyên về trạng thái ổn định trước khi cài đặt!"
+                        )
                     else:
-                        print(f"[Rollback Warning] Lớp 1 hoàn nguyên xong với {len(journal_failed_entries)} cảnh báo.")
+                        preserve_tx_temp = True
+                        failed_targets = []
+                        for failed_step, _reason in journal_failed_entries:
+                            target = (failed_step.get("target") or failed_step.get("destination")
+                                      or failed_step.get("file") or failed_step.get("source_orig") or "không xác định")
+                            failed_targets.append(str(target))
+                        print(f"[Rollback Warning] Lớp 1 chưa hoàn tất: {len(journal_failed_entries)} bước lỗi; giữ transaction temp để khôi phục.")
+                        rollback_message = (
+                            f"{err_msg}. Transaction Rollback CHƯA hoàn tất cho: "
+                            f"{', '.join(failed_targets)}. Dữ liệu transaction tạm được giữ lại; "
+                            "không tự chạy thêm thao tác. Hãy dùng Khôi Phục Gốc Khẩn Cấp hoặc liên hệ hỗ trợ."
+                        )
+                else:
+                    rollback_message = err_msg
 
-                raise RuntimeError(
-                    f"{err_msg}. Hệ thống đã tự động kích hoạt Transaction Rollback: toàn bộ tệp tin game đã được hoàn nguyên 100% về trạng thái ổn định trước khi cài đặt!"
-                ) from e
+                set_progress(0, rollback_message, status="error", game_id=game_id, operation=operation)
+                raise RuntimeError(rollback_message) from e
 
     finally:
-        for tx_f in tx_temp_files:
-            if os.path.exists(tx_f):
-                try:
-                    if os.path.isdir(tx_f):
-                        shutil.rmtree(tx_f, ignore_errors=True)
-                    else:
-                        os.remove(tx_f)
-                except Exception:
-                    pass
+        if not preserve_tx_temp:
+            for tx_f in tx_temp_files:
+                if os.path.exists(tx_f):
+                    try:
+                        if os.path.isdir(tx_f):
+                            shutil.rmtree(tx_f, ignore_errors=True)
+                        else:
+                            os.remove(tx_f)
+                    except Exception:
+                        pass
 
+    if operation == "install":
+        _remove_transaction_journal(game_id)
     return True
 
 

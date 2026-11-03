@@ -5,6 +5,7 @@
   "min_required_version": "2.0.0",
   "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest",
   "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/v2.0.3/CoNgu_v2.0.3_Portable.zip",
+  "portable_zip_sha256": "",
   "changelog": [
     "Hỗ trợ lấy Poster dọc 600x900 (2x) nét căng chính thức từ Steam với mã hash chuẩn cho mọi game mới & cũ.",
     "Bộ lọc Glassmorphism tự động dựng Poster dọc cho các game/demo chỉ có ảnh ngang, giữ nguyên 100% logo không bị cắt chữ.",

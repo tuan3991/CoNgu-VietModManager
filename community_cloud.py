@@ -42,8 +42,21 @@ class CommunityCloudManager:
         })
 
     def _save_cloud_config(self, cloud_cfg: dict):
+        """
+        Ghi cấu hình Đám Mây và đồng bộ luôn sang nhánh cloud_save trong Cài đặt.
+        Trước đây chỉ lưu community_cloud nên ID vừa tạo không xuất hiện ở Settings
+        cho tới lần khởi động sau.
+        """
         cfg = self.config_getter() or {}
         cfg["community_cloud"] = cloud_cfg
+
+        cloud_save = cfg.get("cloud_save")
+        if not isinstance(cloud_save, dict):
+            cloud_save = {}
+        cloud_save["cloud_id"] = cloud_cfg.get("cloud_id", "")
+        cloud_save["password"] = cloud_cfg.get("password", "")
+        cfg["cloud_save"] = cloud_save
+
         self.config_saver(cfg)
 
     def get_status(self) -> dict:
@@ -170,10 +183,13 @@ class CommunityCloudManager:
         self._save_cloud_config(c)
         return {"success": True, "message": "Đã đăng xuất tài khoản Cloud khỏi máy này!"}
 
-    def upload_save(self) -> dict:
+    def upload_save(self, pack_all: bool = True) -> dict:
         """
         Gom toàn bộ Save Game của các tựa game hiện có vào file PlayerProfile.congu_save
         và đẩy lên thư mục của User trên Máy chủ Google Drive.
+
+        pack_all=False: dùng ngay file vault hiện tại (post-exit hook đã pack game vừa
+        thoát) để tránh quét lại toàn bộ thư viện khi tự đồng bộ.
         """
         c = self._get_cloud_config()
         if not c.get("is_logged_in") or not c.get("cloud_id") or not c.get("password"):
@@ -188,7 +204,7 @@ class CommunityCloudManager:
 
         # Tự động gom save mới nhất của các game đã cài trước khi tải lên mây
         packed_games_count = 0
-        if self.games_getter and self.config_getter:
+        if pack_all and self.games_getter and self.config_getter:
             try:
                 games = self.games_getter()
                 cfg = self.config_getter()
