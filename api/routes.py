@@ -237,6 +237,23 @@ def serve_js(filepath):
 def serve_assets(filepath):
     return static_file(filepath, root=os.path.join(STATIC_DIR, "assets"))
 
+@server_app.route("/vendor/<filepath:path>")
+def serve_vendor(filepath):
+    """Tailwind/Lucide bundle local — index.html nạp bằng đường dẫn tương đối vendor/*.js."""
+    return static_file(filepath, root=os.path.join(STATIC_DIR, "vendor"))
+
+@server_app.route("/icons/<filepath:path>")
+def serve_icons(filepath):
+    return static_file(filepath, root=os.path.join(STATIC_DIR, "icons"))
+
+@server_app.route("/posters/<filepath:path>")
+def serve_posters(filepath):
+    return static_file(filepath, root=os.path.join(STATIC_DIR, "posters"))
+
+@server_app.route("/themes/<filepath:path>")
+def serve_static_themes(filepath):
+    return static_file(filepath, root=os.path.join(STATIC_DIR, "themes"))
+
 @server_app.route("/api/covers/<filepath:path>")
 def serve_covers(filepath):
     return static_file(filepath, root=COVERS_DIR)
@@ -1024,6 +1041,75 @@ def api_profile_overview():
     """Tổng hợp Hồ Sơ: level/XP, huy hiệu nền tảng, top game, hoạt động gần đây."""
     response.content_type = "application/json"
     return json.dumps(api_instance.get_profile_overview(), ensure_ascii=False)
+
+
+# ==============================================================================
+# HỆ THỐNG ĐỔI TÀI KHOẢN & KÍCH DỮ LIỆU CŨ (MULTI-ACCOUNT)
+# ==============================================================================
+
+@server_app.route("/api/account/status", method="GET")
+def api_account_status():
+    """Lấy danh sách tất cả tài khoản và tài khoản hiện đang active."""
+    response.content_type = "application/json"
+    try:
+        return json.dumps(api_instance.get_account_status(), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+@server_app.route("/api/account/switch", method="POST")
+def api_account_switch():
+    """Chuyển sang tài khoản khác, kích hết dữ liệu cũ ra khỏi app."""
+    response.content_type = "application/json"
+    try:
+        data = request.json or {}
+        return json.dumps(api_instance.switch_account(data), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+@server_app.route("/api/account/create_blank", method="POST")
+def api_account_create_blank():
+    """Tạo tài khoản mới và kích sạch toàn bộ dữ liệu cũ, để lại app trống."""
+    response.content_type = "application/json"
+    try:
+        data = request.json or {}
+        return json.dumps(api_instance.create_blank_account(data), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+@server_app.route("/api/account/login_online", method="POST")
+def api_account_login_online():
+    """Kích dữ liệu cũ, đăng nhập tài khoản Online và tải dữ liệu đám mây."""
+    response.content_type = "application/json"
+    try:
+        data = request.json or {}
+        return json.dumps(api_instance.login_online_account(data), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+@server_app.route("/api/account/purge_logout", method="POST")
+def api_account_purge_logout():
+    """Kích sạch 100% dữ liệu cũ và đăng xuất ra app trống."""
+    response.content_type = "application/json"
+    try:
+        return json.dumps(api_instance.purge_and_logout_account(), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+@server_app.route("/api/account/delete", method="POST")
+def api_account_delete():
+    """Xóa vĩnh viễn tài khoản và snapshot dữ liệu khỏi máy."""
+    response.content_type = "application/json"
+    try:
+        data = request.json or {}
+        return json.dumps(api_instance.delete_account(data), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
 # ==============================================================================
@@ -1975,6 +2061,21 @@ def api_settings_browse_folder():
     res = api_instance.select_custom_library_folder()
     return json.dumps(res, ensure_ascii=False)
 
+
+
+@server_app.route("/<filepath:path>")
+def serve_static_root(filepath):
+    """
+    Phục vụ asset tĩnh ở gốc STATIC_DIR khi index.html tham chiếu bằng đường dẫn
+    tương đối (app_icon.png, pixel_city_bg.png, vendor/*.js, icons/*, posters/* ...).
+
+    Bottle luôn ưu tiên route tĩnh (không wildcard) và route khai báo trước, nên
+    /api/*, /css/*, /js/* vẫn do handler riêng xử lý. Chặn tường minh tiền tố api/
+    để lỗi API vẫn trả 404 thật thay vì bị route này che mất.
+    """
+    if filepath == "api" or filepath.startswith("api/"):
+        abort(404, "Not Found")
+    return static_file(filepath, root=STATIC_DIR)
 
 
 def create_http_server(app=None, port_list=None):

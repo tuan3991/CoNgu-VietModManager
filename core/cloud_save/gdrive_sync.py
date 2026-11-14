@@ -72,17 +72,9 @@ def handle_game_exit_hook(game_id: str, game_dir: str):
     except Exception as e:
         print(f"[AchievementTracker] Post-exit scan error: {e}")
 
-    try:
-        if auto_sync:
-            vault = get_vault_instance()
-            games = _GAMES_GETTER() if _GAMES_GETTER else []
-            g_cfg = next((g for g in games if g.get("id") == game_id), None)
-            if g_cfg:
-                vault.pack_game_to_vault(g_cfg, game_dir)
-                _internal_log(f"[SaveVault] Đã tự động gom Save + Thành tựu của '{game_id}' vào Hồ Sơ Di Động (.congu_save)")
-    except Exception as e:
-        print(f"[SaveVault] Post-exit vault pack error: {e}")
-
+    # Đẩy Cloud Sync lên TRƯỚC khi đóng gói vault: upload chạy nền song song
+    # với bước nén vault, nên save lên Google Drive sớm hơn và không phải chờ
+    # toàn bộ vault (có thể vài trăm MB) được viết lại xong.
     try:
         if CLOUD_SYNC_MGR and auto_sync:
             games = _GAMES_GETTER() if _GAMES_GETTER else []
@@ -91,6 +83,22 @@ def handle_game_exit_hook(game_id: str, game_dir: str):
                 CLOUD_SYNC_MGR.post_session_sync(game_id, game_dir, g_cfg)
     except Exception as e:
         print(f"[CloudSync] Post-exit sync hook error: {e}")
+
+    try:
+        if auto_sync:
+            vault = get_vault_instance()
+            games = _GAMES_GETTER() if _GAMES_GETTER else []
+            g_cfg = next((g for g in games if g.get("id") == game_id), None)
+            if g_cfg:
+                pack_res = vault.pack_game_to_vault(g_cfg, game_dir)
+                if pack_res.get("skipped"):
+                    _internal_log(
+                        f"[SaveVault] Bỏ qua đóng gói '{game_id}': save không thay đổi."
+                    )
+                else:
+                    _internal_log(f"[SaveVault] Đã tự động gom Save + Thành tựu của '{game_id}' vào Hồ Sơ Di Động (.congu_save)")
+    except Exception as e:
+        print(f"[SaveVault] Post-exit vault pack error: {e}")
 
     try:
         if _CONTROLLER_ENGINE_REF:

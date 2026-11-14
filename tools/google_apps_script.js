@@ -6,15 +6,10 @@
  * HƯỚNG DẪN TRIỂN KHAI NHANH CHO ADMIN (CHỈ MẤT 1 PHÚT):
  * -----------------------------------------------------------------------------------------
  * 1. Mở trình duyệt, truy cập https://script.google.com và đăng nhập Google Drive của Admin.
- * 2. Bấm "Dự án mới" (New project), xóa hết mã cũ và dán toàn bộ nội dung file này vào `Code.gs`.
- * 3. Bấm nút "Triển khai" (Deploy) ở góc trên bên phải -> "Tùy chọn triển khai mới" (New deployment).
- *    - Chọn loại (Select type): Nhấp biểu tượng bánh răng ⚙️ -> Chọn "Ứng dụng web" (Web app).
- *    - Mô tả (Description): "VietModHub Cloud Save Hub"
- *    - Thực thi dưới dạng (Execute as): "Tôi" (Me - tức tài khoản Google của Admin).
- *    - Ai có quyền truy cập (Who has access): "Bất kỳ ai" (Anyone - để người dùng VietModHub gửi save).
- * 4. Bấm "Triển khai" (Deploy). Cấp quyền truy cập Google Drive khi được hỏi.
- * 5. Sao chép "URL ứng dụng web" (có dạng https://script.google.com/macros/s/AKfycb.../exec).
- * 6. Dán URL này vào VietModHub (trong phần Cấu hình Máy Chủ Đám Mây) hoặc gán vào DEFAULT_APPS_SCRIPT_URL.
+ * 2. Mở dự án hiện tại, xóa hết mã cũ và dán toàn bộ nội dung file này vào `Code.gs`.
+ * 3. Bấm "Triển khai" (Deploy) -> "Quản lý các bản triển khai" (Manage deployments)
+ *    -> Bấm biểu tượng Bút Chì ✎ -> Ở mục "Phiên bản" chọn "Phiên bản mới" (New version)
+ *    -> Đảm bảo "Ai có quyền truy cập" là "Bất kỳ ai" (Anyone) -> Bấm "Triển khai" (Deploy).
  * =========================================================================================
  */
 
@@ -27,7 +22,7 @@ function doGet(e) {
   var output = {
     status: "online",
     service: "Cổ Ngữ Community Cloud Save Server",
-    version: "2.0",
+    version: "2.2",
     time: new Date().toISOString(),
     message: "Máy chủ lưu trữ Đám Mây Cổ Ngữ đang hoạt động bình thường!"
   };
@@ -48,7 +43,7 @@ function doPost(e) {
     var action = payload.action;
 
     if (action === "ping") {
-      return jsonResponse(true, "Kết nối thành công tới Máy Chủ Đám Mây Cổ Ngữ!", { version: "2.0" });
+      return jsonResponse(true, "Kết nối thành công tới Máy Chủ Đám Mây Cổ Ngữ!", { version: "2.2" });
     }
 
     var cloudId = (payload.cloud_id || "").trim().toLowerCase();
@@ -64,8 +59,47 @@ function doPost(e) {
       return jsonResponse(false, "Mã Cloud ID chỉ được chứa chữ cái, số, dấu gạch nối (- hoặc _) từ 3 đến 32 ký tự.");
     }
 
-    // Lấy hoặc tạo thư mục gốc
+    // Lấy hoặc tạo thư mục gốc (sử dụng cache ID để không quét toàn bộ Drive)
     var rootFolder = getOrCreateRootFolder();
+
+    // ==========================================
+    // ACTION: RESET / RECREATE (Đặt lại mật khẩu khi sai hoặc quên pass)
+    // ==========================================
+    if (action === "reset" || action === "recreate") {
+      if (password.length < 4) {
+        return jsonResponse(false, "Mật khẩu bảo vệ mới phải có ít nhất 4 ký tự.");
+      }
+
+      var userFolder = findUserFolder(rootFolder, cloudId) || rootFolder.createFolder(cloudId);
+      var passHash = hashPassword(password);
+      var accData = {
+        cloud_id: cloudId,
+        pass_hash: passHash,
+        updated_at: new Date().toISOString(),
+        reset_at: new Date().toISOString()
+      };
+
+      cleanOldFiles(userFolder, "account.json");
+      userFolder.createFile("account.json", JSON.stringify(accData, null, 2), "application/json");
+
+      var saveFiles = userFolder.getFilesByName("PlayerProfile.congu_save");
+      var hasSave = false;
+      var lastSync = null;
+      var fileSize = 0;
+      if (saveFiles.hasNext()) {
+        var saveFile = saveFiles.next();
+        hasSave = true;
+        lastSync = saveFile.getLastUpdated().toISOString();
+        fileSize = saveFile.getSize();
+      }
+
+      return jsonResponse(true, "Đặt lại mật khẩu cho Mã Cloud ID '" + cloudId + "' thành công!", {
+        cloud_id: cloudId,
+        has_save: hasSave,
+        last_sync: lastSync,
+        file_size: fileSize
+      });
+    }
 
     // ==========================================
     // ACTION: REGISTER (Đăng ký ID mới tự chọn)
@@ -75,17 +109,22 @@ function doPost(e) {
         return jsonResponse(false, "Mật khẩu bảo vệ phải có ít nhất 4 ký tự.");
       }
 
-      var userFolderIter = rootFolder.getFoldersByName(cloudId);
-      if (userFolderIter.hasNext()) {
-        var existingUserFolder = userFolderIter.next();
-        var accFiles = existingUserFolder.getFilesByName("account.json");
+      var existingFolder = findUserFolder(rootFolder, cloudId);
+      if (existingFolder && !payload.force && !payload.overwrite) {
+        var accFiles = existingFolder.getFilesByName("account.json");
         if (accFiles.hasNext()) {
-          return jsonResponse(false, "Mã Cloud ID '" + cloudId + "' đã có người sử dụng! Vui lòng chọn một ID khác.");
+          var accFile = accFiles.next();
+          try {
+            var accData = JSON.parse(accFile.getBlob().getDataAsString());
+            if (accData.pass_hash === hashPassword(password)) {
+              return jsonResponse(true, "Mã Cloud ID '" + cloudId + "' đã tồn tại và mật khẩu trùng khớp. Đăng nhập thành công!", { cloud_id: cloudId });
+            }
+          } catch (e) {}
+          return jsonResponse(false, "Mã Cloud ID '" + cloudId + "' đã có người sử dụng! Nếu là bạn, vui lòng chuyển sang tab 'Đăng Nhập' hoặc 'Tạo Lại Pass'.");
         }
       }
 
-      // Tạo thư mục mới cho User
-      var newUserFolder = userFolderIter.hasNext() ? userFolderIter.next() : rootFolder.createFolder(cloudId);
+      var newUserFolder = existingFolder || rootFolder.createFolder(cloudId);
       var passHash = hashPassword(password);
       var accData = {
         cloud_id: cloudId,
@@ -93,7 +132,6 @@ function doPost(e) {
         created_at: new Date().toISOString()
       };
 
-      // Lưu file account.json
       cleanOldFiles(newUserFolder, "account.json");
       newUserFolder.createFile("account.json", JSON.stringify(accData, null, 2), "application/json");
 
@@ -197,26 +235,55 @@ function doPost(e) {
 }
 
 /**
- * Helper: Tạo hoặc lấy thư mục gốc VietModHub_Cloud_Storage
+ * Helper: Tạo hoặc lấy thư mục gốc VietModHub_Cloud_Storage (tối ưu cache ID)
  */
 function getOrCreateRootFolder() {
-  var folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-  if (folders.hasNext()) {
-    return folders.next();
+  var props = PropertiesService.getScriptProperties();
+  var savedId = props.getProperty("ROOT_FOLDER_ID");
+  if (savedId) {
+    try {
+      var folder = DriveApp.getFolderById(savedId);
+      if (folder && !folder.isTrashed()) return folder;
+    } catch (e) {}
   }
-  return DriveApp.createFolder(ROOT_FOLDER_NAME);
+
+  var folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+  var target = null;
+  while (folders.hasNext()) {
+    var candidate = folders.next();
+    if (!candidate.isTrashed()) {
+      target = candidate;
+      break;
+    }
+  }
+  if (!target) {
+    target = DriveApp.createFolder(ROOT_FOLDER_NAME);
+  }
+  props.setProperty("ROOT_FOLDER_ID", target.getId());
+  return target;
+}
+
+/**
+ * Helper: Tìm thư mục User trong rootFolder (bỏ qua thùng rác)
+ */
+function findUserFolder(rootFolder, cloudId) {
+  var userFolders = rootFolder.getFoldersByName(cloudId);
+  while (userFolders.hasNext()) {
+    var f = userFolders.next();
+    if (!f.isTrashed()) return f;
+  }
+  return null;
 }
 
 /**
  * Helper: Xác thực tài khoản dựa trên file account.json
  */
 function authenticateUser(rootFolder, cloudId, password) {
-  var userFolders = rootFolder.getFoldersByName(cloudId);
-  if (!userFolders.hasNext()) {
+  var userFolder = findUserFolder(rootFolder, cloudId);
+  if (!userFolder) {
     return { success: false, error: "Không tìm thấy Mã Cloud ID '" + cloudId + "' trên máy chủ. Bạn có muốn Đăng ký mới không?" };
   }
 
-  var userFolder = userFolders.next();
   var accFiles = userFolder.getFilesByName("account.json");
   if (!accFiles.hasNext()) {
     return { success: false, error: "Tài khoản bị lỗi dữ liệu hồ sơ (thiếu account.json)." };
@@ -253,14 +320,16 @@ function hashPassword(pass) {
 }
 
 /**
- * Helper: Dọn dẹp tệp cũ cùng tên trong thư mục
+ * Helper: Dọn dẹp tệp cũ cùng tên trong thư mục (bọc try-catch chống rate limit)
  */
 function cleanOldFiles(folder, fileName) {
-  var files = folder.getFilesByName(fileName);
-  while (files.hasNext()) {
-    var f = files.next();
-    f.setTrashed(true);
-  }
+  try {
+    var files = folder.getFilesByName(fileName);
+    while (files.hasNext()) {
+      var f = files.next();
+      f.setTrashed(true);
+    }
+  } catch (e) {}
 }
 
 /**

@@ -152,6 +152,7 @@ from core.cloud_save import (
 )
 
 from core.platform_win import WIN_NO_WINDOW, DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP
+from core.native_dialogs import pick_folder, pick_file, save_file
 
 from core.steam_client import (
     steam_direct_request,
@@ -441,12 +442,23 @@ def fetch_game_metadata_and_avatar(game_dir: str = "", exe_name: str = "", fallb
 
 
 from community_cloud import CommunityCloudManager
+from core.account_manager import AccountManager
 
 COMMUNITY_CLOUD_MGR = CommunityCloudManager(
     config_getter=load_user_config,
     config_saver=save_user_config,
     vault_getter=get_vault_instance,
     games_getter=get_games
+)
+
+ACCOUNT_MGR = AccountManager(
+    appdata_dir=APPDATA_DIR,
+    config_getter=load_user_config,
+    config_saver=save_user_config,
+    playtime_mgr=PLAYTIME_MGR,
+    achievement_mgr=ACHIEVEMENT_MGR,
+    community_cloud_mgr=COMMUNITY_CLOUD_MGR,
+    cloud_sync_mgr=CLOUD_SYNC_MGR,
 )
 
 _CC_UPLOAD_LOCK = threading.Lock()
@@ -734,8 +746,11 @@ def get_main_hwnd():
 
     titles = [
         "CỔ NGỮ - Trình Quản Lý Game Việt Hóa Pro",
+        "CO NGU - Trinh Quan Ly Game Viet Hoa Pro",
         "CỔ NGỮ (VietModHub Pro)",
-        "VietModHub"
+        "VietModHub",
+        "VietModManager",
+        "CỔ NGỮ"
     ]
     for t in titles:
         h = user32.FindWindowW(None, t)
@@ -763,6 +778,20 @@ def get_main_hwnd():
     WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
     user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
 
+    if not found_hwnds:
+        # Fallback (Edge/Chrome App Mode): tim window co title chua CO NGU bat ke PID
+        def enum_fallback(h, lParam):
+            if user32.IsWindowVisible(h):
+                length = user32.GetWindowTextLengthW(h)
+                if length > 0:
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(h, buff, length + 1)
+                    val = buff.value
+                    if any(k in val for k in ["CỔ NGỮ", "CO NGU", "VietMod"]):
+                        found_hwnds.append(h)
+            return True
+        user32.EnumWindows(WNDENUMPROC(enum_fallback), 0)
+
     if found_hwnds:
         MAIN_HWND = found_hwnds[0]
         return MAIN_HWND
@@ -782,8 +811,9 @@ def start_window_drag():
     import ctypes
     user32 = ctypes.windll.user32
 
-    # Check if left mouse button is pressed
-    if not (user32.GetAsyncKeyState(0x01) & 0x8000):
+    # Check if left or right mouse button is pressed (ho tro ca chuot tay trai)
+    btn_down = (user32.GetAsyncKeyState(0x01) & 0x8000) or (user32.GetAsyncKeyState(0x02) & 0x8000)
+    if not btn_down:
         return {"success": False, "status": "mouse_not_down"}
 
     class POINT(ctypes.Structure):
@@ -820,7 +850,7 @@ def start_window_drag():
 
         curr_pt = POINT()
         try:
-            while user32.GetAsyncKeyState(0x01) & 0x8000:
+            while (user32.GetAsyncKeyState(0x01) & 0x8000) or (user32.GetAsyncKeyState(0x02) & 0x8000):
                 user32.GetCursorPos(ctypes.byref(curr_pt))
                 new_x = curr_pt.x - offset_x
                 new_y = curr_pt.y - offset_y
@@ -1162,6 +1192,7 @@ def _make_bookmark_only_game(bookmark: dict, favorites: set) -> dict:
 class ModManagerAPI:
     def __init__(self):
         self.window = None
+        self._dialog_lock = threading.Lock()
 
     def get_games(self):
         """Returns list of games with installation & mod status (3 states: INSTALLED, NOT_INSTALLED, GAME_MISSING)"""
@@ -1321,7 +1352,8 @@ class ModManagerAPI:
                     requires_admin = False
                 else:
                     is_writable = check_directory_writable(game_path)
-                    requires_admin = not is_writable
+                    is_in_pf = "program files" in (game_path or "").lower()
+                    requires_admin = (not is_writable) and is_in_pf
 
             g["is_writable"] = is_writable
             g["requires_admin"] = requires_admin
@@ -1752,12 +1784,127 @@ class ModManagerAPI:
                 "community" if community_online else ("gdrive" if gdrive_online else "")
             )
             overview["player"]["cloud_id"] = community_id
+            # Ưu tiên manifest -> sau đó config.json
+            cfg = load_user_config() or {}
+            profile_cfg = cfg.get("profile", {})
+            if not overview["player"].get("avatar_url") and profile_cfg.get("avatar_url"):
+                overview["player"]["avatar_url"] = profile_cfg["avatar_url"]
+            if not overview["player"].get("cover_url") and profile_cfg.get("cover_url"):
+                overview["player"]["cover_url"] = profile_cfg["cover_url"]
+            if not overview["player"].get("bio") and profile_cfg.get("bio"):
+                overview["player"]["bio"] = profile_cfg["bio"]
+            if overview["player"]["name"] == "Game Thủ" and community_id:
+                overview["player"]["name"] = community_id
+                overview["player"]["initial"] = community_id[:1].upper()
 
             overview["success"] = True
             return overview
         except Exception as e:
             print(f"[Profile] Lỗi tổng hợp Hồ Sơ: {e}")
             return {"success": False, "message": f"Không thể tải Hồ Sơ: {e}"}
+
+
+    def update_profile_settings(self, data: dict) -> dict:
+        """
+        Lưu Avatar, Ảnh bìa (Cover), Tên và Châm ngôn vào .congu_save và config.json,
+        đồng thời tự động đồng bộ lên Đám Mây (Community Cloud & Google Drive).
+        """
+        try:
+            vault = get_vault_instance()
+            manifest = vault.read_manifest() or {}
+
+            if "player_name" in data and str(data["player_name"]).strip():
+                manifest["player_name"] = str(data["player_name"]).strip()
+            if "avatar_url" in data:
+                manifest["avatar_url"] = str(data["avatar_url"]).strip()
+            if "cover_url" in data:
+                manifest["cover_url"] = str(data["cover_url"]).strip()
+            if "bio" in data:
+                manifest["bio"] = str(data["bio"]).strip()
+
+            manifest["updated_at"] = int(time.time())
+            vault.update_manifest_only(manifest)
+
+            # Cập nhật config.json
+            cfg = load_user_config() or {}
+            profile_cfg = cfg.setdefault("profile", {})
+            for k in ("player_name", "avatar_url", "cover_url", "bio"):
+                if k in manifest:
+                    profile_cfg[k] = manifest[k]
+            save_user_config(cfg)
+
+            # Đồng bộ lên Cloud nếu đang đăng nhập
+            cloud_synced = False
+            cloud_provider = ""
+
+            if data.get("sync_cloud", True):
+                try:
+                    if COMMUNITY_CLOUD_MGR.get_status().get("is_logged_in"):
+                        c_res = COMMUNITY_CLOUD_MGR.upload_save(pack_all=False)
+                        if c_res.get("success"):
+                            cloud_synced = True
+                            cloud_provider = "Đám Mây Cổ Ngữ"
+                except Exception as ce:
+                    print(f"[Profile] Community cloud sync error: {ce}")
+
+                try:
+                    if CLOUD_SYNC_MGR and CLOUD_SYNC_MGR.is_connected():
+                        g_res = CLOUD_SYNC_MGR.upload_vault()
+                        if g_res.get("success"):
+                            cloud_synced = True
+                            cloud_provider = (cloud_provider + " & Google Drive") if cloud_provider else "Google Drive"
+                except Exception as ge:
+                    print(f"[Profile] GDrive sync error: {ge}")
+
+            return {
+                "success": True,
+                "message": f"Đã lưu cài đặt hồ sơ thành công! {('Đã đồng bộ lên ' + cloud_provider) if cloud_synced else '(Đã lưu cục bộ)'}",
+                "player_name": manifest.get("player_name", ""),
+                "avatar_url": manifest.get("avatar_url", ""),
+                "cover_url": manifest.get("cover_url", ""),
+                "bio": manifest.get("bio", ""),
+                "cloud_synced": cloud_synced
+            }
+        except Exception as e:
+            print(f"[Profile] Lỗi lưu hồ sơ: {e}")
+            return {"success": False, "error": f"Lỗi lưu hồ sơ: {e}"}
+
+    def select_profile_image(self, img_type: str = "avatar") -> dict:
+        """Mở hộp thoại chọn tệp ảnh từ máy tính và chuyển thành base64 data URI."""
+        from core.native_dialogs import pick_file
+        chosen = pick_file(
+            title=f"Chọn ảnh {'Đại Diện (Avatar)' if img_type == 'avatar' else 'Ảnh Bìa (Cover)'}",
+            file_types=("Tệp hình ảnh (*.png;*.jpg;*.jpeg;*.webp;*.gif)",),
+            parent_window=self.window
+        )
+        if not chosen or not os.path.isfile(chosen):
+            return {"success": False, "cancelled": True}
+
+        try:
+            ext = os.path.splitext(chosen)[1].lower().replace(".", "")
+            if ext == "jpg": ext = "jpeg"
+            mime = f"image/{ext}" if ext in ("png", "jpeg", "webp", "gif") else "image/jpeg"
+
+            with open(chosen, "rb") as f:
+                raw_bytes = f.read()
+
+            if len(raw_bytes) > 2 * 1024 * 1024:
+                return {
+                    "success": False,
+                    "error": "Ảnh quá lớn (vượt quá 2MB). Vui lòng chọn ảnh nhỏ hơn để đảm bảo đồng bộ đám mây mượt mà!"
+                }
+
+            b64_str = base64.b64encode(raw_bytes).decode("ascii")
+            data_uri = f"data:{mime};base64,{b64_str}"
+
+            return {
+                "success": True,
+                "data_uri": data_uri,
+                "filename": os.path.basename(chosen),
+                "size_kb": round(len(raw_bytes) / 1024, 1)
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Lỗi đọc tệp ảnh: {e}"}
 
     def get_game_achievements(self, game_id_or_appid: str, game_dir: str = ""):
         """Lấy danh sách và trạng thái mở khóa thành tựu của game (Chuẩn Hydra Launcher)."""
@@ -1775,36 +1922,85 @@ class ModManagerAPI:
                 pass
         return ACHIEVEMENT_MGR.get_game_achievements_view(appid=appid, game_dir=game_dir, game_id=game_id)
 
+    # =========================================================================
+    # HỆ THỐNG ĐỔI TÀI KHOẢN & KÍCH DỮ LIỆU CŨ (MULTI-ACCOUNT MANAGER)
+    # =========================================================================
+    def get_account_status(self) -> dict:
+        """Lấy danh sách tất cả tài khoản và tài khoản hiện đang active."""
+        return ACCOUNT_MGR.get_status()
+
+    def switch_account(self, data: dict) -> dict:
+        """Chuyển sang tài khoản khác, tự động kích hết dữ liệu cũ ra khỏi app."""
+        account_id = data.get("account_id", "") if isinstance(data, dict) else str(data)
+        return ACCOUNT_MGR.switch_to_account(account_id)
+
+    def create_blank_account(self, data: dict) -> dict:
+        """Tạo tài khoản mới và kích sạch toàn bộ dữ liệu cũ, để lại app trống."""
+        data = data or {}
+        name = data.get("name", "Tài Khoản Mới")
+        acc_type = data.get("type", "offline")
+        return ACCOUNT_MGR.create_blank_account(name=name, account_type=acc_type)
+
+    def login_online_account(self, data: dict) -> dict:
+        """Kích hết dữ liệu cũ, đăng nhập tài khoản Online và đồng bộ Cloud."""
+        data = data or {}
+        cloud_id = data.get("cloud_id", "")
+        password = data.get("password", "")
+        server_url = data.get("server_url", "")
+        return ACCOUNT_MGR.switch_to_online_account(cloud_id=cloud_id, password=password, server_url=server_url)
+
+    def purge_and_logout_account(self) -> dict:
+        """Kích sạch 100% dữ liệu cũ và đưa ứng dụng về chế độ app trống."""
+        return ACCOUNT_MGR.purge_and_logout()
+
+    def delete_account(self, data: dict) -> dict:
+        """Xóa vĩnh viễn tài khoản và dữ liệu snapshot khỏi máy."""
+        account_id = data.get("account_id", "") if isinstance(data, dict) else str(data)
+        return ACCOUNT_MGR.delete_account(account_id)
+
     def poll_new_achievements(self):
         """Lấy các thành tựu mới mở khóa trong thời gian thực để Frontend bắn Toast."""
         return ACHIEVEMENT_MGR.pop_newly_unlocked()
 
-    def select_repo_folder(self):
-        """Open native folder picker for user to select Viethoagame repository"""
-        chosen_dir = None
-        if self.window:
-            res = self.window.create_file_dialog(webview.FOLDER_DIALOG, allow_multiple=False)
-            if res and len(res) > 0:
-                chosen_dir = res[0]
-        
-        if not chosen_dir:
+    def test_achievement_overlay(self, game_id: str = ""):
+        """Kích hoạt thử thông báo thành tựu chuẩn Steam để kiểm tra hiển thị & âm thanh."""
+        from core.cloud_save.overlay_toast import show_in_game_achievement_notification
+        game_title = "CỔ NGỮ OVERLAY"
+        if game_id:
             try:
-                import tkinter as tk
-                from tkinter import filedialog
-                root = tk.Tk()
-                root.withdraw()
-                root.attributes("-topmost", True)
-                chosen_dir = filedialog.askdirectory(title="Chọn thư mục kho Viethoagame")
-                root.destroy()
+                for g in self.get_games():
+                    if g.get("id") == game_id or str(g.get("steam_appid") or "") == str(game_id):
+                        game_title = g.get("vietnamese_title") or g.get("title") or game_title
+                        break
             except Exception:
                 pass
+        show_in_game_achievement_notification(
+            title="Thợ Săn Thành Tựu",
+            description="Đã kích hoạt thành công thông báo thành tựu chuẩn Steam!",
+            game_title=game_title
+        )
+        return {"success": True, "message": f"Đã gửi thông báo thành tựu ({game_title}) lên góc phải màn hình!"}
 
-        if chosen_dir and os.path.exists(chosen_dir):
-            cfg = load_user_config()
-            cfg["repo_dir"] = os.path.normpath(chosen_dir)
-            save_user_config(cfg)
-            return {"success": True, "repo_dir": chosen_dir, "games": self.get_games()}
-        return {"success": False, "message": "Không có thư mục nào được chọn."}
+    def select_repo_folder(self):
+        """Open native folder picker for user to select Viethoagame repository"""
+        if hasattr(self, "_dialog_lock") and not self._dialog_lock.acquire(blocking=False):
+            return {"success": False, "message": "Hộp thoại chọn thư mục đang được mở."}
+        try:
+            chosen_dir = pick_folder(title="Chọn thư mục kho Viethoagame", parent_window=self.window)
+            if chosen_dir and os.path.exists(chosen_dir):
+                cfg = load_user_config()
+                cfg["repo_dir"] = os.path.normpath(chosen_dir)
+                save_user_config(cfg)
+                return {"success": True, "repo_dir": chosen_dir, "games": self.get_games()}
+            return {"success": False, "message": "Không có thư mục nào được chọn."}
+        except Exception as e:
+            return {"success": False, "message": f"Lỗi mở chọn thư mục: {str(e)}"}
+        finally:
+            if hasattr(self, "_dialog_lock"):
+                try:
+                    self._dialog_lock.release()
+                except RuntimeError:
+                    pass
 
 
     def set_cloud_url(self, game_id, url):
@@ -1834,73 +2030,76 @@ class ModManagerAPI:
 
     def select_folder(self, game_id):
         """Open native folder picker dialog for user to select game directory"""
-        chosen_dir = None
-        if self.window:
-            res = self.window.create_file_dialog(webview.FOLDER_DIALOG, allow_multiple=False)
-            if res and len(res) > 0:
-                chosen_dir = res[0]
-        
-        # Fallback to tkinter if needed
-        if not chosen_dir:
-            try:
-                import tkinter as tk
-                from tkinter import filedialog
-                root = tk.Tk()
-                root.withdraw()
-                root.attributes("-topmost", True)
-                chosen_dir = filedialog.askdirectory(title=f"Chọn thư mục cài đặt game {game_id}")
-                root.destroy()
-            except Exception as e:
-                print(f"File dialog error: {e}")
-
-        if chosen_dir and os.path.exists(chosen_dir):
+        if hasattr(self, "_dialog_lock") and not self._dialog_lock.acquire(blocking=False):
+            return {"success": False, "message": "Hộp thoại chọn thư mục đang được mở."}
+        try:
             with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
                 games_map = {gm["id"]: gm for gm in json.load(f)}
             g_target = games_map.get(game_id, {})
-            is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g_target, chosen_dir)
-            if is_valid:
-                cfg = load_user_config()
-                cfg[f"{game_id}_path"] = resolved_path
-                save_user_config(cfg)
+            g_title = g_target.get("title") or game_id
 
-                # Tự động nhận diện metadata và poster cho game lẻ (4 Lớp)
+            chosen_dir = pick_folder(
+                title=f"Chọn thư mục cài đặt game: {g_title}",
+                parent_window=self.window
+            )
+
+            if chosen_dir and os.path.exists(chosen_dir):
+                if os.path.isfile(chosen_dir):
+                    chosen_dir = os.path.dirname(chosen_dir)
+                is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g_target, chosen_dir)
+                if is_valid:
+                    cfg = load_user_config()
+                    cfg[f"{game_id}_path"] = resolved_path
+                    save_user_config(cfg)
+
+                    # Tự động nhận diện metadata và poster cho game lẻ (4 Lớp)
+                    try:
+                        meta = fetch_game_metadata_and_avatar(
+                            resolved_path, 
+                            g_target.get("executable_name", ""), 
+                            g_target.get("title", ""), 
+                            game_id
+                        )
+                        if meta:
+                            c_cache = load_covers_cache()
+                            c_cache[game_id] = meta
+                            save_covers_cache(c_cache)
+                    except Exception as e:
+                        print(f"[!] Metadata extraction error: {e}")
+
+                    # Early Write Permission Check (Program Files / UAC restriction)
+                    is_admin = is_running_as_admin()
+                    is_writable = is_admin or check_directory_writable(resolved_path)
+                    is_in_pf = "program files" in (resolved_path or "").lower()
+                    requires_admin = (not is_writable) and is_in_pf
+
+                    msg = val_msg
+                    if requires_admin:
+                        msg = (
+                            f"Thư mục '{os.path.basename(resolved_path)}' hợp lệ nhưng nằm trong thư mục hệ thống (Program Files). "
+                            f"Windows yêu cầu quyền Administrator để ghi tệp."
+                        )
+                    return {
+                        "success": True,
+                        "path": resolved_path,
+                        "message": msg,
+                        "is_writable": is_writable,
+                        "requires_admin": requires_admin,
+                        "games": self.get_games()
+                    }
+                else:
+                    return {"success": False, "path": chosen_dir, "message": val_msg}
+            
+            return {"success": False, "message": "Không có thư mục nào được chọn."}
+        except Exception as e:
+            print(f"[select_folder] Error: {e}")
+            return {"success": False, "message": f"Lỗi chọn thư mục: {str(e)}"}
+        finally:
+            if hasattr(self, "_dialog_lock"):
                 try:
-                    meta = fetch_game_metadata_and_avatar(
-                        resolved_path, 
-                        g_target.get("executable_name", ""), 
-                        g_target.get("title", ""), 
-                        game_id
-                    )
-                    if meta:
-                        c_cache = load_covers_cache()
-                        c_cache[game_id] = meta
-                        save_covers_cache(c_cache)
-                except Exception as e:
-                    print(f"[!] Metadata extraction error: {e}")
-
-                # Early Write Permission Check (Program Files / UAC restriction)
-                is_admin = is_running_as_admin()
-                is_writable = is_admin or check_directory_writable(resolved_path)
-                requires_admin = not is_writable
-
-                msg = val_msg
-                if requires_admin:
-                    msg = (
-                        f"Thư mục '{os.path.basename(resolved_path)}' hợp lệ nhưng nằm trong thư mục hệ thống (Program Files). "
-                        f"Windows yêu cầu quyền Administrator để ghi tệp."
-                    )
-                return {
-                    "success": True,
-                    "path": resolved_path,
-                    "message": msg,
-                    "is_writable": is_writable,
-                    "requires_admin": requires_admin,
-                    "games": self.get_games()
-                }
-            else:
-                return {"success": False, "path": chosen_dir, "message": val_msg}
-        
-        return {"success": False, "message": "Không có thư mục nào được chọn."}
+                    self._dialog_lock.release()
+                except RuntimeError:
+                    pass
 
     def set_game_path(self, game_id, path):
         """Manually update game path with smart validation"""
@@ -1934,7 +2133,8 @@ class ModManagerAPI:
         # Early Write Permission Check (Program Files / UAC restriction)
         is_admin = is_running_as_admin()
         is_writable = is_admin or check_directory_writable(resolved_path)
-        requires_admin = not is_writable
+        is_in_pf = "program files" in (resolved_path or "").lower()
+        requires_admin = (not is_writable) and is_in_pf
 
         msg = val_msg
         if requires_admin:
@@ -2061,31 +2261,13 @@ class ModManagerAPI:
                 pass
         return chosen_file or ""
 
+    def select_vault_file_dialog(self):
         """Mở hộp thoại chọn tệp .congu_save từ USB/ổ cứng ngoài."""
-        chosen_file = None
-        if self.window:
-            try:
-                file_types = ('Hồ Sơ CỔ NGỮ (*.congu_save;*.congu_vault;*.zip)', 'All files (*.*)')
-                res = self.window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types)
-                if res and len(res) > 0:
-                    chosen_file = res[0]
-            except Exception as e:
-                print(f"[!] PyWebView file dialog error: {e}")
-
-        if not chosen_file:
-            try:
-                import tkinter as tk
-                from tkinter import filedialog
-                root = tk.Tk()
-                root.withdraw()
-                root.attributes("-topmost", True)
-                chosen_file = filedialog.askopenfilename(
-                    title="Chọn tệp Hồ Sơ CỔ NGỮ (.congu_save)",
-                    filetypes=[("Hồ Sơ CỔ NGỮ", "*.congu_save;*.congu_vault;*.zip"), ("All files", "*.*")]
-                )
-                root.destroy()
-            except Exception:
-                pass
+        chosen_file = pick_file(
+            title="Chọn tệp Hồ Sơ CỔ NGỮ (.congu_save)",
+            file_types=('Hồ Sơ CỔ NGỮ (*.congu_save;*.congu_vault;*.zip)', 'All files (*.*)'),
+            parent_window=self.window
+        )
         return chosen_file or ""
 
     def export_vault_dialog(self):
@@ -2632,6 +2814,17 @@ class ModManagerAPI:
         except Exception as e:
             print(f"[GameDoctor] Pre-flight warning: {e}")
 
+        # 0.2 Pre-Launch Cloud Guard: Kéo save mới nhất từ Cloud trước khi mở game
+        cloud_guard_info = None
+        try:
+            cloud_cfg = cfg.get("cloud_save", {})
+            if cloud_cfg.get("auto_sync_on_launch", True):
+                cloud_guard_info = CLOUD_SYNC_MGR.pre_launch_cloud_guard(game_id, g, game_path or "")
+                if cloud_guard_info and cloud_guard_info.get("status") == "pulled":
+                    log_startup(f"[CloudGuard] Da cap nhat save moi nhat tu Cloud ve may cho '{game_id}'")
+        except Exception as e:
+            print(f"[CloudGuard] Pre-launch error: {e}")
+
         # 1. Tìm file thực thi .exe trong thư mục game
         candidate_exe = None
         if game_path and os.path.exists(game_path):
@@ -2695,24 +2888,77 @@ class ModManagerAPI:
 
         # Ưu tiên mở trực tiếp qua file .exe nếu tìm thấy (hỗ trợ cả game modded, crack, GOG, Epic, Steam)
         if candidate_exe and os.path.isfile(candidate_exe):
+            exe_dir = os.path.dirname(candidate_exe)
             try:
                 subprocess.Popen(
                     [candidate_exe],
-                    cwd=os.path.dirname(candidate_exe),
+                    cwd=exe_dir,
                     env=child_env,
                     creationflags=creation_flags,
                     close_fds=True
                 )
                 launched = True
                 launch_protocol = "executable"
-            except Exception as e:
-                print(f"[Launch Warning] Direct Popen failed: {e}, falling back to os.startfile...")
+            except OSError as e:
+                is_elevation = (
+                    getattr(e, "winerror", None) == 740
+                    or "740" in str(e)
+                    or "elevation" in str(e).lower()
+                )
+                log_startup(f"[Launch Warning] Direct Popen failed: {e}. Yêu cầu cấp quyền Admin: {is_elevation}")
+
+                # Windows ShellExecuteW: Đảm bảo lpDirectory = exe_dir để game nạp đúng DLL & file cấu hình
+                verb = "runas" if is_elevation else "open"
                 try:
-                    os.startfile(candidate_exe)
-                    launched = True
-                    launch_protocol = "executable"
-                except Exception as e2:
-                    print(f"[Launch Error] os.startfile failed: {e2}")
+                    old_cwd = os.getcwd()
+                    try:
+                        os.chdir(exe_dir)
+                        res = ctypes.windll.shell32.ShellExecuteW(
+                            None,
+                            verb,
+                            candidate_exe,
+                            None,
+                            exe_dir,
+                            1  # SW_SHOWNORMAL
+                        )
+                        if res > 32:
+                            launched = True
+                            launch_protocol = "executable_elevated" if is_elevation else "executable_shellexec"
+                            log_startup(f"[Launch OK] ShellExecuteW ('{verb}') đã kích hoạt thành công game: '{candidate_exe}'")
+                        else:
+                            log_startup(f"[Launch Error] ShellExecuteW ('{verb}') trả về mã lỗi: {res}")
+                    finally:
+                        try:
+                            os.chdir(old_cwd)
+                        except Exception:
+                            pass
+                except Exception as e_sh:
+                    log_startup(f"[Launch Error] ShellExecuteW failed: {e_sh}")
+
+                # Fallback cuối cùng: os.startfile có bảo toàn CWD sang thư mục game
+                if not launched:
+                    try:
+                        old_cwd = os.getcwd()
+                        try:
+                            os.chdir(exe_dir)
+                            if is_elevation:
+                                try:
+                                    os.startfile(candidate_exe, "runas")
+                                    launched = True
+                                    launch_protocol = "executable_runas"
+                                except Exception:
+                                    pass
+                            if not launched:
+                                os.startfile(candidate_exe)
+                                launched = True
+                                launch_protocol = "executable_startfile"
+                        finally:
+                            try:
+                                os.chdir(old_cwd)
+                            except Exception:
+                                pass
+                    except Exception as e2:
+                        log_startup(f"[Launch Error] os.startfile failed: {e2}")
 
         # Fallback giao thức Steam nếu không khởi chạy được trực tiếp
         if not launched and appid:
@@ -2740,6 +2986,7 @@ class ModManagerAPI:
                             self.window,
                             game_id,
                             g.get("vietnamese_title") or g.get("title") or game_id,
+                            game_dir=effective_dir,
                         )
                         log_startup(f"[GameBooster] Kich hoat cho '{game_id}': {booster_info}")
             except Exception as e:
@@ -3641,14 +3888,31 @@ class ModManagerAPI:
             return {"success": True, "exe_path": chosen_file}
         return {"success": False, "message": "Chưa chọn file thực thi nào."}
 
-    def detect_custom_game(self, exe_path: str):
+    def detect_custom_game(self, exe_path: str, steam_appid: str = ""):
         """Tự động phân tích và nhận diện game qua CustomGameDetector."""
         try:
             from custom_game_detector import CustomGameDetector
-            detected = CustomGameDetector.detect_from_exe(exe_path, covers_dir=COVERS_DIR)
+            detected = CustomGameDetector.detect_from_exe(
+                exe_path,
+                covers_dir=COVERS_DIR,
+                steam_appid_override=steam_appid
+            )
             return {"success": True, "game": detected}
         except Exception as e:
             return {"success": False, "error": str(e), "message": f"Lỗi khi nhận diện game: {e}"}
+
+    def fetch_custom_game_by_appid(self, steam_appid: str, exe_path: str = ""):
+        """Lấy toàn bộ metadata game từ Steam AppID, giữ nguyên file .exe đã chọn."""
+        try:
+            from custom_game_detector import CustomGameDetector
+            detected = CustomGameDetector.fetch_metadata_by_appid(
+                steam_appid,
+                exe_path=exe_path,
+                covers_dir=COVERS_DIR
+            )
+            return {"success": True, "game": detected}
+        except Exception as e:
+            return {"success": False, "error": str(e), "message": f"Không lấy được dữ liệu Steam: {e}"}
 
     def save_custom_game(self, game_data: dict):
         """Lưu hoặc cập nhật một custom game vào danh sách."""
@@ -3669,11 +3933,16 @@ class ModManagerAPI:
             cfg[f"{gid}_path"] = game_data.get("game_root", "")
             save_user_config(cfg)
 
-            try:
-                vault = get_vault_instance()
-                vault.pack_game_to_vault(game_data, game_data.get("game_root", ""))
-            except Exception as e:
-                print(f"[CustomGames Vault Warning]: {e}")
+            # Chạy gom Save vào Vault trong luồng ngầm (background thread)
+            # để phản hồi ngay lập tức, người dùng không phải chờ đợi ở bước "Đang lưu..."
+            def _async_vault_pack():
+                try:
+                    vault = get_vault_instance()
+                    vault.pack_game_to_vault(game_data, game_data.get("game_root", ""))
+                except Exception as e:
+                    print(f"[CustomGames Vault Warning]: {e}")
+
+            threading.Thread(target=_async_vault_pack, daemon=True).start()
 
             return {
                 "success": True,
@@ -3932,21 +4201,65 @@ class ModManagerAPI:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
-    def start_torrent_download(self, uri, title="", save_dir=None):
-        """Bắt đầu tải game bằng aria2c (Magnet / Torrent / HTTP link)."""
+    def get_discovery_detail(self, steam_appid="", title=""):
+        """Lấy thông tin chi tiết game cho modal Khám Phá (mô tả, cấu hình, ảnh, trailer, nguồn tải)."""
         try:
-            res = TORRENT_MGR.add_download(uri=uri, title=title, save_dir=save_dir)
-            return res
+            steam_appid = str(steam_appid or "").strip()
+            title = str(title or "").strip()
+            detail = {}
+            if steam_appid and steam_appid.isdigit():
+                detail = DISCOVERY_MGR.appdetails(steam_appid) or {}
+
+            # Nguồn tải có sẵn
+            downloads = []
+            if title:
+                try:
+                    downloads = HYDRA_MGR.search_download_links_for_game(title=title, limit=8)
+                except Exception:
+                    downloads = []
+
+            # Kiểm tra kho Việt hóa Cổ Ngữ
+            congu_game = None
+            if title:
+                t_low = title.lower().strip()
+                for g in self.games:
+                    gt = str(g.get("title", "")).lower()
+                    gvi = str(g.get("vietnamese_title", "")).lower()
+                    if t_low and (t_low in gt or gt in t_low or t_low in gvi or gvi in t_low):
+                        congu_game = {
+                            "id": g.get("id"),
+                            "title": g.get("title"),
+                            "vietnamese_title": g.get("vietnamese_title"),
+                            "is_installed": bool(g.get("is_installed")),
+                            "has_vietnamese": True
+                        }
+                        break
+
+            return {
+                "success": True,
+                "steam_appid": steam_appid,
+                "title": title or (detail.get("name") if detail else ""),
+                "detail": detail,
+                "downloads": downloads,
+                "congu_game": congu_game
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "detail": {}}
+
+    def start_torrent_download(self, uri, title="", save_dir=None):
+        """Bắt đầu tải file torrent qua daemon Aria2c nội bộ của Cổ Ngữ."""
+        try:
+            return TORRENT_MGR.add_download(uri=uri, title=title, save_dir=save_dir)
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     def get_torrent_downloads_status(self):
-        """Lấy tiến độ realtime của tất cả các tiến trình tải về."""
+        """Lấy danh sách và tiến độ các tác vụ tải về qua Aria2c."""
         try:
             downloads = TORRENT_MGR.get_all_downloads_status()
             return {"success": True, "downloads": downloads}
         except Exception as e:
-            return {"success": False, "error": str(e), "downloads": []}
+            return {"success": False, "downloads": [], "error": str(e)}
 
     def pause_torrent_download(self, gid):
         """Tạm dừng tải task theo GID."""
@@ -3970,9 +4283,18 @@ class ModManagerAPI:
             return {"success": False, "error": str(e)}
 
     def open_external_torrent(self, uri):
-        """Mở magnet link bằng phần mềm torrent mặc định của máy (qBittorrent, BitTorrent...)."""
+        """Mở link tải bằng phần mềm ngoài (Torrent client hoặc Browser / IDM)."""
+        if not uri:
+            return {"success": False, "message": "URI trống!"}
         try:
-            return TORRENT_MGR.open_external_torrent(uri)
+            uri = uri.strip()
+            if uri.startswith(('http://', 'https://')):
+                import webbrowser
+                webbrowser.open(uri)
+                return {"success": True, "message": "Đã mở liên kết trong Trình duyệt Web của bạn!"}
+            else:
+                os.startfile(uri)
+                return {"success": True, "message": "Đã chuyển link tới ứng dụng Torrent (qBittorrent/uTorrent) của máy!"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -3984,6 +4306,67 @@ class ModManagerAPI:
                 os.startfile(target)
                 return {"success": True, "path": target}
             return {"success": False, "message": "Thư mục không tồn tại."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+
+    def inspect_torrent_download(self, path_or_gid):
+        """Phân tích cấu trúc thư mục/file tải về để đề xuất hành động."""
+        try:
+            return TORRENT_MGR.inspect_download_contents(path_or_gid)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def run_torrent_installer(self, installer_path):
+        """Khởi chạy file setup.exe."""
+        try:
+            return TORRENT_MGR.run_installer(installer_path)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def extract_torrent_archive(self, archive_path, dest_dir=None):
+        """Giải nén file nén tải về."""
+        try:
+            return TORRENT_MGR.extract_archive(archive_path, dest_dir=dest_dir)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def auto_register_downloaded_game(self, path_or_gid, auto_install_mod=False):
+        """Tự động phát hiện file .exe, thêm vào thư viện Cổ Ngữ và tùy chọn cài đặt Việt Hóa tức thì."""
+        try:
+            insp = TORRENT_MGR.inspect_download_contents(path_or_gid)
+            game_exe = insp.get("game_exe")
+            if not game_exe or not os.path.isfile(game_exe):
+                return {"success": False, "message": "Không tìm thấy file .exe thực thi của game để thêm vào thư viện."}
+
+            reg_res = self._dnd_add_game_from_exe(game_exe)
+            if reg_res.get("status") != "ok":
+                return {"success": False, "message": reg_res.get("message", "Thêm game vào thư viện thất bại.")}
+
+            game_info = reg_res.get("game", {})
+            gid = game_info.get("id")
+
+            # Nếu người dùng chọn tự động cài đặt Việt Hóa
+            mod_started = False
+            if auto_install_mod and gid:
+                all_games = self.get_games()
+                matched_cat = None
+                for g in all_games:
+                    if g.get("id") == gid or (game_info.get("steam_appid") and str(g.get("steam_appid")) == str(game_info.get("steam_appid"))):
+                        matched_cat = g
+                        break
+
+                if matched_cat:
+                    target_gid = matched_cat["id"]
+                    threading.Thread(target=lambda: self.install_mod(target_gid, force=True), daemon=True).start()
+                    mod_started = True
+
+            return {
+                "success": True,
+                "game": game_info,
+                "mod_started": mod_started,
+                "message": f"Đã thêm '{game_info.get('title')}' vào thư viện!" + (" Đang tự động nạp Việt Hóa..." if mod_started else "")
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -4697,30 +5080,21 @@ class ModManagerAPI:
 
     def select_custom_library_folder(self):
         """Mở hộp thoại chọn thư mục chứa game ngoài để thêm vào danh sách quét."""
-        chosen_dir = ""
+        if hasattr(self, "_dialog_lock") and not self._dialog_lock.acquire(blocking=False):
+            return {"success": False, "message": "Hộp thoại chọn thư mục đang được mở."}
         try:
-            if self.window:
-                res = self.window.create_file_dialog(webview.FOLDER_DIALOG)
-                if res:
-                    chosen_dir = res if isinstance(res, str) else res[0]
+            chosen_dir = pick_folder(title="Chọn thư mục chứa game để thêm vào quét", parent_window=self.window)
+            if chosen_dir and os.path.exists(chosen_dir):
+                return {"success": True, "path": os.path.normpath(chosen_dir)}
+            return {"success": False, "message": "Chưa chọn thư mục nào."}
         except Exception as e:
-            print(f"[!] PyWebView folder dialog error: {e}")
-
-        if not chosen_dir:
-            try:
-                import tkinter as tk
-                from tkinter import filedialog
-                root = tk.Tk()
-                root.withdraw()
-                root.attributes("-topmost", True)
-                chosen_dir = filedialog.askdirectory(title="Chọn thư mục chứa game để thêm vào quét")
-                root.destroy()
-            except Exception:
-                pass
-
-        if chosen_dir:
-            return {"success": True, "path": os.path.normpath(chosen_dir)}
-        return {"success": False, "message": "Chưa chọn thư mục nào."}
+            return {"success": False, "message": f"Lỗi chọn thư mục: {str(e)}"}
+        finally:
+            if hasattr(self, "_dialog_lock"):
+                try:
+                    self._dialog_lock.release()
+                except RuntimeError:
+                    pass
 
 
 

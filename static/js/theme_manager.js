@@ -37,9 +37,9 @@
       '--bg-secondary': 'rgba(20, 27, 46, 0.85)',
       '--text-primary': '#f2f6fc',
       '--text-muted': '#8b9bb4',
-      '--accent-color': '#00f0ff',
-      '--accent-hover': '#66f5ff',
-      '--border-color': 'rgba(0, 240, 255, 0.22)',
+      '--accent-color': '#FF2A55',
+      '--accent-hover': '#FF6685',
+      '--border-color': 'rgba(255, 42, 85, 0.22)',
       '--card-radius': '12px',
       '--glass-blur': '12px'
     };
@@ -600,7 +600,7 @@
 
       const toneClass = tone === 'error' ? 'text-rose-400' : 'text-slate-400';
       const iconClass = tone === 'loading'
-        ? 'w-6 h-6 text-[#00F0FF] animate-spin'
+        ? 'w-6 h-6 text-[#FF2A55] animate-spin'
         : (tone === 'error' ? 'w-7 h-7 text-rose-400' : 'w-7 h-7 text-slate-500');
 
       grid.innerHTML =
@@ -638,7 +638,7 @@
       } else {
         previewHtml =
           '<div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0F1522] via-[#151C2C] to-[#151C2C]">' +
-            '<i data-lucide="palette" class="w-8 h-8 text-[#00F0FF]/40"></i>' +
+            '<i data-lucide="palette" class="w-8 h-8 text-[#FF2A55]/40"></i>' +
           '</div>';
       }
 
@@ -646,7 +646,7 @@
         ? '<span class="font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] bg-[#34D399] text-black shadow-[0_1px_3px_rgba(0,0,0,0.35)]">ĐANG DÙNG</span>'
         : '';
       const builtinBadge = isBuiltin
-        ? '<span class="font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/60">MẶC ĐỊNH</span>'
+        ? '<span class="font-pixel text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] bg-[#FF2A55]/15 text-[#FF2A55] border border-[#FF2A55]/60">MẶC ĐỊNH</span>'
         : '';
       const warningHtml = warnings.length
         ? '<div class="text-[10px] text-amber-300 flex items-center gap-1" title="' + warningsTitle + '">' +
@@ -657,7 +657,7 @@
 
       const applyClass = isActive
         ? 'pixel-btn bg-slate-700/60 text-slate-400 border border-slate-600 cursor-default opacity-70'
-        : 'pixel-btn btn-neon-cyan';
+        : 'pixel-btn btn-neon-red';
 
       return '' +
         '<article class="theme-card group relative flex flex-col overflow-hidden border' + (isActive ? ' is-active' : '') + '">' +
@@ -686,7 +686,7 @@
                 '<span>' + (isActive ? 'Đang dùng' : 'Áp dụng') + '</span>' +
               '</button>' +
               '<button type="button" onclick="exportThemePackage(\'' + id + '\')" ' +
-                'class="pixel-btn px-2 py-1.5 text-[11px] bg-[#1C2536] text-slate-300 border border-[#2A3548] hover:text-white hover:border-[#00F0FF]" ' +
+                'class="pixel-btn px-2 py-1.5 text-[11px] bg-[#1C2536] text-slate-300 border border-[#2A3548] hover:text-white hover:border-[#FF2A55]" ' +
                 'title="Xuất gói .congu_theme để chia sẻ cộng đồng">' +
                 '<i data-lucide="download" class="w-3 h-3"></i>' +
               '</button>' +

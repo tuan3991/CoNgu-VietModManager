@@ -18,13 +18,15 @@ except ImportError:
 
 from core.config_manager import (
     load_user_config, save_user_config, BACKUP_ROOT, APPDATA_DIR,
-    get_games, get_active_games_json_path
+    get_games, get_active_games_json_path,
+    get_repo_dir, DEFAULT_REPO_DIR, FALLBACK_REPO_DIR, USER_DOCS_DIR, APP_DIR
 )
-from core.scanner import check_directory_writable, is_running_as_admin
+from core.scanner import check_directory_writable, is_running_as_admin, verify_and_resolve_game_path
 from core.downloader import download_file_with_progress
 from core.backup_rollback import (
     load_backup_manifest, save_backup_manifest, restore_files_inplace,
-    record_preexisting_environment, emergency_restore_game as deep_emergency_restore
+    record_preexisting_environment, emergency_restore_game as deep_emergency_restore,
+    backup_file_inplace, record_backup_manifest, record_modded_state
 )
 from .process_checker import (
     calculate_sha256, check_game_running, find_mod_source_dir, check_has_mod_files
@@ -335,6 +337,8 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
                     for bf in sec_res["backed_up_files"]:
                         record_modded_state(game_id, bf.get("target_file"), bf.get("relative_in_game"))
 
+                cleanup_cache_after_install(game_id, cfg)
+                _record_mod_install_receipt(game_id, g, game_path)
                 set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
                 return {
                     "success": True,
@@ -445,6 +449,8 @@ def install_mod_impl(game_id: str, force: bool = False, get_games_func: Optional
                                 for bf in sec_res["backed_up_files"]:
                                     record_modded_state(game_id, bf.get("target_file"), bf.get("relative_in_game"))
 
+                            cleanup_cache_after_install(game_id, cfg)
+                            _record_mod_install_receipt(game_id, g, game_path)
                             set_progress(100, f"Cài đặt hoàn tất 100% cho {g['vietnamese_title']}!", status="success", game_id=game_id)
                             return {
                                 "success": True,
@@ -913,3 +919,67 @@ def emergency_restore_game(game_id: str, get_games_func: Optional[Callable] = No
         return res
     finally:
         game_lock.release()
+
+
+def verify_mod_integrity(game_id: str, get_games_func: Optional[Callable] = None) -> dict:
+    """
+    Ki?m tra t?nh to?n v?n c?a b?n Vi?t h?a (Steam-style Verify Integrity).
+    ??i chi?u xem c?c t?p Vi?t h?a ?? c?i v?o th? m?c game c? c?n nguy?n v?n,
+    b? x?a, ho?c b? Steam/Epic c?p nh?t ghi ?? kh?ng.
+    """
+    games_fetcher = get_games_func if get_games_func is not None else get_games
+    games_list = games_fetcher()
+    g = next((gm for gm in games_list if gm["id"] == game_id), None)
+    if not g:
+        return {"success": False, "message": "Kh?ng t?m th?y th?ng tin t?a game n?y."}
+
+    game_path = g.get("game_path")
+    if not game_path or not os.path.exists(game_path):
+        return {"success": False, "message": "Ch?a x?c ??nh ???c th? m?c game tr?n m?y t?nh."}
+
+    # ??c manifest b?n sao l?u ho?c danh s?ch file c?i
+    manifest = load_backup_manifest(game_id)
+    backed_up = manifest.get("backed_up_files", [])
+
+    missing_or_modified = []
+    intact = 0
+
+    if backed_up:
+        for item in backed_up:
+            target = item.get("target_file")
+            if not target:
+                continue
+            if not os.path.isabs(target):
+                target = os.path.join(game_path, target)
+            if not os.path.exists(target):
+                missing_or_modified.append(os.path.basename(target) + " (?? b? x?a ho?c di chuy?n)")
+            else:
+                intact += 1
+    else:
+        # Ki?m tra b??c c?i ??t m?c ??nh
+        steps = g.get("install_steps") or []
+        for st in steps:
+            if st.get("action") in ("copy_file", "patch_binary"):
+                target = st.get("target") or st.get("destination") or ""
+                if target:
+                    full_target = os.path.join(game_path, target)
+                    if not os.path.exists(full_target):
+                        missing_or_modified.append(target + " (Thi?u)")
+                    else:
+                        intact += 1
+
+    if not missing_or_modified:
+        return {
+            "success": True,
+            "intact": True,
+            "verified_files": intact,
+            "message": f"To?n b? {intact} t?p Vi?t h?a c?a {g['vietnamese_title']} ??u nguy?n v?n 100%!"
+        }
+    else:
+        return {
+            "success": True,
+            "intact": False,
+            "verified_files": intact,
+            "corrupted_files": missing_or_modified,
+            "message": f"Ph?t hi?n {len(missing_or_modified)} t?p Vi?t h?a b? l?ch ho?c ghi ?? b?i Steam/Epic! B?n c? th? b?m 'C?i L?i' ?? kh?c ph?c t?c th?."
+        }

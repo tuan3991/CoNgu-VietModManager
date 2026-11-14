@@ -12,12 +12,12 @@
       const contentOAuth = document.getElementById('subtabContent-gdriveOAuth');
 
       if (tab === 'community') {
-        if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-cyan-400 text-cyan-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
+        if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-red-400 text-red-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
         if (btnOAuth) btnOAuth.className = 'py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center space-x-1.5 transition cursor-pointer';
         if (contentComm) contentComm.classList.remove('hidden');
         if (contentOAuth) contentOAuth.classList.add('hidden');
       } else {
-        if (btnOAuth) btnOAuth.className = 'py-2.5 px-3 border-b-2 border-cyan-400 text-cyan-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
+        if (btnOAuth) btnOAuth.className = 'py-2.5 px-3 border-b-2 border-red-400 text-red-300 font-bold flex items-center space-x-1.5 transition cursor-pointer';
         if (btnComm) btnComm.className = 'py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center space-x-1.5 transition cursor-pointer';
         if (contentOAuth) contentOAuth.classList.remove('hidden');
         if (contentComm) contentComm.classList.add('hidden');
@@ -28,21 +28,66 @@
     function switchCommAuthMode(mode) {
       const btnReg = document.getElementById('commModeBtn-register');
       const btnLog = document.getElementById('commModeBtn-login');
+      const btnReset = document.getElementById('commModeBtn-reset');
       const formReg = document.getElementById('commRegisterForm');
       const formLog = document.getElementById('commLoginForm');
+      const formReset = document.getElementById('commResetForm');
+      const alertBox = document.getElementById('commLoginWrongPassAlert');
+      if (alertBox) alertBox.classList.add('hidden');
+
+      const idleClass = 'py-1.5 px-2 font-bold rounded text-center transition text-slate-400 hover:text-white bg-transparent text-[11px] truncate cursor-pointer';
 
       if (mode === 'register') {
-        if (btnReg) btnReg.className = 'flex-1 py-1.5 font-bold rounded text-center transition bg-[#00F0FF] text-[#061418] shadow cursor-pointer';
-        if (btnLog) btnLog.className = 'flex-1 py-1.5 font-bold rounded text-center transition text-slate-400 hover:text-white bg-transparent cursor-pointer';
+        if (btnReg) btnReg.className = 'py-1.5 px-2 font-bold rounded text-center transition bg-[#FF2A55] text-[#061418] shadow text-[11px] truncate cursor-pointer';
+        if (btnLog) btnLog.className = idleClass;
+        if (btnReset) btnReset.className = idleClass;
         if (formReg) formReg.classList.remove('hidden');
         if (formLog) formLog.classList.add('hidden');
-      } else {
-        if (btnLog) btnLog.className = 'flex-1 py-1.5 font-bold rounded text-center transition bg-cyan-600 text-white shadow cursor-pointer';
-        if (btnReg) btnReg.className = 'flex-1 py-1.5 font-bold rounded text-center transition text-slate-400 hover:text-white bg-transparent cursor-pointer';
+        if (formReset) formReset.classList.add('hidden');
+      } else if (mode === 'login') {
+        if (btnLog) btnLog.className = 'py-1.5 px-2 font-bold rounded text-center transition bg-red-600 text-white shadow text-[11px] truncate cursor-pointer';
+        if (btnReg) btnReg.className = idleClass;
+        if (btnReset) btnReset.className = idleClass;
         if (formLog) formLog.classList.remove('hidden');
         if (formReg) formReg.classList.add('hidden');
+        if (formReset) formReset.classList.add('hidden');
+
+        // Điền trước ID nếu có từ tab khác
+        const logIdInput = document.getElementById('inputCommLogId');
+        const regIdVal = (document.getElementById('inputCommRegId')?.value || '').trim();
+        const resetIdVal = (document.getElementById('inputCommResetId')?.value || '').trim();
+        if (logIdInput && !logIdInput.value) {
+          logIdInput.value = resetIdVal || regIdVal;
+        }
+      } else if (mode === 'reset') {
+        if (btnReset) btnReset.className = 'py-1.5 px-2 font-bold rounded text-center transition bg-amber-500 text-[#0f172a] shadow text-[11px] truncate cursor-pointer';
+        if (btnReg) btnReg.className = idleClass;
+        if (btnLog) btnLog.className = idleClass;
+        if (formReset) formReset.classList.remove('hidden');
+        if (formReg) formReg.classList.add('hidden');
+        if (formLog) formLog.classList.add('hidden');
+
+        // Điền trước ID nếu người dùng vừa gõ ở tab đăng nhập hoặc đăng ký
+        const resetIdInput = document.getElementById('inputCommResetId');
+        const logIdVal = (document.getElementById('inputCommLogId')?.value || '').trim();
+        const regIdVal = (document.getElementById('inputCommRegId')?.value || '').trim();
+        if (resetIdInput && !resetIdInput.value) {
+          resetIdInput.value = logIdVal || regIdVal;
+        }
       }
       if (window.lucide) lucide.createIcons();
+    }
+
+    function handleWrongPassReset() {
+      const logId = (document.getElementById('inputCommLogId')?.value || '').trim();
+      switchCommAuthMode('reset');
+      const resetIdInput = document.getElementById('inputCommResetId');
+      if (resetIdInput && logId) {
+        resetIdInput.value = logId;
+      }
+      setTimeout(() => {
+        document.getElementById('inputCommResetPass')?.focus();
+      }, 100);
     }
 
     function generateRandomCloudId() {
@@ -110,21 +155,18 @@
         const topBadge = document.getElementById('communityCloudBadge');
 
         if (topBtn) {
+          topBtn.className = 'hidden';
           if (isCommCloudLoggedIn) {
-            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/70 bg-[#061e16] text-emerald-300 hover:bg-emerald-900 transition shadow-[0_0_12px_rgba(0,240,255,0.3)]';
             if (topText) topText.textContent = commCloudInfo.cloud_id || 'Đám Mây';
             if (topBadge) {
-              topBadge.classList.remove('hidden');
+              topBadge.className = 'hidden';
               topBadge.textContent = 'ON';
-              topBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 font-pixel border border-emerald-500/50';
             }
           } else {
-            topBtn.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 rounded-[4px] border border-emerald-500/40 bg-[#081a14]/90 text-emerald-300/80 hover:bg-emerald-950 hover:border-emerald-400 transition shadow-[0_2px_8px_rgba(0,0,0,0.35)]';
             if (topText) topText.textContent = 'Đám Mây';
             if (topBadge) {
-              topBadge.classList.remove('hidden');
+              topBadge.className = 'hidden';
               topBadge.textContent = 'OFF';
-              topBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-pixel border border-slate-700';
             }
           }
         }
@@ -201,6 +243,7 @@
     async function registerCommunityCloud() {
       const regId = (document.getElementById('inputCommRegId')?.value || '').trim();
       const regPass = (document.getElementById('inputCommRegPass')?.value || '').trim();
+      const regPassConfirm = (document.getElementById('inputCommRegPassConfirm')?.value || '').trim();
       const serverUrl = (document.getElementById('inputCommServerUrl')?.value || '').trim();
 
       if (!regId) {
@@ -219,6 +262,16 @@
       if (!regPass || regPass.length < 4) {
         showToast('Mật khẩu bảo vệ phải có ít nhất 4 ký tự!', 'warning');
         document.getElementById('inputCommRegPass')?.focus();
+        return;
+      }
+      if (!regPassConfirm) {
+        showToast('Vui lòng nhập Xác nhận mật khẩu bảo vệ!', 'warning');
+        document.getElementById('inputCommRegPassConfirm')?.focus();
+        return;
+      }
+      if (regPass !== regPassConfirm) {
+        showToast('Mật khẩu xác nhận không khớp! Vui lòng nhập lại chính xác.', 'warning');
+        document.getElementById('inputCommRegPassConfirm')?.focus();
         return;
       }
 
@@ -247,6 +300,9 @@
           await uploadCommunitySave(true);
         } else {
           showToast(data.error || 'Lỗi khi tạo Mã Cloud ID!', 'error');
+          // Nếu ID đã có người dùng và có thể là do người dùng gõ sai pass hoặc quên pass
+          const resetIdInput = document.getElementById('inputCommResetId');
+          if (resetIdInput) resetIdInput.value = regId;
         }
       } catch (err) {
         showToast(`Không thể kết nối máy chủ: ${err}`, 'error');
@@ -295,11 +351,88 @@
         const data = await resp.json();
 
         if (data.success) {
+          const alertBox = document.getElementById('commLoginWrongPassAlert');
+          if (alertBox) alertBox.classList.add('hidden');
           showToast(`Đăng nhập thành công Mã ID '${logId}'! Đang kéo save về máy...`, 'success');
           await checkCommunityCloudStatus();
           await downloadCommunitySave(true);
         } else {
-          showToast(data.error || 'Đăng nhập thất bại!', 'error');
+          const errMsg = data.error || 'Đăng nhập thất bại!';
+          showToast(errMsg, 'error');
+          const errLower = errMsg.toLowerCase();
+          if (errLower.includes('mật khẩu') || errLower.includes('không chính xác') || errLower.includes('pass') || errLower.includes('sai')) {
+            const alertBox = document.getElementById('commLoginWrongPassAlert');
+            if (alertBox) alertBox.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+          }
+        }
+      } catch (err) {
+        showToast(`Lỗi kết nối máy chủ: ${err}`, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    }
+
+    async function resetCommunityCloud() {
+      const resetId = (document.getElementById('inputCommResetId')?.value || '').trim();
+      const resetPass = (document.getElementById('inputCommResetPass')?.value || '').trim();
+      const resetPassConfirm = (document.getElementById('inputCommResetPassConfirm')?.value || '').trim();
+      const serverUrl = (document.getElementById('inputCommServerUrl')?.value || '').trim();
+
+      if (!resetId) {
+        showToast('Vui lòng nhập Mã Cloud ID cần đặt lại!', 'warning');
+        document.getElementById('inputCommResetId')?.focus();
+        return;
+      }
+      if (resetId.length < 3) {
+        showToast('Mã Cloud ID phải có ít nhất 3 ký tự!', 'warning');
+        return;
+      }
+      if (!resetPass || resetPass.length < 4) {
+        showToast('Mật khẩu mới phải có ít nhất 4 ký tự!', 'warning');
+        document.getElementById('inputCommResetPass')?.focus();
+        return;
+      }
+      if (!resetPassConfirm) {
+        showToast('Vui lòng nhập Xác nhận mật khẩu mới!', 'warning');
+        document.getElementById('inputCommResetPassConfirm')?.focus();
+        return;
+      }
+      if (resetPass !== resetPassConfirm) {
+        showToast('Mật khẩu xác nhận không khớp! Vui lòng nhập lại chính xác.', 'warning');
+        document.getElementById('inputCommResetPassConfirm')?.focus();
+        return;
+      }
+
+      const btn = document.getElementById('btnCommResetAction');
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-[#0f172a]"></i>
+          <span>ĐANG TẠO LẠI MẬT KHẨU TRÊN MÁY CHỦ...</span>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        const resp = await fetch('/api/community_cloud/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cloud_id: resetId, password: resetPass, server_url: serverUrl })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast(`Đã tạo lại mật khẩu cho Mã Cloud ID '${resetId}' thành công! Đang kết nối Mây...`, 'success');
+          await checkCommunityCloudStatus();
+          await uploadCommunitySave(true);
+        } else {
+          showToast(data.error || 'Đặt lại mật khẩu thất bại!', 'error');
         }
       } catch (err) {
         showToast(`Lỗi kết nối máy chủ: ${err}`, 'error');
@@ -446,7 +579,7 @@
         const btnGdrive = document.getElementById('btnGdriveCloud');
         if (btnGdrive) {
           if (isCloudConnected) {
-            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-emerald-950/60 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(0,240,255,0.3)] rounded-[2px] transition';
+            btnGdrive.className = 'pixel-btn px-3 py-1.5 text-xs flex items-center space-x-1.5 bg-emerald-950/60 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(255, 42, 85,0.3)] rounded-[2px] transition';
             btnGdrive.innerHTML = `
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
@@ -713,7 +846,7 @@
             statusBadge.textContent = 'CÓ SAVE MỚI TRÊN MÁY';
             if (subText) subText.textContent = 'Bản save cục bộ mới hơn bản trên Drive. Bấm Tải Lên để sao lưu.';
           } else if (state === 'DOWNLOAD_NEEDED') {
-            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/50';
+            statusBadge.className = 'text-[10px] font-pixel font-bold px-2 py-0.5 rounded-[2px] bg-red-500/20 text-red-300 border border-red-500/50';
             statusBadge.textContent = 'CÓ SAVE TRÊN CLOUD';
             if (subText) subText.textContent = 'Phát hiện save từ máy khác trên Drive. Bấm Tải Về để tiếp tục chơi.';
           } else if (state === 'CONFLICT') {
@@ -1031,7 +1164,7 @@
           } else {
             if (driveFileName) driveFileName.textContent = 'Chưa tải lên Google Drive';
             if (driveFileSize) driveFileSize.textContent = '';
-            if (driveFileMtime) driveFileMtime.textContent = 'Bấm "Đẩy Két Lên Google Drive" để sao lưu';
+            if (driveFileMtime) driveFileMtime.textContent = 'Bấm "Đẩy Save Lên Google Drive" để sao lưu';
           }
         } else {
           if (driveBadge) {
@@ -1061,7 +1194,7 @@
       if (gids.length === 0) {
         container.innerHTML = `
           <div class="text-center py-6 text-xs text-slate-500 bg-black/20 rounded border border-white/5">
-            Chưa có game nào trong két. Bấm "Gom Tất Cả Vào Két" ở trên để tự động gom toàn bộ save game hiện có!
+            Chưa có game nào trong danh sách. Bấm "Gom Tất Cả Save" ở trên để tự động gom toàn bộ save game hiện có!
           </div>
         `;
         return;
@@ -1091,22 +1224,22 @@
                 <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-pixel">ID: ${gid}</span>
               </div>
               <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
-                <span class="text-cyan-300"><i data-lucide="clock" class="w-3 h-3 inline"></i> ${playtimeStr}</span>
+                <span class="text-red-300"><i data-lucide="clock" class="w-3 h-3 inline"></i> ${playtimeStr}</span>
                 <span class="text-emerald-300"><i data-lucide="trophy" class="w-3 h-3 inline"></i> ${achCount} thành tựu</span>
                 ${saveSize ? `<span class="text-slate-400"><i data-lucide="hard-drive" class="w-3 h-3 inline"></i> ${saveSize} (${fileCount} tệp)</span>` : ''}
                 <span class="text-slate-500">Cập nhật: ${saveMtime}</span>
               </div>
             </div>
             <div class="flex items-center space-x-2 shrink-0">
-              <button onclick="packGameToVault('${gid}')" class="pixel-btn px-2.5 py-1 bg-amber-600/80 hover:bg-amber-500 text-white rounded text-xs flex items-center space-x-1" title="Gom lại save của game này vào két">
+              <button onclick="packGameToVault('${gid}')" class="pixel-btn px-2.5 py-1 bg-amber-600/80 hover:bg-amber-500 text-white rounded text-xs flex items-center space-x-1" title="Sao lưu lại file save của game này">
                 <i data-lucide="archive-restore" class="w-3 h-3"></i>
                 <span>Gom Lại</span>
               </button>
-              <button onclick="unpackGameFromVault('${gid}')" class="pixel-btn px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs flex items-center space-x-1" title="Bung save của game này về đúng thư mục máy">
+              <button onclick="unpackGameFromVault('${gid}')" class="pixel-btn px-2.5 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs flex items-center space-x-1" title="Bung save của game này về đúng thư mục máy">
                 <i data-lucide="layers" class="w-3 h-3"></i>
                 <span>Bung Ra Máy</span>
               </button>
-              <button onclick="openSaveTimeMachine('${gid}')" class="pixel-btn px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs flex items-center space-x-1" title="Time Machine: khôi phục save của phiên chơi trước nếu save mới nhất bị hỏng">
+              <button onclick="openSaveTimeMachine('${gid}')" class="pixel-btn px-2.5 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs flex items-center space-x-1" title="Time Machine: khôi phục save của phiên chơi trước nếu save mới nhất bị hỏng">
                 <i data-lucide="history" class="w-3 h-3"></i>
                 <span>Lịch Sử</span>
               </button>
@@ -1251,7 +1384,7 @@
       const origHtml = btn ? btn.innerHTML : '';
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-cyan-400"></i><span class="text-xs text-cyan-300">Đang bung save...</span>`;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-red-400"></i><span class="text-xs text-red-300">Đang bung save...</span>`;
         if (window.lucide) lucide.createIcons();
       }
       try {
@@ -1281,7 +1414,7 @@
     async function packGameToVault(gameId) {
       if (!gameId) return;
       try {
-        showToast(`Đang gom Save Game & Thành tựu của '${gameId}' vào Két...`, 'info');
+        showToast(`Đang gom Save Game & Thành tựu của '${gameId}' ...`, 'info');
         const resp = await fetch('/api/vault/pack', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1304,7 +1437,7 @@
     async function unpackGameFromVault(gameId) {
       if (!gameId) return;
       try {
-        showToast(`Đang bung Save Game của '${gameId}' từ Két ra máy...`, 'info');
+        showToast(`Đang bung Save Game của '${gameId}' ra máy...`, 'info');
         const resp = await fetch('/api/vault/unpack', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1320,7 +1453,7 @@
           showToast(data.error || 'Bung save thất bại!', 'error');
         }
       } catch (e) {
-        showToast('Lỗi khi bung save từ Két ra máy!', 'error');
+        showToast('Lỗi khi bung save ra máy!', 'error');
       }
     }
 
@@ -1417,7 +1550,7 @@
         '<div style="width:520px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;' +
         'background:rgba(12,16,30,0.99);border:1px solid rgba(217,70,239,0.55);border-radius:8px;' +
         'box-shadow:0 24px 60px rgba(0,0,0,0.8);overflow:hidden;">' +
-        '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(217,70,239,0.16),rgba(0,240,255,0.08));' +
+        '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(217,70,239,0.16),rgba(255, 42, 85,0.08));' +
         'border-bottom:1px solid rgba(217,70,239,0.28);font-size:12px;font-weight:700;letter-spacing:1px;color:#8B9BB4;">' +
         '🕰 // TIME MACHINE — LỊCH SỬ PHIÊN BẢN SAVE</div>' +
         '<div id="conguTimeMachineBody" style="padding:14px 16px;overflow:auto;flex:1;color:#dbe9f6;font-size:12.5px;">' +
@@ -1511,3 +1644,9 @@
         if (typeof showToast === 'function') showToast('Lỗi khôi phục save: ' + e, 'error');
       }
     }
+
+    window.switchCommAuthMode = switchCommAuthMode;
+    window.handleWrongPassReset = handleWrongPassReset;
+    window.registerCommunityCloud = registerCommunityCloud;
+    window.loginCommunityCloud = loginCommunityCloud;
+    window.resetCommunityCloud = resetCommunityCloud;

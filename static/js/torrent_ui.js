@@ -8,53 +8,19 @@
     let activeCatalogueGame = null;
     let catalogueSearchDebounceTimer = null;
 
-    function openHydraModal(defaultTab = 'catalogue') {
-      const modal = document.getElementById('hydraModal');
-      if (!modal) return;
-      modal.classList.remove('hidden');
-      switchHydraTab(defaultTab);
-      lucide.createIcons();
-    }
+    function openHydraModal() {
+  // Modal Kho Game Repack & Tien trinh tai da duoc loai bo hoan toan
+}
 
-    function closeHydraModal() {
-      const modal = document.getElementById('hydraModal');
-      if (modal) modal.classList.add('hidden');
-      closeCatalogueDownloadOptions();
-    }
+function closeHydraModal() {
+  // Modal da duoc loai bo
+}
 
-    function switchHydraTab(tabName) {
-      currentHydraModalTab = tabName;
-      const btnCat = document.getElementById('hydraTabBtn-catalogue');
-      const btnDl = document.getElementById('hydraTabBtn-downloads');
-      const btnSrc = document.getElementById('hydraTabBtn-sources');
-      const cCat = document.getElementById('hydraTabContent-catalogue');
-      const cDl = document.getElementById('hydraTabContent-downloads');
-      const cSrc = document.getElementById('hydraTabContent-sources');
+function switchHydraTab() {
+  // Modal da duoc loai bo
+}
 
-      const baseBtnClass = 'py-3 px-4 text-slate-400 hover:text-white border-b-2 border-transparent flex items-center space-x-1.5 transition whitespace-nowrap font-bold font-display text-xs';
-      const activeBtnClass = 'py-3 px-4 text-cyan-400 border-b-2 border-cyan-400 flex items-center space-x-1.5 transition whitespace-nowrap font-bold font-display text-xs';
-
-      if (btnCat) btnCat.className = (tabName === 'catalogue') ? activeBtnClass : baseBtnClass;
-      if (btnDl) btnDl.className = (tabName === 'downloads') ? activeBtnClass : baseBtnClass;
-      if (btnSrc) btnSrc.className = (tabName === 'sources') ? activeBtnClass : baseBtnClass;
-
-      if (cCat) cCat.classList.toggle('hidden', tabName !== 'catalogue');
-      if (cDl) cDl.classList.toggle('hidden', tabName !== 'downloads');
-      if (cSrc) cSrc.classList.toggle('hidden', tabName !== 'sources');
-
-      if (tabName === 'catalogue') {
-        if (!catalogueCachedGames || catalogueCachedGames.length === 0) {
-          searchCatalogueGames('');
-        }
-      } else if (tabName === 'downloads') {
-        pollTorrentStatus();
-      } else if (tabName === 'sources') {
-        loadHydraSourcesList();
-      }
-      lucide.createIcons();
-    }
-
-    // =============================================================
+// =============================================================
     // CATALOGUE ENGINE: SEARCH & RENDER GAMES (SCREENSHOT 1)
     // =============================================================
     let catalogueSearchAbort = null;
@@ -134,7 +100,7 @@
 
       container.innerHTML = `
         <div class="p-12 text-center space-y-3">
-          <i data-lucide="loader-2" class="w-8 h-8 text-cyan-400 animate-spin mx-auto"></i>
+          <i data-lucide="loader-2" class="w-8 h-8 text-red-400 animate-spin mx-auto"></i>
           <p class="text-xs text-slate-300 font-bold">Đang quét kho game Repack từ các nguồn...</p>
         </div>
       `;
@@ -177,7 +143,7 @@
             <p class="text-[11px] text-slate-500 max-w-md mx-auto">
               Hãy thử tìm với từ khóa khác (ví dụ: "god of war", "cyberpunk", "wukong", "elden ring") hoặc nhấn "Quản Lý Nguồn" để nạp thêm các file .json của FitGirl, DODI, GOG, Xatab!
             </p>
-            <button onclick="clearCatalogueSearch()" class="pixel-btn px-3 py-1.5 text-xs bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-500/40 rounded font-bold">
+            <button onclick="clearCatalogueSearch()" class="pixel-btn px-3 py-1.5 text-xs bg-red-900/60 hover:bg-red-800 text-red-200 border border-red-500/40 rounded font-bold">
               Xem Tất Cả Game
             </button>
           </div>
@@ -248,7 +214,7 @@
               </span>
               <div class="flex items-center gap-2">
                 <button onclick="event.stopPropagation(); catalogueToggleBookmark(${idx}, this)"
-                        class="pixel-btn w-8 h-8 flex items-center justify-center ${bmActive ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50' : 'bg-[#1C2536] text-slate-300 border-white/10 hover:text-cyan-300'}"
+                        class="pixel-btn w-8 h-8 flex items-center justify-center ${bmActive ? 'bg-red-500/20 text-red-200 border-red-400/50' : 'bg-[#1C2536] text-slate-300 border-white/10 hover:text-red-300'}"
                         title="${bmActive ? 'Bỏ khỏi Thư viện (Chưa tải)' : 'Thêm vào Thư viện để tải sau'}">
                   <i data-lucide="bookmark${bmActive ? '-check' : '-plus'}" class="w-4 h-4"></i>
                 </button>
@@ -370,13 +336,13 @@
         const date = r.upload_date || 'Gần đây';
 
         return `
-          <div class="group p-3.5 rounded-[5px] bg-[#091120] hover:bg-[#0e1a32] border border-slate-800 hover:border-cyan-500/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition shadow-sm">
+          <div class="group p-3.5 rounded-[5px] bg-[#091120] hover:bg-[#0e1a32] border border-slate-800 hover:border-red-500/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition shadow-sm">
             
             <!-- Left Info (Screenshot 2: Title, Size, Repacker, Date) -->
             <div class="min-w-0 space-y-1.5 flex-1">
               <div class="flex items-center space-x-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] shrink-0"></span>
-                <h5 class="text-xs sm:text-sm font-bold text-slate-100 group-hover:text-cyan-200 transition-colors leading-tight">
+                <h5 class="text-xs sm:text-sm font-bold text-slate-100 group-hover:text-red-200 transition-colors leading-tight">
                   ${r.title}
                 </h5>
               </div>
@@ -384,26 +350,26 @@
               <div class="text-[11px] text-slate-400 font-mono flex items-center space-x-2 pl-4">
                 <span>${size}</span>
                 <span>•</span>
-                <span class="text-cyan-300 font-semibold">${repacker}</span>
+                <span class="text-red-300 font-semibold">${repacker}</span>
                 <span>•</span>
                 <span>${date}</span>
               </div>
             </div>
 
-            <!-- Right Actions: Tải Cổ Ngữ vs qBittorrent -->
+            <!-- Right Actions: Mở ngoài & Sao chép link -->
             <div class="flex items-center space-x-2 shrink-0 self-end sm:self-center pl-4 sm:pl-0">
-              <button onclick="startCatalogueDownload('${encodeURIComponent(primaryUri)}', '${encodeURIComponent(r.title)}')" 
-                      class="pixel-btn px-3 py-1.5 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded flex items-center space-x-1.5 transition shadow-[0_0_12px_rgba(6,182,212,0.35)]" 
-                      title="Tải siêu tốc 16 luồng bằng Aria2c tích hợp sẵn trong CỔ NGỮ">
-                <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i>
-                <span>Tải Trong CỔ NGỮ</span>
+              <button onclick="openExternalTorrentLink('${encodeURIComponent(primaryUri)}', '${encodeURIComponent(r.title)}')" 
+                      class="pixel-btn px-3 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded flex items-center space-x-1.5 transition shadow-[0_0_12px_rgba(6,182,212,0.35)]" 
+                      title="Mở link bằng ứng dụng ngoài (qBittorrent, BitTorrent, IDM, Trình duyệt Web...)">
+                <i data-lucide="external-link" class="w-3.5 h-3.5 text-white"></i>
+                <span>Mở Link Tải Ngoài</span>
               </button>
 
-              <button onclick="openExternalTorrentLink('${encodeURIComponent(primaryUri)}')" 
+              <button onclick="copyDownloadUri('${encodeURIComponent(primaryUri)}')" 
                       class="pixel-btn px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded flex items-center space-x-1 transition" 
-                      title="Mở bằng phần mềm Torrent trên máy (qBittorrent / uTorrent)">
-                <i data-lucide="magnet" class="w-3.5 h-3.5 text-cyan-400"></i>
-                <span class="hidden md:inline">qBittorrent</span>
+                      title="Sao chép link tải / magnet để dán vào IDM hoặc app torrent tùy chọn">
+                <i data-lucide="copy" class="w-3.5 h-3.5 text-red-400"></i>
+                <span>Sao Chép</span>
               </button>
             </div>
 
@@ -414,28 +380,7 @@
     }
 
     async function startCatalogueDownload(encodedUri, encodedTitle) {
-      const uri = decodeURIComponent(encodedUri);
-      const title = decodeURIComponent(encodedTitle);
-
-      try {
-        const res = await fetch('/api/torrent/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uri: uri, title: title })
-        });
-        const data = await res.json();
-        if (data && data.success) {
-          showToast(`Đã bắt đầu tải: "${title}" (16 luồng)`, 'success');
-          closeCatalogueDownloadOptions();
-          switchHydraTab('downloads');
-          pollTorrentStatus();
-        } else {
-          const errMsg = (data && (data.message || data.error)) || 'Không thể bắt đầu tải.';
-          showToast(errMsg, 'error');
-        }
-      } catch (e) {
-        showToast('Lỗi khi kích hoạt tiến trình tải: ' + e.message, 'error');
-      }
+      return startRepackDownload(encodedUri, encodedTitle);
     }
 
     async function loadHydraSourcesList() {
@@ -450,9 +395,10 @@
         const statRepacks = document.getElementById('hydraStatRepacksCount');
         const statSources = document.getElementById('hydraStatSourcesCount');
         const tabBadge = document.getElementById('hydraTabRepackTotalBadge');
-        if (statRepacks) statRepacks.innerText = `${stats.total_repacks || 0} bản game`;
+        const formattedTotal = Number(stats.total_repacks || 0).toLocaleString();
+        if (statRepacks) statRepacks.innerText = `${formattedTotal} bản game`;
         if (statSources) statSources.innerText = `${sources.length} nguồn`;
-        if (tabBadge) tabBadge.innerText = `${stats.total_repacks || 0} Repacks`;
+        if (tabBadge) tabBadge.innerText = `${formattedTotal} Repacks`;
 
         const container = document.getElementById('hydraSourcesListContainer');
         if (!container) return;
@@ -466,9 +412,9 @@
           const isUrl = s.startsWith('http://') || s.startsWith('https://');
           const shortName = isUrl ? s.split('/').pop() : s;
           return `
-            <div class="p-3 rounded-[4px] bg-[#0F1522] border border-slate-800 hover:border-cyan-500/40 flex items-center justify-between gap-3 transition">
+            <div class="p-3 rounded-[4px] bg-[#0F1522] border border-slate-800 hover:border-red-500/40 flex items-center justify-between gap-3 transition">
               <div class="flex items-center space-x-3 min-w-0">
-                <div class="w-8 h-8 rounded bg-cyan-950 text-cyan-400 flex items-center justify-center shrink-0 border border-cyan-500/30">
+                <div class="w-8 h-8 rounded bg-red-950 text-red-400 flex items-center justify-center shrink-0 border border-red-500/30">
                   <i data-lucide="${isUrl ? 'link' : 'file-code'}" class="w-4 h-4"></i>
                 </div>
                 <div class="min-w-0">
@@ -648,10 +594,10 @@
             const isMagnet = primaryUri.startsWith('magnet:');
             const safeTitle = (r.title || 'Game Repack').replace(/'/g, "\\'");
             return `
-              <div class="p-4 rounded-[6px] bg-[#0F1522] border border-cyan-500/30 hover:border-cyan-400 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="p-4 rounded-[6px] bg-[#0F1522] border border-red-500/30 hover:border-red-400 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="space-y-1.5 flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-[10px] font-pixel font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 uppercase">
+                    <span class="text-[10px] font-pixel font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/50 uppercase">
                       ${r.source_name || 'Repack'}
                     </span>
                     ${r.file_size ? `<span class="text-[11px] font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">${r.file_size}</span>` : ''}
@@ -666,16 +612,14 @@
                 </div>
 
                 <div class="flex items-center space-x-2 shrink-0">
-                  <button onclick="startRepackDownload('${encodeURIComponent(primaryUri)}', '${safeTitle}')" class="pixel-btn px-4 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded flex items-center space-x-1.5 transition shadow-[0_0_15px_rgba(6,182,212,0.35)]">
-                    <i data-lucide="zap" class="w-4 h-4 text-cyan-200"></i>
-                    <span>⚡ Tải Trong CỔ NGỮ</span>
+                  <button onclick="openExternalTorrentLink('${encodeURIComponent(primaryUri)}', '${safeTitle}')" class="pixel-btn px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded flex items-center space-x-1.5 transition shadow-[0_0_15px_rgba(6,182,212,0.35)]" title="Mở link bằng phần mềm torrent hoặc trình duyệt ngoài">
+                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                    <span>Mở Link Tải Ngoài</span>
                   </button>
-                  ${isMagnet ? `
-                    <button onclick="openExternalTorrentLink('${encodeURIComponent(primaryUri)}')" class="pixel-btn px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded flex items-center space-x-1 transition" title="Mở bằng qBittorrent hoặc phần mềm ngoài">
-                      <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                      <span>qBittorrent</span>
-                    </button>
-                  ` : ''}
+                  <button onclick="copyDownloadUri('${encodeURIComponent(primaryUri)}')" class="pixel-btn px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded flex items-center space-x-1 transition" title="Sao chép link tải vào khay nhớ tạm">
+                    <i data-lucide="copy" class="w-3.5 h-3.5 text-red-400"></i>
+                    <span>Sao Chép</span>
+                  </button>
                 </div>
               </div>
             `;
@@ -694,14 +638,35 @@
       loadGameRepacksTab(gameId);
     }
 
-    async function startRepackDownload(encodedUri, title) {
+    function copyDownloadUri(encodedUri) {
       const uri = decodeURIComponent(encodedUri);
+      if (!uri) {
+        showToast('Không có link tải để sao chép!', 'warning');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(uri).then(() => {
+          showToast('Đã sao chép link tải vào khay nhớ tạm!', 'success');
+        }).catch(() => {
+          prompt('Copy link tải:', uri);
+        });
+      } else {
+        prompt('Copy link tải:', uri);
+      }
+    }
+    window.copyDownloadUri = copyDownloadUri;
+    window.openExternalTorrentLink = openExternalTorrentLink;
+    window.startRepackDownload = startRepackDownload;
+
+    async function startRepackDownload(encodedUri, encodedTitle = '') {
+      const uri = decodeURIComponent(encodedUri);
+      const title = encodedTitle ? decodeURIComponent(encodedTitle) : 'Game Repack';
       if (!uri) {
         showToast('Không tìm thấy link tải hợp lệ!', 'error');
         return;
       }
+      showToast(`Đang thêm "${title}" vào tiến trình tải về...`, 'info');
       try {
-        showToast('Đang kết nối daemon aria2c và bắt đầu tải...', 'info');
         const res = await fetch('/api/torrent/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -709,33 +674,56 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          showToast(`Đã thêm vào hàng đợi tải: ${title}`, 'success');
-          openHydraModal('downloads');
-          pollTorrentStatus();
+          showToast(`Đã bắt đầu tải "${title}" qua Aria2c!`, 'success');
+          if (typeof openHydraModal === 'function') {
+            openHydraModal('downloads');
+          }
+          if (typeof pollTorrentStatus === 'function') {
+            pollTorrentStatus();
+          }
         } else {
-          showToast(data ? data.error || data.message : 'Lỗi khi khởi chạy aria2c', 'error');
+          const errMsg = (data && data.message) || (data && data.error) || 'Lỗi khởi động tải trong app';
+          console.warn('start_torrent_download fallback:', errMsg);
+          showToast(errMsg + ', đang mở ứng dụng ngoài...', 'warning');
+          openExternalTorrentLink(encodedUri, encodedTitle);
         }
       } catch (e) {
-        showToast('Lỗi kết nối tải về: ' + e.message, 'error');
+        console.error('Lỗi startRepackDownload:', e);
+        showToast('Không thể kết nối dịch vụ tải, đang mở liên kết ngoài...', 'info');
+        openExternalTorrentLink(encodedUri, encodedTitle);
       }
     }
 
-    async function openExternalTorrentLink(encodedUri) {
+    async function openExternalTorrentLink(encodedUri, encodedTitle = '') {
       const uri = decodeURIComponent(encodedUri);
+      const title = encodedTitle ? decodeURIComponent(encodedTitle) : '';
+      if (!uri) {
+        showToast('Không tìm thấy link tải hợp lệ!', 'error');
+        return;
+      }
       try {
         const res = await fetch('/api/torrent/open_external', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uri: uri })
+          body: JSON.stringify({ uri: uri, title: title })
         });
         const data = await res.json();
         if (data && data.success) {
-          showToast('Đã gửi liên kết tới phần mềm Torrent của máy!', 'success');
+          showToast(data.message || 'Đã chuyển liên kết tới ứng dụng ngoài của máy!', 'success');
         } else {
-          showToast(data ? data.message : 'Không thể mở phần mềm ngoài', 'error');
+          if (uri.startsWith('http://') || uri.startsWith('https://')) {
+            window.open(uri, '_blank');
+            showToast('Đang mở link tải trong trình duyệt...', 'info');
+          } else {
+            showToast(data ? data.message : 'Không thể mở phần mềm ngoài', 'error');
+          }
         }
       } catch (e) {
-        showToast('Lỗi: ' + e.message, 'error');
+        if (uri.startsWith('http://') || uri.startsWith('https://')) {
+          window.open(uri, '_blank');
+        } else {
+          showToast('Lỗi: ' + e.message, 'error');
+        }
       }
     }
 
@@ -776,6 +764,60 @@
           if (d.percent > topActivePercent) topActivePercent = d.percent;
         }
       });
+
+      // Update top navbar and footer indicators
+      const navBadge = document.getElementById('navDownloadBadge');
+      const navCount = document.getElementById('navDownloadCount');
+      const footerStatus = document.getElementById('footerDownloadStatus');
+      const footerText = document.getElementById('footerDownloadText');
+
+      if (navBadge && navCount) {
+        if (downloads.length > 0) {
+          navCount.innerText = `${downloads.length}`;
+          navBadge.classList.remove('hidden');
+        } else {
+          navBadge.classList.add('hidden');
+        }
+      }
+
+      const footerIcon = document.getElementById('footerDownloadIcon');
+      const footerBadge = document.getElementById('footerDownloadBadge');
+      const footerCount = document.getElementById('footerDownloadCount');
+
+      if (footerStatus && footerText) {
+        if (activeCount > 0) {
+          footerStatus.classList.add('flex');
+          footerStatus.classList.remove('hidden');
+          footerStatus.classList.add('border-red-500/50', 'bg-red-500/10');
+          footerStatus.classList.remove('border-white/[0.08]', 'bg-white/[0.04]');
+          footerText.innerText = `Tải về: ${formatDownloadSpeed(totalSpeedBytes)} (${activeCount})`;
+          if (footerIcon) footerIcon.classList.add('animate-pulse', 'text-red-400');
+          if (footerBadge && footerCount) {
+            footerBadge.classList.remove('hidden');
+            footerCount.innerText = `${activeCount}`;
+          }
+        } else if (downloads.length > 0) {
+          footerStatus.classList.add('flex');
+          footerStatus.classList.remove('hidden');
+          footerStatus.classList.remove('border-red-500/50', 'bg-red-500/10');
+          footerStatus.classList.add('border-white/[0.08]', 'bg-white/[0.04]');
+          footerText.innerText = `Quản Lý Tải Về (Tạm dừng: ${downloads.length})`;
+          if (footerIcon) footerIcon.classList.remove('animate-pulse', 'text-red-400');
+          if (footerBadge && footerCount) {
+            footerBadge.classList.remove('hidden');
+            footerCount.innerText = `${downloads.length}`;
+          }
+        } else {
+          // Chuẩn Steam: Nút Quản Lý Tải Về luôn hiển thị ở thanh footer dưới cùng
+          footerStatus.classList.add('flex');
+          footerStatus.classList.remove('hidden');
+          footerStatus.classList.remove('border-red-500/50', 'bg-red-500/10');
+          footerStatus.classList.add('border-white/[0.08]', 'bg-white/[0.04]');
+          footerText.innerText = 'Quản Lý Tải Về';
+          if (footerIcon) footerIcon.classList.remove('animate-pulse', 'text-red-400');
+          if (footerBadge) footerBadge.classList.add('hidden');
+        }
+      }
 
       // Update badges
       if (topBadge) {
@@ -836,85 +878,103 @@
         const totalText = task.total_formatted || (task.total_bytes > 0 ? formatBytes(task.total_bytes) : 'Đang nạp...');
 
         let statusText = 'Đang tải';
-        let statusBadgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50';
+        let statusBadgeClass = 'bg-red-500/15 text-red-300 border-red-500/30';
 
         if (isMetadata) {
           statusText = 'Nạp Peers & Metadata';
-          statusBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/50 animate-pulse';
+          statusBadgeClass = 'bg-amber-500/15 text-amber-300 border-amber-500/40 animate-pulse';
         } else if (isPaused) {
           statusText = 'Tạm dừng';
-          statusBadgeClass = 'bg-slate-700/50 text-slate-300 border-slate-600';
+          statusBadgeClass = 'bg-zinc-800 text-zinc-400 border-zinc-700';
         } else if (isComplete) {
           statusText = 'Hoàn tất';
-          statusBadgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50';
+          statusBadgeClass = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
         } else if (isError) {
           statusText = 'Lỗi';
-          statusBadgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/50';
+          statusBadgeClass = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
         } else if (task.status === 'waiting') {
           statusText = 'Đang chờ hàng đợi';
-          statusBadgeClass = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50';
+          statusBadgeClass = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
         }
 
         let infoLine = '';
         if (isMetadata) {
           infoLine = `
-            <span class="text-amber-300 font-mono flex items-center space-x-1.5">
+            <span class="text-amber-300/90 font-sans flex items-center space-x-1.5">
               <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-              <span>Đang kết nối Swarm (Đã bắt được ${peers} peers) • Đang tải danh sách file torrent...</span>
+              <span>Đang kết nối Swarm (Đã bắt được ${peers} peers) • Đang nạp danh sách tệp...</span>
             </span>
           `;
         } else {
           infoLine = `
             <span>${completedText} / ${totalText}</span>
-            <span>•</span>
-            <span class="text-cyan-300 font-bold">${task.percent || 0}%</span>
-            ${task.eta_str && task.eta_str !== 'Đang tính...' ? `<span>• Còn: ${task.eta_str}</span>` : (task.eta_seconds > 0 ? `<span>• Còn ~${Math.ceil(task.eta_seconds / 60)} phút</span>` : '')}
+            <span class="text-zinc-600">•</span>
+            <span class="text-red-400 font-bold">${task.percent || 0}%</span>
+            ${task.eta_str && task.eta_str !== 'Đang tính...' ? `<span class="text-zinc-600">•</span><span>Còn: ${task.eta_str}</span>` : (task.eta_seconds > 0 ? `<span class="text-zinc-600">•</span><span>Còn ~${Math.ceil(task.eta_seconds / 60)} phút</span>` : '')}
           `;
         }
 
         return `
-          <div class="p-4 rounded-[6px] bg-[#0F1522] border border-cyan-500/30 space-y-3">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div class="space-y-0.5 min-w-0">
+          <div id="torrent-task-${task.gid}" class="p-4 rounded-xl bg-[#0E1422] border border-white/[0.08] hover:border-red-500/30 space-y-3 transition shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="space-y-1 min-w-0">
                 <div class="flex items-center space-x-2">
-                  <span class="text-[10px] font-pixel font-bold px-2 py-0.5 rounded border uppercase ${statusBadgeClass}">
+                  <span class="text-[10px] font-sans font-semibold px-2 py-0.5 rounded-full border uppercase ${statusBadgeClass}">
                     ${statusText}
                   </span>
-                  <h4 class="text-xs font-bold text-white font-display truncate max-w-md" title="${taskTitle}">
+                  <h4 class="text-sm font-semibold text-white truncate max-w-lg" title="${taskTitle}">
                     ${taskTitle}
                   </h4>
                 </div>
-                <div class="text-[11px] text-slate-400 font-mono flex items-center space-x-3">
+                <div class="text-xs text-zinc-400 font-sans flex items-center space-x-2">
                   ${infoLine}
                 </div>
               </div>
 
               <!-- Speed & Peers -->
-              <div class="flex items-center space-x-3 text-xs font-mono">
+              <div class="flex items-center space-x-3 text-xs">
                 ${(isDownloading || isMetadata) ? `
                   <div class="text-right">
-                    <div class="text-cyan-300 font-bold">${isMetadata ? 'Đang nạp...' : `⚡ ${speedText}`}</div>
-                    <div class="text-[10px] text-slate-400">Peers: ${peers}</div>
+                    <div class="text-red-400 font-bold font-mono">${isMetadata ? 'Đang nạp...' : `⚡ ${speedText}`}</div>
+                    <div class="text-[11px] text-zinc-400">Peers: ${peers}</div>
                   </div>
                 ` : ''}
 
                 <!-- Action Controls -->
                 <div class="flex items-center space-x-1.5 shrink-0">
                   ${(isDownloading || isMetadata) ? `
-                    <button onclick="pauseTorrent('${task.gid}')" class="pixel-btn p-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded" title="Tạm dừng">
+                    <button onclick="pauseTorrent('${task.gid}')" class="p-2 bg-white/[0.05] hover:bg-white/[0.1] text-amber-300 rounded-lg transition" title="Tạm dừng">
                       <i data-lucide="pause" class="w-4 h-4"></i>
                     </button>
                   ` : ''}
                   ${isPaused ? `
-                    <button onclick="resumeTorrent('${task.gid}')" class="pixel-btn p-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded" title="Tiếp tục tải">
+                    <button onclick="resumeTorrent('${task.gid}')" class="p-2 bg-red-500/15 hover:bg-red-500/25 text-red-300 rounded-lg transition" title="Tiếp tục tải">
                       <i data-lucide="play" class="w-4 h-4"></i>
                     </button>
                   ` : ''}
-                  <button onclick="cancelTorrent('${task.gid}')" class="pixel-btn p-1.5 bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 rounded transition" title="Hủy tác vụ tải">
+                  <button onclick="cancelTorrent('${task.gid}')" class="p-2 bg-white/[0.05] hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 rounded-lg transition" title="Hủy tác vụ tải">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                   </button>
                   ${isComplete ? `
-                    <button onclick="openTorrentFolder('${encodeURIComponent(task.save_dir || task.download_dir || '')}')" class="pixel-btn px-2.5 py-1 text-xs bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded flex items-center space-x-1 font-bold">
+                    ${(task.inspection && task.inspection.action_type === 'ready_to_play') ? `
+                      <button onclick="autoRegisterGame('${task.gid}', true)" class="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center space-x-1 font-semibold shadow-md shadow-red-900/40" title="Đăng ký game vào Cổ Ngữ và tự động nạp tiếng Việt">
+                        <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i>
+                        <span>Thêm & Cài Việt Hóa</span>
+                      </button>
+                    ` : ''}
+                    ${(task.inspection && task.inspection.action_type === 'setup') ? `
+                      <button onclick="runInstaller('${encodeURIComponent(task.inspection.setup_exe || '')}')" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center space-x-1 font-semibold shadow-md shadow-emerald-900/40" title="Chạy bộ cài đặt Setup.exe">
+                        <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
+                        <span>Chạy Setup.exe</span>
+                      </button>
+                    ` : ''}
+                    ${(task.inspection && task.inspection.action_type === 'archive') ? `
+                      <button onclick="extractArchive('${encodeURIComponent(task.inspection.archive_file || '')}', '${task.gid}')" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center space-x-1 font-semibold shadow-md shadow-indigo-900/40" title="Giải nén tệp game tự động">
+                        <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+                        <span>Giải Nén Game</span>
+                      </button>
+                    ` : ''}
+                    <button onclick="openTorrentFolder('${encodeURIComponent(task.save_dir || task.download_dir || '')}')" class="px-3 py-1.5 text-xs bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 border border-white/10 rounded-lg flex items-center space-x-1 font-semibold transition">
                       <i data-lucide="folder" class="w-3.5 h-3.5"></i>
                       <span>Mở Thư Mục</span>
                     </button>
@@ -924,13 +984,28 @@
             </div>
 
             <!-- Progress Bar -->
-            <div class="w-full bg-[#03060c] rounded-full h-2 overflow-hidden border border-slate-800">
+            <div class="w-full bg-white/[0.05] rounded-full h-2 overflow-hidden border border-white/[0.05]">
               <div class="h-full rounded-full transition-all duration-300 ${
                 isComplete ? 'bg-emerald-500' :
-                isMetadata ? 'bg-gradient-to-r from-amber-500 via-cyan-500 to-blue-500 animate-pulse w-full' :
-                'bg-gradient-to-r from-cyan-500 to-blue-500'
+                isMetadata ? 'bg-gradient-to-r from-amber-500 via-red-500 to-blue-500 animate-pulse w-full' :
+                'bg-gradient-to-r from-red-500 to-blue-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
               }" style="${isMetadata ? 'width: 100%' : `width: ${task.percent || 0}%`}"></div>
             </div>
+
+            <!-- Stalled Warning -->
+            ${task.is_stalled ? `
+              <div class="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/20 text-xs text-amber-200 flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 shrink-0"></i>
+                  <span>${task.stalled_reason || 'Chưa tìm thấy Seeder hoặc nhà mạng chặn. Thử mở bằng qBittorrent hoặc tìm nguồn khác.'}</span>
+                </div>
+                <div class="flex items-center space-x-1.5 shrink-0">
+                  <button onclick="openExternalTorrentByGid('${task.gid}', '${encodeURIComponent(task.uri || '')}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold transition">
+                    ⚡ Mở qBittorrent
+                  </button>
+                </div>
+              </div>
+            ` : ''}
           </div>
         `;
       }).join('');
@@ -966,6 +1041,10 @@
     async function cancelTorrent(gid) {
       if (!confirm('Bạn có chắc chắn muốn hủy tác vụ tải này không?')) return;
       try {
+        // Cập nhật giao diện tức thì
+        const cardElem = document.getElementById(`torrent-task-${gid}`);
+        if (cardElem) cardElem.remove();
+
         await fetch('/api/torrent/cancel', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -997,6 +1076,103 @@
       }
     }
 
+    async function runInstaller(encodedPath) {
+      if (!encodedPath) return;
+      const installerPath = decodeURIComponent(encodedPath);
+      try {
+        const res = await fetch('/api/torrent/action/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ installer_path: installerPath })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast('Đang khởi chạy bộ cài đặt game...', 'success');
+        } else {
+          showToast(data ? data.message : 'Không thể chạy bộ cài đặt', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi chạy installer: ' + e.message, 'error');
+      }
+    }
+
+    async function extractArchive(encodedPath, gid) {
+      if (!encodedPath) return;
+      const archivePath = decodeURIComponent(encodedPath);
+      showToast('Đang giải nén tệp game, vui lòng chờ trong giây lát...', 'info');
+      try {
+        const res = await fetch('/api/torrent/action/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ archive_path: archivePath })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast('Đã giải nén xong! Đang cập nhật trạng thái...', 'success');
+          // Sau khi giải nén xong, thử tự động nhận diện game luôn
+          await fetch('/api/torrent/action/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gid: gid, path: data.dest_dir, auto_install_mod: true })
+          });
+          pollTorrentStatus();
+        } else {
+          showToast(data ? data.message : 'Giải nén thất bại', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi giải nén: ' + e.message, 'error');
+      }
+    }
+
+    async function autoRegisterGame(gid, autoInstallMod = true) {
+      showToast('Đang nhận diện game và đồng bộ vào Cổ Ngữ...', 'info');
+      try {
+        const res = await fetch('/api/torrent/action/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gid: gid, auto_install_mod: autoInstallMod })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(data.message || 'Đã thêm game vào Thư viện thành công!', 'success');
+          if (typeof loadGames === 'function') loadGames();
+        } else {
+          showToast(data ? data.message : 'Không tìm thấy file thực thi game phù hợp', 'warning');
+        }
+      } catch (e) {
+        showToast('Lỗi đăng ký game: ' + e.message, 'error');
+      }
+    }
+
+    async function openExternalTorrentByGid(gid, encodedUri = '') {
+      let uri = encodedUri ? decodeURIComponent(encodedUri) : '';
+      if (!uri) {
+        try {
+          const statusRes = await fetch('/api/torrent/status');
+          const statusData = await statusRes.json();
+          const dl = (statusData.downloads || []).find(d => d.gid === gid);
+          uri = dl ? (dl.uri || '') : '';
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (uri) {
+        try {
+          await fetch('/api/torrent/open_external', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uri: uri })
+          });
+          showToast('Đã mở link bằng ứng dụng Torrent ngoài!', 'success');
+        } catch (e) {
+          showToast('Lỗi mở ứng dụng ngoài: ' + e.message, 'error');
+        }
+      } else {
+        showToast('Không lấy được link Magnet cho tác vụ này.', 'warning');
+      }
+    }
+
     function formatDownloadSpeed(bytesPerSec) {
       if (!bytesPerSec || bytesPerSec <= 0) return '0 KB/s';
       const mbs = bytesPerSec / (1024 * 1024);
@@ -1014,11 +1190,6 @@
     }
 
     function startGlobalTorrentWatcher() {
-      pollTorrentStatus();
-      if (!torrentPollingInterval) {
-        torrentPollingInterval = setInterval(() => {
-          pollTorrentStatus();
-        }, 4000);
-      }
+      // Da tat watcher tien trinh ngam aria2c
     }
 

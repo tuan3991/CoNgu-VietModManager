@@ -18,7 +18,7 @@ from vault_manager import ConguSaveVault
 DEFAULT_ROOT_FOLDER_NAME = "VietModHub_Cloud_Storage"
 
 # URL Google Apps Script Web App mặc định (nếu đã triển khai)
-DEFAULT_APPS_SCRIPT_URL = ""
+DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm4nz-G5bBSEW02P5y8ZiFW7ngSOiLvYE79UtWO7BVxofxS1PpGZESH6L5vmVs2soA/exec"
 
 
 class CommunityCloudManager:
@@ -105,9 +105,21 @@ class CommunityCloudManager:
                 data = resp.json()
                 return data
             except Exception:
+                if resp.status_code == 404:
+                    return {
+                        "success": False,
+                        "error": "Không tìm thấy máy chủ Google Apps Script (Mã HTTP 404). URL Web App chưa đúng hoặc chưa được 'Triển khai mới' (Deploy Web app) quyền 'Anyone' trên script.google.com!"
+                    }
+                elif resp.status_code in (401, 403):
+                    return {
+                        "success": False,
+                        "error": f"Máy chủ Google từ chối truy cập (Mã HTTP {resp.status_code}). Khi Triển khai (Deploy), bạn cần chọn 'Ai có quyền truy cập' là 'Bất kỳ ai' (Anyone)!"
+                    }
+                import re
+                clean_preview = re.sub(r'<[^>]+>', ' ', resp.text[:150]).strip()
                 return {
                     "success": False,
-                    "error": f"Phản hồi từ máy chủ không hợp lệ (Mã HTTP {resp.status_code}): {resp.text[:200]}"
+                    "error": f"Phản hồi từ máy chủ không hợp lệ (Mã HTTP {resp.status_code}): {clean_preview or 'Không thể phân tích dữ liệu JSON'}"
                 }
         except requests.exceptions.Timeout:
             return {"success": False, "error": "Kết nối máy chủ bị quá thời gian (Timeout). Vui lòng thử lại!"}
@@ -172,6 +184,57 @@ class CommunityCloudManager:
             if res.get("file_size"):
                 c["last_size"] = res.get("file_size")
             self._save_cloud_config(c)
+
+        return res
+
+    def reset_password(self, cloud_id: str, password: str, server_url: str = "") -> dict:
+        """Đặt lại / Tạo lại mật khẩu cho Mã Cloud ID khi sai hoặc quên pass."""
+        cloud_id = (cloud_id or "").strip().lower()
+        password = (password or "").strip()
+
+        if len(cloud_id) < 3:
+            return {"success": False, "error": "Mã Cloud ID phải có ít nhất 3 ký tự!"}
+        if len(password) < 4:
+            return {"success": False, "error": "Mật khẩu bảo vệ mới phải có ít nhất 4 ký tự!"}
+
+        if server_url:
+            self.set_server_url(server_url)
+
+        res = self._call_api({
+            "action": "reset",
+            "cloud_id": cloud_id,
+            "password": password
+        })
+
+        if not res.get("success") and "không được hỗ trợ" in (res.get("error") or ""):
+            res = self._call_api({
+                "action": "recreate",
+                "cloud_id": cloud_id,
+                "password": password
+            })
+        if not res.get("success") and "không được hỗ trợ" in (res.get("error") or ""):
+            res = self._call_api({
+                "action": "register",
+                "cloud_id": cloud_id,
+                "password": password,
+                "force": True,
+                "overwrite": True
+            })
+
+        if res.get("success"):
+            c = self._get_cloud_config()
+            c["cloud_id"] = cloud_id
+            c["password"] = password
+            c["is_logged_in"] = True
+            c["last_sync"] = res.get("last_sync") or datetime.now(timezone.utc).isoformat()
+            if res.get("file_size"):
+                c["last_size"] = res.get("file_size")
+            self._save_cloud_config(c)
+        elif "không được hỗ trợ" in (res.get("error") or ""):
+            res = {
+                "success": False,
+                "error": "Máy chủ Google Apps Script hiện tại chưa được cập nhật phiên bản mới hỗ trợ Tạo lại mật khẩu. Vui lòng mở rộng mục 'Cấu hình Máy Chủ (Dành cho Admin)' ở dưới, dán mã trong file 'tools/google_apps_script.js' lên script.google.com và Triển khai (Deploy) phiên bản mới!"
+            }
 
         return res
 
@@ -278,6 +341,18 @@ class CommunityCloudManager:
             c["last_sync"] = res.get("updated_at") or datetime.now(timezone.utc).isoformat()
             c["last_size"] = len(raw_bytes)
             self._save_cloud_config(c)
+
+            # Đồng bộ avatar, cover, tên game thủ từ manifest vào config.json trên máy mới
+            try:
+                manifest = vault.read_manifest() or {}
+                cfg = self.config_getter() or {}
+                profile_cfg = cfg.setdefault("profile", {})
+                for k in ("player_name", "avatar_url", "cover_url", "bio"):
+                    if manifest.get(k):
+                        profile_cfg[k] = manifest[k]
+                self.config_saver(cfg)
+            except Exception as pe:
+                print(f"[CommunityCloud] Sync manifest to config error: {pe}")
 
             unpack_info = None
             if auto_unpack and self.games_getter:

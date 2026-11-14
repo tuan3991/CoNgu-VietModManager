@@ -57,7 +57,7 @@ from core.config_manager import (
     load_user_config,
     sync_remote_catalog,
 )
-from core.cloud_save import PLAYTIME_MGR, register_exit_hook
+from core.cloud_save import PLAYTIME_MGR, register_exit_hook, is_any_exe_running_in_folder
 from core.system_booster import boost_memory
 from core.installer_pipeline import get_pending_transaction, recover_pending_transaction
 
@@ -613,12 +613,13 @@ def _register_booster_exit_hook():
         log_startup(f"[GameBooster] Khong dang ky duoc Post-Exit Hook: {e}")
 
 
-def enter_game_booster_mode(window, game_id: str, game_name: str = ""):
+def enter_game_booster_mode(window, game_id: str, game_name: str = "", game_dir: str = ""):
     """
     Kích hoạt Game Booster ngay sau khi game khởi chạy thành công:
-    1. Ẩn cửa sổ CỔ NGỮ xuống Khay Hệ Thống (nhường GPU/foreground cho game).
-    2. Trim Working Set của CỔ NGỮ + toàn bộ tiến trình WebView2 con (~200 MB -> ~10 MB).
-    3. Đăng ký Post-Exit Hook để tự bật lại cửa sổ + hiện bảng tổng kết khi thoát game.
+    1. Chờ 2.5s xác nhận tiến trình game thực sự khởi động thành công (tránh ẩn khi game crash/UAC chờ).
+    2. Ẩn cửa sổ CỔ NGỮ xuống Khay Hệ Thống (nhường GPU/foreground cho game).
+    3. Trim Working Set của CỔ NGỮ + toàn bộ tiến trình WebView2 con (~200 MB -> ~10 MB).
+    4. Đăng ký Post-Exit Hook để tự bật lại cửa sổ + hiện bảng tổng kết khi thoát game.
     """
     BOOSTER_STATE.update({
         "active": True,
@@ -630,37 +631,44 @@ def enter_game_booster_mode(window, game_id: str, game_name: str = ""):
     })
     _register_booster_exit_hook()
 
-    hidden = False
-    try:
-        if window:
-            hidden = hide_window_to_tray(window, notify=False)
-    except Exception as e:
-        log_startup(f"[GameBooster] An cua so that bai: {e}")
-    BOOSTER_STATE["hidden"] = hidden
+    def _booster_worker():
+        # Chờ tối đa 2.5s để Windows khởi tạo tiến trình game & người dùng nhấn Xác nhận UAC
+        time.sleep(2.5)
 
-    def _trim_worker():
-        # Chờ UI chuyển hẳn sang background (Chromium throttle) rồi mới trim -> hiệu quả cao nhất
-        time.sleep(1.2)
+        # Kiểm tra xem tiến trình game có thực sự đang chạy không trước khi ẩn cửa sổ
+        if game_dir and not is_any_exe_running_in_folder(game_dir):
+            log_startup(f"[GameBooster] Chua phat hien tien trinh game trong '{game_dir}'. Giu nguyen cua so CO NGU.")
+            return
+
+        hidden = False
         try:
-            res = boost_memory()
-            BOOSTER_STATE["trim"] = res
-            log_startup(
-                f"[GameBooster] Da giai phong {res.get('freed_mb', 0)} MB RAM "
-                f"({res.get('before_mb', 0)} MB -> {res.get('after_mb', 0)} MB, "
-                f"{res.get('trimmed', 0)}/{res.get('processes', 0)} tien trinh)."
-            )
-            if hidden:
+            if window:
+                hidden = hide_window_to_tray(window, notify=False)
+        except Exception as e:
+            log_startup(f"[GameBooster] An cua so that bai: {e}")
+        BOOSTER_STATE["hidden"] = hidden
+
+        if hidden:
+            time.sleep(1.0)
+            try:
+                res = boost_memory()
+                BOOSTER_STATE["trim"] = res
+                log_startup(
+                    f"[GameBooster] Da giai phong {res.get('freed_mb', 0)} MB RAM "
+                    f"({res.get('before_mb', 0)} MB -> {res.get('after_mb', 0)} MB, "
+                    f"{res.get('trimmed', 0)}/{res.get('processes', 0)} tien trinh)."
+                )
                 show_tray_balloon(
                     "🎮 Game Booster đang bật",
                     f"Đã thu nhỏ CỔ NGỮ và giải phóng {res.get('freed_mb', 0)} MB RAM cho game. "
                     f"Cửa sổ sẽ tự mở lại khi bạn thoát game.",
                     timeout_ms=4000,
                 )
-        except Exception as e:
-            log_startup(f"[GameBooster] Trim RAM error: {e}")
+            except Exception as e:
+                log_startup(f"[GameBooster] Trim RAM error: {e}")
 
-    threading.Thread(target=_trim_worker, daemon=True).start()
-    return {"success": True, "hidden_to_tray": hidden, "trim_pending": True}
+    threading.Thread(target=_booster_worker, daemon=True).start()
+    return {"success": True, "hidden_to_tray": False, "trim_pending": True}
 
 
 # =============================================================================
@@ -1138,6 +1146,21 @@ def run_fallback_browser_watchdog():
 
 def main():
     global SERVER_PORT, HTTP_SERVER, APP_MUTEX, WAKEUP_EVENT
+
+    # 0.0. Dọn file tạm còn sót từ lần đóng gói vault / upload bị gián đoạn
+    # (crash, mất điện). File đang được tiến trình khác ghi sẽ được bỏ qua nhờ
+    # ngưỡng tuổi tối thiểu 10 phút.
+    try:
+        from vault_manager import cleanup_stale_vault_temp
+        cleanup_res = cleanup_stale_vault_temp([APPDATA_DIR, APP_DIR], min_age_seconds=600)
+        if cleanup_res.get("removed"):
+            log_startup(
+                "[Vault] Da don {} file tam con sot, giai phong {:.1f} MB.".format(
+                    cleanup_res["removed"], cleanup_res["freed_mb"]
+                )
+            )
+    except Exception as e:
+        log_startup(f"[Vault] Cleanup temp warning: {e}")
 
     # Gán AppID độc lập cho Windows Taskbar / Startbar
     if sys.platform == "win32":

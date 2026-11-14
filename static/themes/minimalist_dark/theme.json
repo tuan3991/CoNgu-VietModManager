@@ -1,0 +1,23 @@
+{
+  "id": "minimalist_dark",
+  "name": "Tối Giản Tinh Tế (Minimalist Dark)",
+  "author": "VietModHub",
+  "version": "1.1",
+  "description": "Giao diện tối giản tông than chì, một màu nhấn emerald, bo tròn mềm và bỏ viền neon.",
+  "variables": {
+    "--bg-primary": "#0b0b0e",
+    "--bg-secondary": "#101014",
+    "--text-primary": "#f4f4f5",
+    "--text-muted": "#a1a1aa",
+    "--accent-color": "#10b981",
+    "--accent-hover": "#34d399",
+    "--border-color": "rgba(255, 255, 255, 0.06)",
+    "--card-radius": "16px",
+    "--glass-blur": "0px"
+  },
+  "assets": {
+    "background_image": "background.jpg",
+    "custom_css": "custom.css",
+    "background_opacity": 0.1
+  }
+}

@@ -15,9 +15,9 @@ def extract_local_steam_appid(game_dir: str) -> Optional[str]:
     if not game_dir or not os.path.exists(game_dir):
         return None
 
-    # 1. Tìm trực tiếp file steam_appid.txt (ở gốc hoặc trong các thư mục con gần nhất)
-    for pattern in ["steam_appid.txt", "*/steam_appid.txt", "*/*/steam_appid.txt"]:
-        for path in glob.glob(os.path.join(game_dir, pattern)):
+    # 1. Tìm trực tiếp file steam_appid.txt hoặc app_id.txt (ở gốc hoặc trong các thư mục con)
+    for pattern in ["steam_appid.txt", "*/steam_appid.txt", "*/*/steam_appid.txt", "**/steam_appid.txt", "**/app_id.txt"]:
+        for path in glob.glob(os.path.join(game_dir, pattern), recursive=True):
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read().strip()
@@ -43,8 +43,8 @@ def extract_local_steam_appid(game_dir: str) -> Optional[str]:
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
                     text = f.read()
-                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId)\s*=\s*(\d{3,10})", text, re.IGNORECASE)
-                    if match and match.group(1) != "0":
+                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId|id)\s*=\s*(\d{2,10})", text, re.IGNORECASE)
+                    if match and match.group(1) not in ("0", "00"):
                         return match.group(1)
             except OSError:
                 pass
@@ -55,6 +55,9 @@ def extract_local_steam_appid(game_dir: str) -> Optional[str]:
         os.path.join(game_dir, "**", "*tenoke*.ini"),
         os.path.join(game_dir, "**", "*rune*.ini"),
         os.path.join(game_dir, "**", "*codex*.ini"),
+        os.path.join(game_dir, "**", "*onlinefix*.ini"),
+        os.path.join(game_dir, "**", "*flt*.ini"),
+        os.path.join(game_dir, "**", "*ali213*.ini"),
         os.path.join(game_dir, "**", "cream_api.ini")
     ]
     for deep_pat in deep_ini_patterns:
@@ -62,8 +65,8 @@ def extract_local_steam_appid(game_dir: str) -> Optional[str]:
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
                     text = f.read()
-                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId)\s*=\s*(\d{3,10})", text, re.IGNORECASE)
-                    if match and match.group(1) != "0":
+                    match = re.search(r"(?:^|\n)\s*#?\s*(?:AppId|SteamAppId|TargetAppId|id)\s*=\s*(\d{2,10})", text, re.IGNORECASE)
+                    if match and match.group(1) not in ("0", "00"):
                         return match.group(1)
             except OSError:
                 pass

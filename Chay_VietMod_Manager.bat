@@ -12,19 +12,25 @@ echo        // CO NGU v2.0 - KHO GAME VIET HOA
 echo ========================================================
 echo.
 
-:: 1. Uu tien khoi dong tu ma nguon moi nhat neu may da co VirtualEnv Python
+:: 1. Uu tien khoi dong tu ma nguon neu may co VirtualEnv Python hoat dong tot
 if exist "..\.venv\Scripts\python.exe" (
-    if exist "app.py" (
-        echo [*] Khoi dong CO NGU tu ma nguon cap nhat voi VirtualEnv...
-        "..\.venv\Scripts\python.exe" "app.py"
-        exit /b
+    "..\.venv\Scripts\python.exe" -c "exit(0)" >nul 2>nul
+    if not errorlevel 1 (
+        if exist "app.py" (
+            echo [*] Khoi dong CO NGU tu ma nguon cap nhat voi VirtualEnv...
+            "..\.venv\Scripts\python.exe" "app.py"
+            exit /b
+        )
     )
 )
 if exist ".venv\Scripts\python.exe" (
-    if exist "app.py" (
-        echo [*] Khoi dong CO NGU tu ma nguon cap nhat voi VirtualEnv...
-        ".venv\Scripts\python.exe" "app.py"
-        exit /b
+    ".venv\Scripts\python.exe" -c "exit(0)" >nul 2>nul
+    if not errorlevel 1 (
+        if exist "app.py" (
+            echo [*] Khoi dong CO NGU tu ma nguon cap nhat voi VirtualEnv...
+            ".venv\Scripts\python.exe" "app.py"
+            exit /b
+        )
     )
 )
 

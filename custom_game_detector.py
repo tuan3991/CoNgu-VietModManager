@@ -12,6 +12,7 @@ import sys
 import re
 import json
 import ctypes
+import threading
 import urllib.parse
 import urllib.request
 from typing import Dict, Any, List, Tuple, Optional
@@ -24,10 +25,30 @@ class CustomGameDetector:
     """
 
     @staticmethod
-    def detect_from_exe(exe_path: str, covers_dir: Optional[str] = None) -> Dict[str, Any]:
+    def _normalize_steam_appid(raw: str) -> str:
+        """Chuẩn hóa Steam AppID từ chuỗi số (2288630) hoặc URL Steam Store."""
+        text = str(raw or "").strip()
+        if not text:
+            return ""
+        # Link dạng https://store.steampowered.com/app/2288630/...
+        m_url = re.search(r"(?:steampowered\.com|steamdb\.info)/app/(\d{3,10})", text, re.IGNORECASE)
+        if m_url:
+            return m_url.group(1)
+        # Chỉ là số AppID thuần túy
+        if re.fullmatch(r"\d{3,10}", text):
+            return text
+        m_num = re.search(r"\b(\d{4,10})\b", text)
+        return m_num.group(1) if m_num else ""
+
+    @staticmethod
+    def detect_from_exe(
+        exe_path: str,
+        covers_dir: Optional[str] = None,
+        steam_appid_override: str = ""
+    ) -> Dict[str, Any]:
         """
         Nhận diện toàn diện từ một file .exe:
-        1. Tìm steam_appid nội bộ (steam_appid.txt, ini files)
+        1. Tìm steam_appid nội bộ (steam_appid.txt, ini files) hoặc dùng AppID người dùng nhập
         2. Bóc tách PE Header (CompanyName, ProductName) hoặc Unity app.info
         3. Nhận diện Engine của game
         4. Tra cứu Steam Store API để lấy Tên chuẩn & Ảnh bìa HD
@@ -44,8 +65,9 @@ class CustomGameDetector:
         # 1. Nhận diện Engine
         engine_name = CustomGameDetector._detect_engine(game_dir, exe_path)
 
-        # 2. Tìm kiếm Steam AppID trong thư mục game (Phễu 1)
-        steam_appid = CustomGameDetector._find_local_steam_appid(game_dir)
+        # 2. Ưu tiên Steam AppID do người dùng nhập, sau đó mới quét trong thư mục game
+        override_appid = CustomGameDetector._normalize_steam_appid(steam_appid_override)
+        steam_appid = override_appid or CustomGameDetector._find_local_steam_appid(game_dir)
 
         # 3. Đọc siêu dữ liệu từ PE Header hoặc Unity app.info (Phễu 2)
         company_name, product_name = CustomGameDetector._extract_exe_metadata(exe_path, game_dir)
@@ -75,27 +97,45 @@ class CustomGameDetector:
         safe_name = re.sub(r"[^a-zA-Z0-9]+", "_", final_title.strip().lower()).strip("_")
         game_id = f"custom_{final_appid}" if final_appid else f"custom_{safe_name}"
 
-        # 5. Tự động tải ảnh bìa về covers_dir nếu có
+        # 5. Tự động tải ảnh bìa về covers_dir nếu có (với timeout ngắn, tải ngầm nếu mạng chậm)
         local_cover_path = ""
-        if covers_dir and os.path.isdir(covers_dir):
-            local_cover_path = CustomGameDetector._download_cover_poster(
-                cover_url or header_url,
-                game_id,
-                covers_dir
-            )
+        target_cover_url = cover_url or header_url
+        if covers_dir and os.path.isdir(covers_dir) and (target_cover_url or final_appid):
+            try:
+                local_cover_path = CustomGameDetector._download_cover_poster(
+                    target_cover_url,
+                    game_id,
+                    covers_dir,
+                    steam_appid=final_appid or ""
+                )
+            except Exception:
+                pass
+            if not local_cover_path and target_cover_url:
+                threading.Thread(
+                    target=CustomGameDetector._download_cover_poster,
+                    args=(target_cover_url, game_id, covers_dir, final_appid or ""),
+                    daemon=True
+                ).start()
 
         # 6. Tự động dò tìm thư mục Save Game & Thành tựu (Phễu 4)
+        save_company = developer if developer != "Chưa rõ" else company_name
+        save_product = final_title or product_name
         save_locations = CustomGameDetector._guess_save_locations(
-            game_dir, final_title, company_name, product_name, engine_name
+            game_dir, final_title, save_company, save_product, engine_name
         )
         achievement_locations = CustomGameDetector._guess_achievement_locations(final_appid)
+
+        # 7. Media (Trailers & Cắt cảnh):
+        # Trả về danh sách rỗng để hoàn tất bước nhận diện tức thì (< 1s).
+        # Khi người dùng mở trang chi tiết game hoặc vào tab Media, hệ thống sẽ tự động fetch qua /api/games/fetch_media.
+        media_info = {"trailers": []}
 
         return {
             "id": game_id,
             "is_custom_game": True,
             "steam_appid": str(final_appid) if final_appid else "",
             "title": final_title,
-            "vietnamese_title": f"{final_title} (Tự Thêm)",
+            "vietnamese_title": final_title,
             "developer": developer,
             "publisher": publisher,
             "engine": engine_name,
@@ -118,8 +158,101 @@ class CustomGameDetector:
             "vault_config": {
                 "save_locations": save_locations,
                 "achievement_locations": achievement_locations,
-                "exclude_patterns": ["*.bak", "*.tmp", "*.log", "*.congu_bak"]
-            }
+                "exclude_patterns": ["*.bak", "*.tmp", "*.log", "*.congu_bak", "*.zip", "*.pak", "*.bin", "*.mp4", "*.bk2"]
+            },
+            "media": media_info
+        }
+
+    @staticmethod
+    def fetch_metadata_by_appid(
+        steam_appid: str,
+        exe_path: str = "",
+        covers_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Lấy toàn bộ metadata game từ Steam AppID/Link Steam, giữ nguyên đường dẫn .exe
+        nếu người dùng đã chọn (kể cả fitgirl-launcher.exe, launcher.exe...).
+        """
+        appid = CustomGameDetector._normalize_steam_appid(steam_appid)
+        if not appid:
+            raise ValueError("Steam AppID không hợp lệ. Vui lòng nhập số AppID (VD: 2288630) hoặc link Steam Store.")
+
+        exe_clean = str(exe_path or "").strip()
+        if exe_clean and os.path.isfile(exe_clean):
+            return CustomGameDetector.detect_from_exe(
+                exe_clean,
+                covers_dir=covers_dir,
+                steam_appid_override=appid
+            )
+
+        steam_info = CustomGameDetector._query_steam_metadata(appid, "")
+        if not steam_info or not steam_info.get("title"):
+            raise ValueError(f"Không thể lấy thông tin từ Steam cho AppID {appid}. Vui lòng kiểm tra lại AppID hoặc kết nối mạng.")
+
+        final_title = steam_info.get("title")
+        developer = steam_info.get("developer") or "Chưa rõ"
+        publisher = steam_info.get("publisher") or developer or "Chưa rõ"
+        header_url = steam_info.get("header_url", "")
+        cover_url = steam_info.get("cover_url", "")
+        summary = steam_info.get("summary", "")
+        game_id = f"custom_{appid}"
+
+        game_dir = ""
+        exe_name = ""
+        engine_name = "Chưa rõ"
+        if exe_clean:
+            if os.path.isdir(exe_clean):
+                game_dir = os.path.abspath(exe_clean)
+            else:
+                game_dir = os.path.dirname(exe_clean)
+                exe_name = os.path.basename(exe_clean)
+
+        local_cover_path = ""
+        target_cover_url = cover_url or header_url
+        if covers_dir and os.path.isdir(covers_dir) and (target_cover_url or appid):
+            local_cover_path = CustomGameDetector._download_cover_poster(
+                target_cover_url,
+                game_id,
+                covers_dir,
+                steam_appid=appid
+            )
+
+        save_locations = CustomGameDetector._guess_save_locations(
+            game_dir, final_title, developer, final_title, engine_name
+        )
+        achievement_locations = CustomGameDetector._guess_achievement_locations(appid)
+
+        return {
+            "id": game_id,
+            "is_custom_game": True,
+            "steam_appid": appid,
+            "title": final_title,
+            "vietnamese_title": final_title,
+            "developer": developer,
+            "publisher": publisher,
+            "engine": engine_name,
+            "description": summary or f"Tựa game '{final_title}' được người dùng tự thêm vào thư viện CỔ NGỮ.",
+            "game_root": game_dir.replace("\\", "/") if game_dir else "",
+            "executable_name": exe_name,
+            "cover_url": cover_url,
+            "header_url": header_url,
+            "local_cover": local_cover_path,
+            "status_code": "INSTALLED" if exe_name else "NOT_INSTALLED",
+            "status_label": "SẴN SÀNG CHƠI" if exe_name else "CHƯA CHỌN EXE",
+            "is_game_found": bool(exe_name),
+            "translation_stats": {
+                "total_lines": "Game gốc",
+                "version": "v1.0.0",
+                "last_updated": "Steam Store",
+                "font": "Mặc định",
+                "mod_size": "0 MB"
+            },
+            "vault_config": {
+                "save_locations": save_locations,
+                "achievement_locations": achievement_locations,
+                "exclude_patterns": ["*.bak", "*.tmp", "*.log", "*.congu_bak", "*.zip", "*.pak", "*.bin", "*.mp4", "*.bk2"]
+            },
+            "media": {"trailers": []}
         }
 
     # =========================================================================
@@ -128,6 +261,14 @@ class CustomGameDetector:
     @staticmethod
     def _find_local_steam_appid(game_dir: str) -> str:
         """Quét tìm file steam_appid.txt và các file cấu hình Steam Emulator."""
+        try:
+            from core.scanner.metadata_extractor import extract_local_steam_appid
+            found = extract_local_steam_appid(game_dir)
+            if found:
+                return str(found)
+        except Exception:
+            pass
+
         search_dirs = [game_dir]
         parent = os.path.dirname(game_dir)
         if parent and parent != game_dir:
@@ -287,6 +428,60 @@ class CustomGameDetector:
         return "PC Executable"
 
     # =========================================================================
+    # PHỄU 5: TỰ ĐỘNG TÌM KIẾM MEDIA, TRAILERS & CẮT CẢNH (YOUTUBE & STEAM)
+    # =========================================================================
+    @staticmethod
+    def _fetch_game_media(title: str, steam_appid: str = "") -> Dict[str, Any]:
+        """
+        Tự động tìm kiếm Video Trailers, Cắt cảnh & Gameplay chất lượng cao:
+        1. Tìm trên YouTube theo 3 định dạng:
+           - Trailer Phát Hành (Badge: TRAILER)
+           - Cốt Truyện & Cắt Cảnh (Badge: CẮT CẢNH)
+           - Lối Chơi Thực Tế (Badge: GAMEPLAY)
+        """
+        trailers = []
+        seen = set()
+        clean_title = re.sub(r"[™®©]+", "", title).strip()
+
+        queries = [
+            (f"{clean_title} official launch trailer", "TRAILER"),
+            (f"{clean_title} cinematic cutscene story trailer", "CẮT CẢNH"),
+            (f"{clean_title} official gameplay trailer", "GAMEPLAY"),
+        ]
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "vi,en;q=0.9",
+        }
+
+        idx = 1
+        for q_text, badge in queries:
+            try:
+                q = urllib.parse.quote(q_text)
+                url = f"https://www.youtube.com/results?search_query={q}"
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=4.0) as resp:
+                    html_content = resp.read().decode("utf-8", errors="ignore")
+                matches = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})".*?"title":\{"runs":\[\{"text":"([^"]+)"', html_content)
+                for vid, vtitle in matches:
+                    if vid not in seen:
+                        seen.add(vid)
+                        trailers.append({
+                            "id": f"clip_{idx}",
+                            "title": vtitle,
+                            "badge": badge,
+                            "type": "youtube",
+                            "youtube_id": vid,
+                            "duration": "Full HD"
+                        })
+                        idx += 1
+                        break
+            except Exception:
+                pass
+
+        return {"trailers": trailers}
+
+    # =========================================================================
     # PHỄU 4: STEAM STORE API METADATA & POSTER SCRAPER
     # =========================================================================
     @staticmethod
@@ -303,79 +498,142 @@ class CustomGameDetector:
             "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
         }
 
+        def _fetch_steam_json(target_url: str, timeout_sec: float = 5.0) -> Optional[dict]:
+            """Truy vấn JSON từ Steam Store (ưu tiên steam_direct_request để vượt chặn DPI VN)."""
+            try:
+                from core.steam_client import steam_direct_request
+                raw = steam_direct_request(target_url, timeout=timeout_sec)
+                if raw:
+                    return json.loads(raw.decode("utf-8", errors="ignore"))
+            except Exception:
+                pass
+            try:
+                req = urllib.request.Request(target_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+                    if resp.status == 200:
+                        return json.loads(resp.read().decode("utf-8", errors="ignore"))
+            except Exception as exc:
+                print(f"[CustomGameDetector] Steam HTTP fallback error ({target_url}): {exc}")
+            return None
+
         # 1. Nếu chưa có steam_appid nhưng có tên query, dùng Steam Store Search
         if not steam_appid and fallback_query:
             try:
                 q = urllib.parse.quote(fallback_query)
                 search_url = f"https://store.steampowered.com/api/storesearch/?term={q}&l=english&cc=US"
-                req = urllib.request.Request(search_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    if resp.status == 200:
-                        data = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                        items = data.get("items", [])
-                        if items:
-                            first = items[0]
-                            steam_appid = str(first.get("id"))
+                data = _fetch_steam_json(search_url, timeout_sec=5.0)
+                if data:
+                    items = data.get("items", [])
+                    if items:
+                        first = items[0]
+                        steam_appid = str(first.get("id"))
             except Exception as e:
                 print(f"[CustomGameDetector] Steam storesearch error: {e}")
 
-        # 2. Truy vấn appdetails khi đã có steam_appid
+        # 2. Truy vấn appdetails khi đã có steam_appid (hỗ trợ vượt chặn DPI mạng VN)
         if steam_appid:
-            try:
-                details_url = f"https://store.steampowered.com/api/appdetails?appids={steam_appid}&l=vietnamese"
-                req = urllib.request.Request(details_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    if resp.status == 200:
-                        data = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                        entry = data.get(str(steam_appid), {})
-                        if entry.get("success"):
-                            info = entry.get("data", {})
-                            name = info.get("name")
-                            devs = ", ".join(info.get("developers", []))
-                            pubs = ", ".join(info.get("publishers", []))
-                            summary = info.get("short_description", "")
+            for lang in ("vietnamese", "english"):
+                try:
+                    details_url = f"https://store.steampowered.com/api/appdetails?appids={steam_appid}&l={lang}"
+                    data = _fetch_steam_json(details_url, timeout_sec=5.0)
+                    if not data:
+                        continue
+                    entry = data.get(str(steam_appid), {})
+                    if entry.get("success"):
+                        info = entry.get("data", {})
+                        name = info.get("name")
+                        devs = ", ".join(info.get("developers", []))
+                        pubs = ", ".join(info.get("publishers", []))
+                        summary = info.get("short_description", "")
 
-                            # Steam Library vertical cover 600x900 (Chuẩn Steam Library & Hydra)
-                            poster_url = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/library_600x900_2x.jpg"
-                            header_url = info.get("header_image") or f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/header.jpg"
+                        # Nếu bản tiếng Việt không có mô tả, thử lấy tiếp tiếng Anh để bổ sung
+                        if lang == "vietnamese" and not summary:
+                            en_data = _fetch_steam_json(
+                                f"https://store.steampowered.com/api/appdetails?appids={steam_appid}&l=english",
+                                timeout_sec=4.0
+                            )
+                            if en_data:
+                                en_entry = en_data.get(str(steam_appid), {})
+                                if en_entry.get("success"):
+                                    en_info = en_entry.get("data", {})
+                                    summary = en_info.get("short_description", "") or summary
+                                    if not name:
+                                        name = en_info.get("name")
+                                    if not devs:
+                                        devs = ", ".join(en_info.get("developers", []))
+                                    if not pubs:
+                                        pubs = ", ".join(en_info.get("publishers", []))
 
-                            return {
-                                "steam_appid": str(steam_appid),
-                                "title": name,
-                                "developer": devs,
-                                "publisher": pubs,
-                                "summary": summary,
-                                "cover_url": poster_url,
-                                "header_url": header_url
-                            }
-            except Exception as e:
-                print(f"[CustomGameDetector] Steam appdetails error: {e}")
+                        # Steam Library vertical cover 600x900 (Chuẩn Steam Library & Hydra)
+                        poster_url = f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/library_600x900_2x.jpg"
+                        header_url = info.get("header_image") or f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/header.jpg"
+
+                        return {
+                            "steam_appid": str(steam_appid),
+                            "title": name,
+                            "developer": devs,
+                            "publisher": pubs,
+                            "summary": summary,
+                            "cover_url": poster_url,
+                            "header_url": header_url
+                        }
+                except Exception as e:
+                    print(f"[CustomGameDetector] Steam appdetails error ({lang}): {e}")
 
         return {}
 
     @staticmethod
-    def _download_cover_poster(url: str, game_id: str, covers_dir: str) -> str:
-        """Tải ảnh bìa Poster từ CDN về thư mục covers cục bộ."""
-        if not url:
+    def _download_cover_poster(url: str, game_id: str, covers_dir: str, steam_appid: str = "") -> str:
+        """Tải ảnh bìa Poster từ CDN về thư mục covers cục bộ (có fallback chuẩn Steam)."""
+        if not url and not steam_appid:
             return ""
         os.makedirs(covers_dir, exist_ok=True)
         safe_gid = re.sub(r"[^\w\-]", "_", game_id)
         local_file = os.path.join(covers_dir, f"{safe_gid}.jpg")
 
-        try:
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-            )
-            with urllib.request.urlopen(req, timeout=7) as resp:
-                if resp.status == 200:
+        candidates = []
+        if url:
+            candidates.append(url)
+        if steam_appid:
+            candidates.extend([
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/library_600x900_2x.jpg",
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/library_600x900.jpg",
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{steam_appid}/header.jpg",
+            ])
+
+        seen = set()
+        unique_urls = [u for u in candidates if u and not (u in seen or seen.add(u))]
+
+        for cand_url in unique_urls:
+            raw_bytes = b""
+            try:
+                req = urllib.request.Request(
+                    cand_url,
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                )
+                with urllib.request.urlopen(req, timeout=3.5) as resp:
+                    if resp.status == 200:
+                        raw_bytes = resp.read()
+            except Exception:
+                raw_bytes = b""
+
+            if len(raw_bytes) <= 1000:
+                try:
+                    from core.steam_client import steam_direct_request
+                    raw_bytes = steam_direct_request(cand_url, timeout=4.0) or b""
+                except Exception:
+                    raw_bytes = b""
+
+            if raw_bytes and len(raw_bytes) > 1000:
+                try:
                     with open(local_file, "wb") as f:
-                        f.write(resp.read())
+                        f.write(raw_bytes)
                     if os.path.exists(local_file) and os.path.getsize(local_file) > 1000:
                         return f"/api/covers/{safe_gid}.jpg"
-        except Exception as e:
-            print(f"[CustomGameDetector] Tải ảnh bìa thất bại cho {game_id}: {e}")
+                except Exception as e:
+                    print(f"[CustomGameDetector] Ghi ảnh bìa thất bại cho {game_id}: {e}")
 
+        print(f"[CustomGameDetector] Tải ảnh bìa thất bại cho {game_id}")
         return ""
 
     # =========================================================================

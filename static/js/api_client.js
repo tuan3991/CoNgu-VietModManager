@@ -6,31 +6,34 @@
     // -------------------------------------------------------------
     // Core Engine Security & PyWebView Native IPC Bridge
     // -------------------------------------------------------------
-    const SESSION_AUTH_TOKEN = document.querySelector('meta[name="session-auth-token"]')?.content || '';
+    function getSessionToken() {
+      return document.querySelector('meta[name="session-auth-token"]')?.content || '';
+    }
 
     // Auto-inject session authentication token to all fetch requests
     const _originalFetch = window.fetch;
     window.fetch = function (resource, config = {}) {
       const url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+      const token = getSessionToken();
       if (url && (url.startsWith('/api/') || url.includes('/api/'))) {
         config = Object.assign({}, config);
         if (!config.headers) {
           config.headers = {};
         }
         if (config.headers instanceof Headers) {
-          if (!config.headers.has('X-App-Auth-Token') && SESSION_AUTH_TOKEN) {
-            config.headers.set('X-App-Auth-Token', SESSION_AUTH_TOKEN);
+          if (!config.headers.has('X-App-Auth-Token') && token) {
+            config.headers.set('X-App-Auth-Token', token);
           }
         } else if (Array.isArray(config.headers)) {
-          if (SESSION_AUTH_TOKEN) config.headers.push(['X-App-Auth-Token', SESSION_AUTH_TOKEN]);
+          if (token) config.headers.push(['X-App-Auth-Token', token]);
         } else {
-          if (SESSION_AUTH_TOKEN) config.headers['X-App-Auth-Token'] = SESSION_AUTH_TOKEN;
+          if (token) config.headers['X-App-Auth-Token'] = token;
         }
       }
       return _originalFetch.call(this, resource, config);
     };
 
-    let activeFilter = 'all';
+    let activeFilter = 'installed';
     let activeGenreFilter = 'all';
     let activeModalGameId = null;
     let selectedRating = 5;
@@ -265,12 +268,7 @@
     function bookmarkOpenDownload(gameId) {
       const game = (Array.isArray(gamesList) ? gamesList : []).find(g => g.id === gameId);
       if (!game) return;
-      if (typeof openHydraModal === 'function') {
-        openHydraModal('catalogue');
-        if (typeof searchCatalogueGames === 'function') {
-          setTimeout(() => searchCatalogueGames(game.title), 150);
-        }
-      } else if (typeof openDiscoveryHub === 'function') {
+      if (typeof openDiscoveryHub === 'function') {
         openDiscoveryHub();
       }
     }
@@ -333,20 +331,57 @@
       }
     }
 
-    // Fetch games from backend API
-    async function fetchGames() {
+    // Fetch games from backend API (Native PyWebView Bridge + HTTP Fallback)
+    async function fetchGames(_attempt = 0) {
       try {
-        const [resGames, resRepo] = await Promise.all([
-          fetch('/api/games'),
-          fetch('/api/repo_dir')
-        ]);
-        gamesList = await resGames.json();
+        let gamesData = null;
+        let repoData = null;
+
+        // 1. Ưu tiên đọc trực tiếp từ native PyWebView API bridge nếu có (0ms, độc lập hoàn toàn mạng & token)
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_games === 'function') {
+          try {
+            gamesData = await window.pywebview.api.get_games();
+          } catch (bridgeErr) {
+            console.warn('[Bridge get_games error]', bridgeErr);
+          }
+        }
+
+        // 2. Fallback qua HTTP Server nội bộ
+        if (!gamesData || !Array.isArray(gamesData) || gamesData.length === 0) {
+          const resGames = await fetch('/api/games');
+          if (!resGames.ok) {
+            throw new Error(`HTTP ${resGames.status}`);
+          }
+          const parsed = await resGames.json();
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            gamesData = parsed;
+          }
+        }
+
+        if (!Array.isArray(gamesData) || (gamesData.length === 0 && _attempt < 4)) {
+          throw new Error('Danh sách game chưa sẵn sàng');
+        }
+
+        gamesList = gamesData || [];
+
+        // Lấy thông tin thư mục repo
         try {
-          const repoData = await resRepo.json();
-          const rEl = document.getElementById('repoPathDisplay');
-          if (rEl) rEl.innerText = (repoData && repoData.repo_dir) || 'Chưa thiết lập kho bản dịch';
+          const resRepo = await fetch('/api/repo_dir');
+          if (resRepo.ok) {
+            const rData = await resRepo.json();
+            const rEl = document.getElementById('repoPathDisplay');
+            if (rEl && rData && rData.repo_dir) {
+              rEl.innerText = rData.repo_dir;
+            }
+          }
         } catch (_) {}
-        updateUI();
+
+        try {
+          updateUI();
+        } catch (uiErr) {
+          console.error('Lỗi khi cập nhật giao diện (updateUI):', uiErr);
+        }
+
         // Tự động kích hoạt polling cho bất kỳ game nào đang chạy ngầm ngoài Desktop/Steam
         if (Array.isArray(gamesList)) {
           gamesList.forEach(g => {
@@ -357,9 +392,19 @@
         }
       } catch (err) {
         console.error('Lỗi nạp dữ liệu:', err);
+        // Backend có thể đang quét ổ đĩa ở lần đầu: tự thử lại
+        if (_attempt < 5) {
+          await new Promise(r => setTimeout(r, 600 * (_attempt + 1)));
+          return fetchGames(_attempt + 1);
+        }
         showToast('Không thể kết nối đến máy chủ quản lý game!', 'error');
       }
     }
+
+    // Tự động kích hoạt nạp lại khi PyWebView Native Bridge sẵn sàng
+    window.addEventListener('pywebviewready', () => {
+      fetchGames();
+    });
 
     async function refreshData() {
       const btn = document.querySelector('button[onclick="refreshData()"]');
@@ -425,6 +470,41 @@
       }
     }
 
+    
+    async function verifyModIntegrity(gameId) {
+      if (!gameId) gameId = activeModalGameId;
+      if (!gameId) return;
+      showToast('Đang đối chiếu tính toàn vẹn bản Việt hóa (Steam-style)...', 'info');
+      try {
+        let res = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.verify_mod_integrity === 'function') {
+          res = await window.pywebview.api.verify_mod_integrity(gameId);
+        } else {
+          const resp = await fetch('/api/verify_mod_integrity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: gameId })
+          });
+          res = await resp.json();
+        }
+        if (res && res.success) {
+          if (res.intact) {
+            showToast(res.message, 'success');
+          } else {
+            showToast(res.message, 'warning');
+            const restoreBtn = document.getElementById('modalUpdateRestoreBtn');
+            const warningBanner = document.getElementById('modalUpdateWarningBanner');
+            if (warningBanner) warningBanner.classList.remove('hidden');
+            if (restoreBtn) restoreBtn.classList.remove('hidden');
+          }
+        } else {
+          showToast((res && res.message) || 'Không thể kiểm tra toàn vẹn tệp!', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi khi kiểm tra tính toàn vẹn: ' + err.message, 'error');
+      }
+    }
+
     async function checkGameUpdates(gameId) {
       try {
         const res = await fetch('/api/check_updates', {
@@ -434,7 +514,15 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`Bản Việt hóa hiện tại (${data.latest_version}) đã là phiên bản mới nhất!`, 'success');
+          if (data.has_update) {
+            showToast(data.message || `Phát hiện bản Việt hóa mới (${data.latest_version})!`, 'info');
+          } else if (data.status === 'not_installed') {
+            showToast(data.message || `Game chưa được cài đặt Việt hóa (Bản mới nhất: ${data.latest_version}).`, 'info');
+          } else {
+            showToast(data.message || `Bản Việt hóa hiện tại (${data.latest_version}) đã là phiên bản mới nhất!`, 'success');
+          }
+        } else {
+          showToast(data.message || 'Không thể kiểm tra cập nhật!', 'error');
         }
       } catch (err) {
         showToast('Không thể kiểm tra cập nhật!', 'error');
@@ -713,11 +801,13 @@
       const badgeEl = document.getElementById('ach-percent-badge');
       const barEl = document.getElementById('ach-progress-bar');
       const listEl = document.getElementById('ach-list-container');
-      if (!summaryEl || !listEl) return;
+      const cardEl = document.getElementById('modalAchievementsCard');
+      const barWrap = document.getElementById('achProgressBarWrap');
+      const filterWrap = document.getElementById('achFilterTabsWrap');
+      const percentWrap = document.getElementById('achPercentBadgeWrap');
+      if (!summaryEl) return;
 
       summaryEl.textContent = 'Đang quét dữ liệu thành tựu...';
-      listEl.innerHTML = '<div class="col-span-full py-5 text-center text-xs text-slate-500 flex items-center justify-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-cyan-400"></i><span>Đang nạp thành tựu và hướng dẫn mở khóa...</span></div>';
-      if (window.lucide) lucide.createIcons();
 
       try {
         let data = null;
@@ -731,26 +821,65 @@
         }
 
         if (!data || data.total === 0) {
-          summaryEl.textContent = 'Chưa phát hiện file thành tựu hoặc game không có thành tựu.';
-          if (countEl) countEl.textContent = '0/0';
-          if (badgeEl) badgeEl.textContent = '0%';
-          if (barEl) barEl.style.width = '0%';
-          listEl.innerHTML = '<div class="py-6 text-center text-xs text-slate-500 italic">Chưa phát hiện dữ liệu thành tựu. Hãy vào game và hoàn thành thử thách!</div>';
+          summaryEl.textContent = 'Trò chơi này không hỗ trợ hoặc chưa có dữ liệu thành tựu.';
+          if (barWrap) barWrap.classList.add('hidden');
+          if (filterWrap) filterWrap.classList.add('hidden');
+          if (percentWrap) percentWrap.classList.add('hidden');
+          if (listEl) {
+            listEl.innerHTML = '';
+            listEl.classList.add('hidden');
+          }
+          if (cardEl) {
+            cardEl.className = 'bg-[#0D1322] border border-white/[0.07] rounded-[6px] p-3 sm:p-3.5 shadow-lg shadow-black/40 space-y-0';
+          }
           currentAchievementsData = null;
           if (window.lucide) lucide.createIcons();
           return;
         }
 
+        if (barWrap) barWrap.classList.remove('hidden');
+        if (filterWrap) filterWrap.classList.remove('hidden');
+        if (percentWrap) percentWrap.classList.remove('hidden');
+        if (listEl) listEl.classList.remove('hidden');
+        if (cardEl) {
+          cardEl.className = 'bg-[#0D1322] border border-white/[0.07] rounded-[6px] p-4 sm:p-5 shadow-lg shadow-black/40 space-y-3';
+        }
+
+        window.currentAchievementsData = data;
         currentAchievementsData = data;
+        if (data.appid) {
+          const g = (gamesList || []).find(x => x.id === gameId);
+          if (g && !g.steam_appid) {
+            g.steam_appid = data.appid;
+          }
+          const achAppIdText = document.getElementById('achAppIdBtnText');
+          if (achAppIdText && g) {
+            achAppIdText.textContent = `Đổi AppID (${data.appid})`;
+          }
+        }
         summaryEl.textContent = `Đã mở khóa ${data.unlocked_count} / ${data.total} thành tựu (${data.percent}%)`;
         if (countEl) countEl.textContent = `${data.unlocked_count}/${data.total}`;
         if (badgeEl) badgeEl.textContent = `${data.percent}%`;
         if (barEl) barEl.style.width = `${data.percent}%`;
 
-        renderAchievementsList();
+        if (typeof window.renderAchievementsList === 'function') {
+          window.renderAchievementsList();
+        } else if (typeof renderAchievementsList === 'function') {
+          renderAchievementsList();
+        }
       } catch (err) {
         console.warn('[Achievements Error]', err);
-        summaryEl.textContent = 'Không thể nạp dữ liệu thành tựu.';
+        summaryEl.textContent = 'Trò chơi này không hỗ trợ hoặc chưa có dữ liệu thành tựu.';
+        if (barWrap) barWrap.classList.add('hidden');
+        if (filterWrap) filterWrap.classList.add('hidden');
+        if (percentWrap) percentWrap.classList.add('hidden');
+        if (listEl) {
+          listEl.innerHTML = '';
+          listEl.classList.add('hidden');
+        }
+        if (cardEl) {
+          cardEl.className = 'bg-[#0D1322] border border-white/[0.07] rounded-[6px] p-3 sm:p-3.5 shadow-lg shadow-black/40 space-y-0';
+        }
       }
     }
 
@@ -830,10 +959,12 @@
       showToast(res.message || 'Game đang khởi chạy...', 'success');
       startPlaytimePolling(gameId);
 
-      // Tự động thu nhỏ CỔ NGỮ xuống Taskbar để tiết kiệm ~0% CPU/RAM và người chơi tập trung vào game
-      setTimeout(() => {
-        minimizeWindow();
-      }, 1200);
+      // Tự động thu nhỏ CỔ NGỮ xuống Taskbar để tiết kiệm ~0% CPU/RAM (trừ khi Game Booster đã ẩn xuống khay hệ thống)
+      if (!(res.booster && res.booster.hidden_to_tray)) {
+        setTimeout(() => {
+          minimizeWindow();
+        }, 1200);
+      }
     }
 
     async function launchGame(gameId) {
@@ -893,18 +1024,31 @@
       }
     }
 
+    let isChoosingFolder = false;
     async function chooseFolderForActiveGame() {
-      if (!activeModalGameId) return;
+      if (!activeModalGameId || isChoosingFolder) return;
+      isChoosingFolder = true;
       try {
-        const res = await fetch('/api/select_folder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game_id: activeModalGameId })
-        });
-        const data = await res.json();
-        if (data.success) {
+        let data = null;
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.select_folder === 'function') {
+          try {
+            data = await window.pywebview.api.select_folder(activeModalGameId);
+          } catch (ipcErr) {
+            console.warn('[chooseFolderForActiveGame] Native IPC fallback to HTTP fetch:', ipcErr);
+          }
+        }
+        if (!data) {
+          const res = await fetch('/api/select_folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: activeModalGameId })
+          });
+          data = await res.json();
+        }
+
+        if (data && data.success) {
           showToast(data.message || `Đã chọn thư mục: ${data.path}`, 'success');
-          gamesList = data.games;
+          if (data.games) gamesList = data.games;
           updateUI();
           if (activeModalGameId) {
             openGameModal(activeModalGameId);
@@ -931,11 +1075,18 @@
               }
             }, 300);
           }
-        } else if (data.message) {
-          showToast(data.message, 'warning');
+        } else if (data && data.message) {
+          if (data.message.includes("Không có thư mục") || data.message.includes("Chưa chọn")) {
+            console.log("[chooseFolderForActiveGame] User closed/cancelled folder picker.");
+          } else {
+            showToast(data.message, 'warning');
+          }
         }
       } catch (err) {
-        showToast('Lỗi mở hộp thoại chọn thư mục!', 'error');
+        console.error('[chooseFolderForActiveGame] Error:', err);
+        showToast('Lỗi chọn thư mục: ' + (err.message || 'Hộp thoại không phản hồi'), 'error');
+      } finally {
+        isChoosingFolder = false;
       }
     }
 
@@ -960,7 +1111,7 @@
 
       if (spinner) spinner.classList.remove('hidden');
       grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-300 text-xs font-sans flex flex-col items-center justify-center space-y-2">
-        <i data-lucide="loader-2" class="w-6 h-6 text-[#00F0FF] animate-spin"></i>
+        <i data-lucide="loader-2" class="w-6 h-6 text-[#FF2A55] animate-spin"></i>
         <span>Đang kết nối kho game Steam trên mạng để tìm "${query}"...</span>
       </div>`;
       lucide.createIcons();
@@ -992,24 +1143,24 @@
           const isCongu = item.source === 'congu_db';
           const isSteamGrid = item.source === 'steamgriddb';
 
-          let badgeClass = 'bg-[#00F0FF] text-black border border-[#00F0FF]/60';
+          let badgeClass = 'bg-[#FF2A55] text-black border border-[#FF2A55]/60';
           let badgeText = 'Steam Store';
-          let borderHoverClass = 'hover:border-[#00F0FF] hover:shadow-[0_4px_16px_rgba(0,240,255,0.25)]';
-          let btnClass = 'bg-[#00F0FF] text-black';
-          let subtitleClass = 'text-cyan-400';
+          let borderHoverClass = 'hover:border-[#FF2A55] hover:shadow-[0_4px_16px_rgba(255, 42, 85,0.25)]';
+          let btnClass = 'bg-[#FF2A55] text-black';
+          let subtitleClass = 'text-red-400';
 
           if (isCongu) {
-            badgeClass = 'bg-[#00F0FF] text-white border border-[#00F0FF]/60';
+            badgeClass = 'bg-[#FF2A55] text-white border border-[#FF2A55]/60';
             badgeText = 'Kho Cổ Ngữ';
-            borderHoverClass = 'hover:border-[#00F0FF] hover:shadow-[0_4px_16px_rgba(0,240,255,0.3)]';
-            btnClass = 'bg-[#00F0FF] text-white';
-            subtitleClass = 'text-cyan-400';
+            borderHoverClass = 'hover:border-[#FF2A55] hover:shadow-[0_4px_16px_rgba(255, 42, 85,0.3)]';
+            btnClass = 'bg-[#FF2A55] text-white';
+            subtitleClass = 'text-red-400';
           } else if (isSteamGrid) {
-            badgeClass = 'bg-[#00F0FF] text-white border border-[#00F0FF]/70 shadow-[0_0_8px_rgba(0,240,255,0.5)]';
+            badgeClass = 'bg-[#FF2A55] text-white border border-[#FF2A55]/70 shadow-[0_0_8px_rgba(255, 42, 85,0.5)]';
             badgeText = 'SteamGridDB';
-            borderHoverClass = 'hover:border-[#00F0FF] hover:shadow-[0_4px_16px_rgba(0,240,255,0.35)]';
-            btnClass = 'bg-[#00F0FF] text-white';
-            subtitleClass = 'text-cyan-400';
+            borderHoverClass = 'hover:border-[#FF2A55] hover:shadow-[0_4px_16px_rgba(255, 42, 85,0.35)]';
+            btnClass = 'bg-[#FF2A55] text-white';
+            subtitleClass = 'text-red-400';
           }
 
           const posterUrl = item.avatar_url || item.header_url || item.capsule || '';
@@ -1048,7 +1199,7 @@
                 </div>
               </div>
               <div class="p-2.5 bg-[#0b0d1e] border-t border-[#1a1e38] flex-1 flex flex-col justify-between">
-                <div class="text-xs font-bold text-white group-hover:text-[#00F0FF] truncate leading-tight" title="${safeTitle}">${item.title}</div>
+                <div class="text-xs font-bold text-white group-hover:text-[#FF2A55] truncate leading-tight" title="${safeTitle}">${item.title}</div>
                 <div class="text-[10px] ${subtitleClass} font-mono truncate mt-1">${safeSubtitle}</div>
               </div>
             </div>
@@ -1266,7 +1417,7 @@
       if (container) {
         container.innerHTML = `
           <div class="py-12 flex flex-col items-center justify-center space-y-3 text-slate-400 font-sans">
-            <i data-lucide="loader-2" class="w-6 h-6 text-[#00F0FF] animate-spin"></i>
+            <i data-lucide="loader-2" class="w-6 h-6 text-[#FF2A55] animate-spin"></i>
             <span class="text-xs text-slate-300">Đang nạp bảng nguyện vọng cộng đồng...</span>
           </div>
         `;
@@ -1724,12 +1875,12 @@
             container.innerHTML = cachedConnectedControllers.map((c, i) => `
               <div class="p-2 rounded bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs">
                 <div class="flex items-center space-x-2">
-                  <span class="font-pixel text-[10px] text-cyan-400">#${i + 1}</span>
+                  <span class="font-pixel text-[10px] text-red-400">#${i + 1}</span>
                   <span class="font-bold text-white">${c.name}</span>
                   <span class="text-[10px] text-slate-400 font-mono">(${c.api})</span>
                 </div>
                 <div class="flex items-center space-x-2">
-                  <span class="text-[10px] font-pixel px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">${c.type}</span>
+                  <span class="text-[10px] font-pixel px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/30">${c.type}</span>
                   ${c.has_rumble ? '<span class="text-[9px] text-emerald-400 font-bold" title="Hỗ trợ rung">📳 Rung OK</span>' : ''}
                 </div>
               </div>
@@ -1798,12 +1949,26 @@
       const vibToggle = document.getElementById('gamepadVibrationToggle');
       const dzRange = document.getElementById('gamepadDeadzoneRange');
 
+      const gyroToggle = document.getElementById('gamepadGyroToggle');
+      const gyroRadios = document.getElementsByName('gyroMode');
+      let selectedGyroMode = 'aiming_l2';
+      for (const r of gyroRadios) {
+        if (r.checked) {
+          selectedGyroMode = r.value;
+          break;
+        }
+      }
+      const gyroSensRange = document.getElementById('gyroSensitivityRange');
+
       const config = {
         enabled: toggle ? !!toggle.checked : false,
         mode: selectedMode,
         preset: presetSel ? presetSel.value : 'platformer',
         vibration: vibToggle ? !!vibToggle.checked : true,
-        deadzone: dzRange ? (parseInt(dzRange.value) / 100.0) : 0.15
+        deadzone: dzRange ? (parseInt(dzRange.value) / 100.0) : 0.15,
+        gyro_enabled: gyroToggle ? !!gyroToggle.checked : false,
+        gyro_mode: selectedGyroMode,
+        gyro_sensitivity: gyroSensRange ? (parseInt(gyroSensRange.value) / 100.0) : 1.0
       };
 
       try {
@@ -1846,12 +2011,111 @@
       }
     }
 
+    function parseSteamAppId(raw) {
+      const text = String(raw || '').trim();
+      if (!text) return '';
+      const urlMatch = text.match(/(?:steampowered\.com|steamdb\.info)\/app\/(\d{3,10})/i);
+      if (urlMatch) return urlMatch[1];
+      if (/^\d{3,10}$/.test(text)) return text;
+      const numMatch = text.match(/\b(\d{4,10})\b/);
+      return numMatch ? numMatch[1] : '';
+    }
+
+    async function testAchievementOverlay() {
+      try {
+        const gid = (typeof activeModalGameId !== 'undefined' && activeModalGameId) ? activeModalGameId : '';
+        let data = null;
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.test_achievement_overlay) {
+          data = await window.pywebview.api.test_achievement_overlay(gid);
+        } else {
+          const res = await fetch('/api/achievements/test_overlay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: gid })
+          });
+          data = await res.json();
+        }
+        if (data && data.success) {
+          showToast(data.message || 'Đã bật thử thông báo Steam ở góc phải dưới màn hình!', 'success');
+        } else {
+          showToast((data && data.message) || 'Không thể hiển thị thông báo thử nghiệm.', 'warning');
+        }
+      } catch (e) {
+        showToast('Lỗi khi thử thông báo Steam: ' + e.message, 'error');
+      }
+    }
+    window.testAchievementOverlay = testAchievementOverlay;
+
+    async function fetchCustomGameByAppId(fromStep1 = false) {
+      const presetEl = document.getElementById('cgPresetAppIdInput');
+      const step2El = document.getElementById('cgAppIdInput');
+      const rawInput = fromStep1
+        ? (presetEl?.value.trim() || step2El?.value.trim() || '')
+        : (step2El?.value.trim() || presetEl?.value.trim() || '');
+      const cleanAppId = parseSteamAppId(rawInput);
+
+      if (!cleanAppId) {
+        showToast('Vui lòng nhập Steam AppID (VD: 2288630) hoặc link Steam Store!', 'warning');
+        return;
+      }
+
+      const exePath = document.getElementById('cgExeInput')?.value.trim() || '';
+      const loading = document.getElementById('cgDetectLoading');
+      const resultSec = document.getElementById('cgDetectResultSection');
+      const saveBtn = document.getElementById('btnSaveCustomGameToLib');
+      const fetchBtn = document.getElementById(fromStep1 ? 'btnFetchCgPresetAppId' : 'btnFetchCgByAppId');
+
+      if (loading) loading.classList.remove('hidden');
+      if (fetchBtn) fetchBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/custom_games/fetch_by_appid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ steam_appid: rawInput, exe_path: exePath })
+        });
+        const data = await res.json();
+        if (data && data.success && data.game) {
+          const prevGame = currentDetectedCustomGame;
+          const fetched = data.game;
+          if (prevGame) {
+            if (!fetched.game_root && prevGame.game_root) fetched.game_root = prevGame.game_root;
+            if (!fetched.executable_name && prevGame.executable_name) fetched.executable_name = prevGame.executable_name;
+            if ((!fetched.engine || fetched.engine === 'Chưa rõ') && prevGame.engine) fetched.engine = prevGame.engine;
+          }
+          currentDetectedCustomGame = fetched;
+          applyDetectedGameToUI(currentDetectedCustomGame);
+          if (resultSec) resultSec.classList.remove('hidden');
+          if (saveBtn) saveBtn.disabled = !exePath && !currentDetectedCustomGame.executable_name;
+          if (saveBtn && (exePath || currentDetectedCustomGame.executable_name)) saveBtn.disabled = false;
+          if (!exePath && !currentDetectedCustomGame.executable_name) {
+            showToast(`Đã lấy thông tin "${fetched.title}"! Hãy chọn thêm file .exe của game ở Bước 1 để lưu.`, 'info');
+          } else {
+            showToast(`Đã lấy toàn bộ thông tin "${fetched.title}" từ Steam (giữ nguyên file chạy ${fetched.executable_name})!`, 'success');
+          }
+        } else {
+          showToast((data && data.message) || 'Không tìm thấy game theo Steam AppID này.', 'error');
+        }
+      } catch (e) {
+        showToast('Lỗi khi lấy thông tin từ Steam: ' + e.message, 'error');
+      } finally {
+        if (loading) loading.classList.add('hidden');
+        if (fetchBtn) fetchBtn.disabled = false;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+    window.fetchCustomGameByAppId = fetchCustomGameByAppId;
+
     async function startCustomGameDetect() {
       const exePath = document.getElementById('cgExeInput').value.trim();
       if (!exePath) {
         showToast('Vui lòng chọn hoặc dán đường dẫn file .exe của game!', 'warning');
         return;
       }
+
+      const presetRaw = document.getElementById('cgPresetAppIdInput')?.value.trim() || '';
+      const fallbackRaw = document.getElementById('cgAppIdInput')?.value.trim() || '';
+      const overrideAppId = parseSteamAppId(presetRaw || fallbackRaw);
 
       const loading = document.getElementById('cgDetectLoading');
       const resultSec = document.getElementById('cgDetectResultSection');
@@ -1865,7 +2129,7 @@
         const res = await fetch('/api/custom_games/detect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ exe_path: exePath })
+          body: JSON.stringify({ exe_path: exePath, steam_appid: overrideAppId })
         });
         const data = await res.json();
         if (data && data.success && data.game) {
@@ -1893,16 +2157,24 @@
       const vnTitle = document.getElementById('cgVnTitleInput').value.trim();
       const dev = document.getElementById('cgDevInput').value.trim();
       const engine = document.getElementById('cgEngineInput').value.trim();
-      const appid = document.getElementById('cgAppIdInput').value.trim();
+      const rawAppId = document.getElementById('cgAppIdInput').value.trim();
+      const appid = parseSteamAppId(rawAppId);
       const coverUrl = document.getElementById('cgPosterUrlInput').value.trim();
 
       if (!title) {
         showToast('Tên tựa game không được để trống!', 'warning');
         return;
       }
+      if (!currentDetectedCustomGame.executable_name) {
+        const exeVal = document.getElementById('cgExeInput')?.value.trim() || '';
+        if (!exeVal) {
+          showToast('Vui lòng chọn file thực thi (.exe) cho game ở Bước 1!', 'warning');
+          return;
+        }
+      }
 
       currentDetectedCustomGame.title = title;
-      currentDetectedCustomGame.vietnamese_title = vnTitle || `${title} (Tự Thêm)`;
+      currentDetectedCustomGame.vietnamese_title = vnTitle || title;
       currentDetectedCustomGame.developer = dev || 'Chưa rõ';
       currentDetectedCustomGame.engine = engine || 'PC Game';
       currentDetectedCustomGame.steam_appid = appid || '';
@@ -1910,7 +2182,7 @@
 
       const btn = document.getElementById('btnSaveCustomGameToLib');
       btn.disabled = true;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Đang lưu...</span>`;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Đang thêm vào thư viện...</span>`;
       lucide.createIcons();
 
       try {
@@ -2115,7 +2387,30 @@
         settingsCustomPathsList = Array.isArray(scanner.custom_library_paths) ? [...scanner.custom_library_paths] : [];
         renderSettingsCustomPaths(settingsCustomPathsList);
 
-        // TAB 3: Downloader
+        // TAB 3: In-Game & Booster
+        const inGame = s.in_game || {};
+        const booster = document.getElementById('settingInput-game_booster_enabled');
+        if (booster) booster.checked = inGame.game_booster_enabled !== false;
+
+        const autoMin = document.getElementById('settingInput-auto_minimize_on_launch');
+        if (autoMin) autoMin.checked = inGame.auto_minimize_on_launch !== false;
+
+        const qcp = document.getElementById('settingInput-quick_checkpoint_enabled');
+        if (qcp) qcp.checked = inGame.quick_checkpoint_enabled !== false;
+
+        const cpSound = document.getElementById('settingInput-checkpoint_sound');
+        if (cpSound) cpSound.checked = inGame.checkpoint_sound !== false;
+
+        const sessSum = document.getElementById('settingInput-show_session_summary');
+        if (sessSum) sessSum.checked = inGame.show_session_summary !== false;
+
+        const hkSave = document.getElementById('settingInput-hotkey_save');
+        if (hkSave) hkSave.value = inGame.hotkey_save || 'Ctrl+F5';
+
+        const hkLoad = document.getElementById('settingInput-hotkey_load');
+        if (hkLoad) hkLoad.value = inGame.hotkey_load || 'Ctrl+F9';
+
+        // TAB 4: Downloader
         const dl = s.downloader || {};
         const prefSource = dl.preferred_source || 'github_cdn';
         const radio = document.querySelector(`input[name="preferred_source"][value="${prefSource}"]`);
@@ -2146,6 +2441,21 @@
 
         const offAch = document.getElementById('settingInput-offline_achievements_scan');
         if (offAch) offAch.checked = cs.offline_achievements_scan !== false;
+
+        // TAB 6: Controller
+        const ctrl = s.controller || {};
+        const ctrlEnabled = document.getElementById('settingInput-controller_enabled');
+        if (ctrlEnabled) ctrlEnabled.checked = ctrl.enabled !== false;
+
+        const ctrlVib = document.getElementById('settingInput-controller_vibration');
+        if (ctrlVib) ctrlVib.checked = ctrl.vibration !== false;
+
+        const ctrlDz = document.getElementById('settingInput-controller_deadzone');
+        const ctrlDzDisp = document.getElementById('controllerDeadzoneDisplay');
+        if (ctrlDz) {
+          ctrlDz.value = String(ctrl.deadzone || 0.15);
+          if (ctrlDzDisp) ctrlDzDisp.innerText = Math.round((ctrl.deadzone || 0.15) * 100) + '%';
+        }
 
       } catch (e) {
         console.warn('[Settings] Lỗi nạp dữ liệu cài đặt:', e);
@@ -2197,7 +2507,7 @@
       container.innerHTML = paths.map((p, idx) => `
         <div class="flex items-center justify-between p-2 rounded-[4px] bg-[#0A0E1A] border border-white/10 text-xs gap-2">
           <div class="flex items-center space-x-2 min-w-0">
-            <i data-lucide="folder" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+            <i data-lucide="folder" class="w-3.5 h-3.5 text-red-400 shrink-0"></i>
             <span class="font-mono text-slate-300 truncate" title="${p}">${p}</span>
           </div>
           <button type="button" onclick="removeCustomLibraryPath(${idx})" class="p-1 text-slate-400 hover:text-red-400 rounded shrink-0 transition" title="Xóa thư mục khỏi danh sách quét">
@@ -2336,7 +2646,7 @@
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = `<i data-lucide="cloud-download" class="w-3.5 h-3.5 text-cyan-400"></i><span>Kiểm Tra Bản Mới</span>`;
+          btn.innerHTML = `<i data-lucide="cloud-download" class="w-3.5 h-3.5 text-red-400"></i><span>Kiểm Tra Bản Mới</span>`;
           if (window.lucide) lucide.createIcons();
         }
       }
@@ -2380,7 +2690,7 @@
     }
 
     function switchSettingsTab(tabName) {
-      const tabs = ['general', 'scanner', 'downloader', 'cloud_save'];
+      const tabs = ['general', 'scanner', 'in_game', 'downloader', 'cloud_save', 'controller'];
       tabs.forEach(t => {
         const btn = document.getElementById(`settingsTabBtn-${t}`);
         const panel = document.getElementById(`settingsPanel-${t}`);
@@ -2436,6 +2746,15 @@
             scan_gog: !!document.getElementById('settingInput-scan_gog')?.checked,
             custom_library_paths: settingsCustomPathsList,
           },
+          in_game: {
+            game_booster_enabled: !!document.getElementById('settingInput-game_booster_enabled')?.checked,
+            auto_minimize_on_launch: !!document.getElementById('settingInput-auto_minimize_on_launch')?.checked,
+            quick_checkpoint_enabled: !!document.getElementById('settingInput-quick_checkpoint_enabled')?.checked,
+            checkpoint_sound: !!document.getElementById('settingInput-checkpoint_sound')?.checked,
+            show_session_summary: !!document.getElementById('settingInput-show_session_summary')?.checked,
+            hotkey_save: document.getElementById('settingInput-hotkey_save')?.value || 'Ctrl+F5',
+            hotkey_load: document.getElementById('settingInput-hotkey_load')?.value || 'Ctrl+F9',
+          },
           downloader: {
             preferred_source: document.querySelector('input[name="preferred_source"]:checked')?.value || 'github_cdn',
             keep_congu_cache: !!document.getElementById('settingInput-keep_congu_cache')?.checked,
@@ -2448,6 +2767,12 @@
             auto_sync_on_exit: !!document.getElementById('settingInput-auto_sync_on_exit')?.checked,
             track_playtime: !!document.getElementById('settingInput-track_playtime')?.checked,
             offline_achievements_scan: !!document.getElementById('settingInput-offline_achievements_scan')?.checked,
+          },
+          controller: {
+            enabled: !!document.getElementById('settingInput-controller_enabled')?.checked,
+            vibration: !!document.getElementById('settingInput-controller_vibration')?.checked,
+            sound_effects: true,
+            deadzone: parseFloat(document.getElementById('settingInput-controller_deadzone')?.value || '0.15'),
           }
         };
 
@@ -2612,16 +2937,16 @@
         box.id = 'conguSessionSummary';
         box.style.cssText =
           'position:fixed;right:18px;bottom:18px;z-index:99999;width:330px;' +
-          'background:rgba(10,14,26,0.97);border:1px solid rgba(0,240,255,0.55);border-radius:6px;' +
-          'box-shadow:0 12px 40px rgba(0,0,0,0.65),0 0 24px rgba(0,240,255,0.15);' +
+          'background:rgba(10,14,26,0.97);border:1px solid rgba(255, 42, 85,0.55);border-radius:6px;' +
+          'box-shadow:0 12px 40px rgba(0,0,0,0.65),0 0 24px rgba(255, 42, 85,0.15);' +
           'font-family:Inter,system-ui,sans-serif;color:#e6f7ff;overflow:hidden;' +
           'animation:conguSummaryIn .25s ease-out;';
 
         box.innerHTML =
           '<div style="display:flex;align-items:center;justify-content:space-between;' +
-          'padding:10px 12px;background:linear-gradient(90deg,rgba(0,240,255,0.16),rgba(0,240,255,0.10));' +
-          'border-bottom:1px solid rgba(0,240,255,0.25);">' +
-          '<div style="font-size:11px;letter-spacing:1px;font-weight:700;color:#00F0FF;">// TỔNG KẾT PHIÊN CHƠI</div>' +
+          'padding:10px 12px;background:linear-gradient(90deg,rgba(255, 42, 85,0.16),rgba(255, 42, 85,0.10));' +
+          'border-bottom:1px solid rgba(255, 42, 85,0.25);">' +
+          '<div style="font-size:11px;letter-spacing:1px;font-weight:700;color:#FF2A55;">// TỔNG KẾT PHIÊN CHƠI</div>' +
           '<button id="conguSummaryClose" style="background:transparent;border:0;color:#8fa6bd;font-size:16px;' +
           'cursor:pointer;line-height:1;padding:0 2px;">&times;</button></div>' +
           '<div style="padding:10px 12px 12px 12px;">' +
@@ -2631,7 +2956,7 @@
           row('Google Drive', payload.cloud_status || '—', '#8ad4ff') +
           (freed > 0 ? row('RAM đã giải phóng', freed.toFixed(1) + ' MB') : '') +
           '<div style="margin-top:10px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">' +
-          '<div style="height:100%;background:#00F0FF;' +
+          '<div style="height:100%;background:#FF2A55;' +
           'animation:conguSummaryBar 12s linear forwards;"></div></div>' +
           '</div>';
 
@@ -2662,10 +2987,10 @@
           'position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;' +
           'pointer-events:none;background:rgba(5,8,18,0.72);';
         overlay.innerHTML =
-          '<div style="border:2px dashed rgba(0,240,255,0.75);border-radius:10px;padding:32px 44px;text-align:center;' +
-          'background:rgba(10,14,26,0.92);box-shadow:0 0 40px rgba(0,240,255,0.25);font-family:Inter,system-ui,sans-serif;">' +
+          '<div style="border:2px dashed rgba(255, 42, 85,0.75);border-radius:10px;padding:32px 44px;text-align:center;' +
+          'background:rgba(10,14,26,0.92);box-shadow:0 0 40px rgba(255, 42, 85,0.25);font-family:Inter,system-ui,sans-serif;">' +
           '<div style="font-size:32px;line-height:1;margin-bottom:10px;">📥</div>' +
-          '<div style="font-size:15px;font-weight:700;color:#00F0FF;letter-spacing:.5px;">THẢ FILE VÀO ĐÂY</div>' +
+          '<div style="font-size:15px;font-weight:700;color:#FF2A55;letter-spacing:.5px;">THẢ FILE VÀO ĐÂY</div>' +
           '<div style="font-size:12px;color:#9fb3c8;margin-top:8px;line-height:1.7;">' +
           '.exe / .lnk → thêm Game Lẻ &nbsp;·&nbsp; .congu → cài Việt hóa Offline<br>' +
           '.congu_save → nạp Hồ sơ Save &amp; Thành tựu &nbsp;·&nbsp; .congu_theme → đổi Theme</div></div>';
@@ -2709,7 +3034,7 @@
         if (!rest.length) return true;
 
         const colorOf = (st) => ({
-          ok: '#34D399', installing: '#00F0FF', error: '#F87171', unsupported: '#FBBF24'
+          ok: '#34D399', installing: '#FF2A55', error: '#F87171', unsupported: '#FBBF24'
         }[st] || '#9fb3c8');
 
         const html = rest.map((i) => {
@@ -2726,13 +3051,13 @@
         card.id = 'conguDndResult';
         card.style.cssText =
           'position:fixed;right:18px;bottom:18px;z-index:99999;width:360px;max-height:60vh;overflow:auto;' +
-          'background:rgba(10,14,26,0.98);border:1px solid rgba(0,240,255,0.45);border-radius:6px;' +
+          'background:rgba(10,14,26,0.98);border:1px solid rgba(255, 42, 85,0.45);border-radius:6px;' +
           'box-shadow:0 12px 40px rgba(0,0,0,0.6);font-family:Inter,system-ui,sans-serif;color:#e6f7ff;';
         card.innerHTML =
           '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;' +
-          'background:linear-gradient(90deg,rgba(0,240,255,0.14),rgba(0,240,255,0.08));' +
-          'border-bottom:1px solid rgba(0,240,255,0.22);">' +
-          '<span style="font-size:11px;font-weight:700;letter-spacing:1px;color:#00F0FF;">// KẾT QUẢ KÉO &amp; THẢ</span>' +
+          'background:linear-gradient(90deg,rgba(255, 42, 85,0.14),rgba(255, 42, 85,0.08));' +
+          'border-bottom:1px solid rgba(255, 42, 85,0.22);">' +
+          '<span style="font-size:11px;font-weight:700;letter-spacing:1px;color:#FF2A55;">// KẾT QUẢ KÉO &amp; THẢ</span>' +
           '<button id="conguDndClose" style="background:transparent;border:0;color:#8fa6bd;font-size:16px;cursor:pointer;">&times;</button></div>' +
           '<div style="padding:6px 12px 12px 12px;">' + html + '</div>';
         document.body.appendChild(card);
@@ -2767,10 +3092,10 @@
         'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;' +
         'background:rgba(4,6,14,0.78);font-family:Inter,system-ui,sans-serif;';
       box.innerHTML =
-        '<div style="width:430px;max-width:92vw;background:rgba(12,16,30,0.98);border:1px solid rgba(0,240,255,0.5);' +
-        'border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.75),0 0 30px rgba(0,240,255,0.18);overflow:hidden;">' +
-        '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(0,240,255,0.16),rgba(0,240,255,0.10));' +
-        'border-bottom:1px solid rgba(0,240,255,0.25);font-size:12px;font-weight:700;letter-spacing:1px;color:#00F0FF;">' +
+        '<div style="width:430px;max-width:92vw;background:rgba(12,16,30,0.98);border:1px solid rgba(255, 42, 85,0.5);' +
+        'border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.75),0 0 30px rgba(255, 42, 85,0.18);overflow:hidden;">' +
+        '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(255, 42, 85,0.16),rgba(255, 42, 85,0.10));' +
+        'border-bottom:1px solid rgba(255, 42, 85,0.25);font-size:12px;font-weight:700;letter-spacing:1px;color:#FF2A55;">' +
         '// NẠP HỒ SƠ SAVE &amp; THÀNH TỰU</div>' +
         '<div style="padding:18px 16px;color:#dbe9f6;font-size:13px;line-height:1.7;">' +
         'Bạn có muốn nạp Hồ sơ Save &amp; Thành tựu của ' +
@@ -2833,7 +3158,7 @@
             const fix = c.fix_url
               ? '<button data-fix="' + escapeAttr(c.fix_url) + '" class="conguDocFix" ' +
                 'style="margin-top:6px;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer;' +
-                'background:#12314a;color:#9fe8ff;border:1px solid rgba(0,240,255,0.45);font-weight:700;">' +
+                'background:#12314a;color:#9fe8ff;border:1px solid rgba(255, 42, 85,0.45);font-weight:700;">' +
                 escapeHtmlText(c.fix_label || 'Tải về') + '</button>'
               : '';
             const hint = c.hint
@@ -2859,8 +3184,8 @@
             '<div style="width:560px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;' +
             'background:rgba(12,16,30,0.99);border:1px solid ' + (isErr ? 'rgba(255,77,109,0.6)' : 'rgba(255,176,32,0.55)') + ';' +
             'border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.8);overflow:hidden;">' +
-            '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(0,240,255,0.12),rgba(0,240,255,0.08));' +
-            'border-bottom:1px solid rgba(0,240,255,0.22);font-size:12px;font-weight:700;letter-spacing:1px;color:#00F0FF;">' +
+            '<div style="padding:12px 16px;background:linear-gradient(90deg,rgba(255, 42, 85,0.12),rgba(255, 42, 85,0.08));' +
+            'border-bottom:1px solid rgba(255, 42, 85,0.22);font-size:12px;font-weight:700;letter-spacing:1px;color:#FF2A55;">' +
             '🩺 // GAME DOCTOR — KIỂM TRA TRƯỚC KHI CHƠI</div>' +
             '<div style="padding:12px 16px 4px 16px;font-size:12.5px;color:#dbe9f6;line-height:1.6;">' +
             escapeHtmlText((report && report.summary) || '') + '</div>' +
@@ -2908,4 +3233,190 @@
 
     function escapeAttr(v) {
       return String(v == null ? '' : v).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+
+    // =========================================================================
+    // STEAM-STYLE GAME CONTEXT MENU (CHUỘT PHẢI)
+    // =========================================================================
+    let _activeContextMenuGameId = null;
+
+    function showGameContextMenu(e, gameId) {
+      if (!gameId) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const game = gamesList.find(g => g.id === gameId);
+      if (!game) return;
+
+      _activeContextMenuGameId = gameId;
+      const menu = document.getElementById('gameContextMenu');
+      if (!menu) return;
+
+      // Update titles
+      const titleElem = document.getElementById('ctxMenuGameTitle');
+      const statusElem = document.getElementById('ctxMenuGameStatus');
+      if (titleElem) titleElem.textContent = game.vietnamese_title || game.title;
+      if (statusElem) statusElem.textContent = game.status_text || (game.is_installed ? 'ĐÃ CÀI VIỆT HÓA' : 'CHƯA CÀI');
+
+      // Update toggle mod button text
+      const toggleText = document.getElementById('ctxBtnToggleModText');
+      if (toggleText) {
+        toggleText.textContent = game.is_installed ? 'Gỡ Bỏ Bản Việt Hóa' : 'Cài Đặt Bản Việt Hóa';
+      }
+
+      // Update favorite button text
+      const favText = document.getElementById('ctxBtnFavoriteText');
+      if (favText) {
+        favText.textContent = game.is_favorite ? 'Bỏ khỏi Yêu thích' : 'Thêm vào Yêu thích';
+      }
+
+      // Position menu near cursor
+      let posX = e.clientX;
+      let posY = e.clientY;
+      const menuWidth = 224;
+      const menuHeight = 220;
+      if (posX + menuWidth > window.innerWidth) posX = window.innerWidth - menuWidth - 12;
+      if (posY + menuHeight > window.innerHeight) posY = window.innerHeight - menuHeight - 12;
+
+      menu.style.left = `${Math.max(10, posX)}px`;
+      menu.style.top = `${Math.max(10, posY)}px`;
+      menu.classList.remove('hidden');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeGameContextMenu() {
+      const menu = document.getElementById('gameContextMenu');
+      if (menu) menu.classList.add('hidden');
+    }
+
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('gameContextMenu');
+      if (menu && !menu.contains(e.target)) {
+        closeGameContextMenu();
+      }
+    });
+
+    document.addEventListener('contextmenu', (e) => {
+      const menu = document.getElementById('gameContextMenu');
+      if (menu && !e.target.closest('[data-game-id], .sidebar-game-row, .game-card')) {
+        closeGameContextMenu();
+      }
+    });
+
+    function ctxActionPlay() {
+      const gid = _activeContextMenuGameId;
+      closeGameContextMenu();
+      if (gid) launchGame(gid);
+    }
+
+    function ctxActionToggleMod() {
+      const gid = _activeContextMenuGameId;
+      closeGameContextMenu();
+      if (gid) toggleMod(gid);
+    }
+
+    function ctxActionVerify() {
+      const gid = _activeContextMenuGameId;
+      closeGameContextMenu();
+      if (gid) verifyModIntegrity(gid);
+    }
+
+    function ctxActionToggleFavorite() {
+      const gid = _activeContextMenuGameId;
+      closeGameContextMenu();
+      if (gid) toggleFavoriteGame(gid);
+    }
+
+    function ctxActionOpenFolder() {
+      const gid = _activeContextMenuGameId;
+      closeGameContextMenu();
+      if (gid) openGameFolder(gid);
+    }
+
+    function ctxActionOpenDetail() {
+      const gid = _activeContextMenuGameId;
+      closeGameContextMenu();
+      if (gid) selectGame(gid);
+    }
+
+    // =========================================================================
+    // MOTION GYRO LIVE VISUALIZER & TESTER
+    // =========================================================================
+    let gyroLiveTestInterval = null;
+    let isGyroLiveTesting = false;
+
+    async function toggleGyroLiveTest() {
+      const btn = document.getElementById('btnTestGyroLive');
+      const btnText = document.getElementById('btnTestGyroLiveText');
+      const container = document.getElementById('gyroLiveMetersContainer');
+
+      if (isGyroLiveTesting) {
+        // Tắt test
+        isGyroLiveTesting = false;
+        if (gyroLiveTestInterval) {
+          clearInterval(gyroLiveTestInterval);
+          gyroLiveTestInterval = null;
+        }
+        if (btnText) btnText.textContent = 'Kiểm Tra Con Quay';
+        if (btn) btn.className = 'pixel-btn px-3 py-1.5 text-xs bg-red-600/30 hover:bg-red-500/40 text-red-300 border border-red-400/50 rounded font-bold flex items-center space-x-1.5 transition';
+        if (container) container.classList.add('hidden');
+        try {
+          await fetch('/api/gamepad/gyro/test_toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enable: false })
+          });
+        } catch (e) {}
+      } else {
+        // Bật test
+        try {
+          const res = await fetch('/api/gamepad/gyro/test_toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enable: true })
+          });
+          const data = await res.json();
+          if (!data || !data.running) {
+            showToast('Không thể kết nối cảm biến con quay. Hãy đảm bảo tay cầm PS4/PS5 đang cắm qua USB/Bluetooth!', 'warning');
+            return;
+          }
+        } catch (e) {
+          showToast('Lỗi bật test con quay: ' + e.message, 'error');
+          return;
+        }
+
+        isGyroLiveTesting = true;
+        if (btnText) btnText.textContent = 'Dừng Kiểm Tra';
+        if (btn) btn.className = 'pixel-btn px-3 py-1.5 text-xs bg-rose-600/30 hover:bg-rose-500/40 text-rose-300 border border-rose-400/50 rounded font-bold flex items-center space-x-1.5 transition';
+        if (container) container.classList.remove('hidden');
+
+        // Bắt đầu đọc số liệu liên tục
+        gyroLiveTestInterval = setInterval(async () => {
+          if (!isGyroLiveTesting) return;
+          try {
+            const res = await fetch('/api/gamepad/gyro/live');
+            const data = await res.json();
+            if (data && data.success && data.state) {
+              const s = data.state;
+              const pitchEl = document.getElementById('gyroMeterPitch');
+              const yawEl = document.getElementById('gyroMeterYaw');
+              const rollEl = document.getElementById('gyroMeterRoll');
+              const l2Badge = document.getElementById('gyroLiveL2Badge');
+
+              if (pitchEl) pitchEl.textContent = `${(s.pitch || 0).toFixed(1)}°/s`;
+              if (yawEl) yawEl.textContent = `${(s.yaw || 0).toFixed(1)}°/s`;
+              if (rollEl) rollEl.textContent = `${(s.roll || 0).toFixed(1)}°/s`;
+              if (l2Badge) {
+                const l2Val = s.l2_trigger || 0;
+                l2Badge.textContent = `L2 (Ngắm): ${l2Val}`;
+                l2Badge.className = l2Val > 30 
+                  ? 'px-1.5 py-0.5 rounded bg-red-500/30 text-[10px] text-red-300 font-mono font-bold border border-red-400/60'
+                  : 'px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-mono';
+              }
+            }
+          } catch (e) {}
+        }, 60);
+      }
     }

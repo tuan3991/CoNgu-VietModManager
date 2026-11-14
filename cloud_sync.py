@@ -651,7 +651,18 @@ class CloudSyncManager:
         cloud_cfg = game_config.get("cloud_sync", {})
         save_paths = cloud_cfg.get("save_paths", [])
         if not save_paths:
-            # Gợi ý mặc định theo tên game
+            # Smart Auto-Save Detector: Dò tìm mọi vị trí save thực tế
+            try:
+                from core.cloud_save.auto_save_detector import detect_game_save_locations
+                detected = detect_game_save_locations(game_config, game_dir)
+                if detected:
+                    for d in detected:
+                        res_p = self.resolve_save_path(d["path"], game_dir)
+                        if res_p and os.path.isdir(res_p):
+                            return res_p
+            except Exception as e:
+                print(f"[CloudSyncManager] Auto-save detector error: {e}")
+
             title = game_config.get("title", game_config.get("id", ""))
             user_prof = os.environ.get("USERPROFILE", "")
             save_paths = [
@@ -938,6 +949,45 @@ class CloudSyncManager:
     # CƠ CHẾ ĐỒNG BỘ 3 CHIỀU (3-WAY CLOUD SYNC)
     # ==========================================
 
+    # ==========================================
+    # PRE-LAUNCH CLOUD GUARD (ĐỒNG BỘ TRƯỚC KHI MỞ GAME)
+    # ==========================================
+    def pre_launch_cloud_guard(self, game_id: str, game_config: dict, game_dir: str = None) -> dict:
+        """
+        Pre-Launch Cloud Guard: Kéo save mới nhất từ Google Drive về trước khi mở game.
+        - Kiểm tra 3-way status (Local vs Cloud).
+        - Nếu Cloud có bản mới hơn (DOWNLOAD_NEEDED):
+            Tự động sao lưu bản máy vào local_backup và tải bản Cloud về trước khi exe chạy.
+        - Trả về status 'pulled' hoặc 'in_sync' hoặc 'skipped'.
+        """
+        if not self.is_connected():
+            return {"status": "skipped", "reason": "cloud_not_connected"}
+
+        try:
+            check = self.check_game_sync_status(game_config, game_dir)
+            status = check.get("status")
+
+            if status == "DOWNLOAD_NEEDED":
+                res = self.sync_game_save(game_config, game_dir, force_action="download")
+                if res.get("success"):
+                    return {
+                        "status": "pulled",
+                        "message": "Đã tự động cập nhật bản save mới nhất từ Google Drive!",
+                        "details": res
+                    }
+                else:
+                    return {"status": "failed", "error": res.get("error")}
+            elif status == "IN_SYNC":
+                return {"status": "in_sync", "message": "Save game đã đồng bộ khớp 100% với Cloud."}
+            elif status == "UPLOAD_NEEDED":
+                return {"status": "local_newer", "message": "Save cục bộ trên máy mới hơn Cloud."}
+            elif status == "CONFLICT":
+                return {"status": "conflict", "message": "Phát hiện xung đột save giữa máy và Cloud."}
+            return {"status": "noop"}
+        except Exception as e:
+            print(f"[CloudSyncManager] Pre-launch cloud guard error: {e}")
+            return {"status": "error", "error": str(e)}
+
     def check_game_sync_status(self, game_config: dict, game_dir: str = None) -> dict:
         """
         Kiểm tra trạng thái đồng bộ Save Game 3 Chiều giữa:
@@ -1203,7 +1253,7 @@ class CloudSyncManager:
         """Hàm tự động kích hoạt sau khi tắt game (Post-Session Auto Upload)."""
         if not self.is_connected():
             return
-        if not game_config or not game_config.get("cloud_sync"):
+        if not game_config:
             return
 
         def _worker():
@@ -1350,6 +1400,18 @@ class CloudSyncManager:
 
             os.makedirs(os.path.dirname(os.path.abspath(target_vault_path)), exist_ok=True)
             os.replace(tmp_download, target_vault_path)
+
+            # Đồng bộ avatar, cover, tên game thủ từ manifest vào config.json trên máy mới
+            try:
+                from core.config_manager.user_settings import load_user_config, save_user_config
+                cfg = load_user_config() or {}
+                profile_cfg = cfg.setdefault('profile', {})
+                for k in ('player_name', 'avatar_url', 'cover_url', 'bio'):
+                    if manifest.get(k):
+                        profile_cfg[k] = manifest[k]
+                save_user_config(cfg)
+            except Exception as pe:
+                print(f'[CloudSync] Sync manifest to config error: {pe}')
 
             return {
                 "success": True,

@@ -64,7 +64,8 @@
         "*.bak",
         "*.tmp"
       ]
-    }
+    },
+    "congu_sha256": "5f07e8167c23ddc089ddc5cabed2e547f2ce6659e045ce126950604899045066"
   },
   {
     "id": "backbone",
@@ -138,7 +139,8 @@
       "exclude_patterns": [
         "*.bak"
       ]
-    }
+    },
+    "congu_sha256": "2ccbf5c466c92c7c1e4d15238cae13f576272181f56dc80453c42a47c27ed04c"
   },
   {
     "id": "toem",
@@ -204,7 +206,8 @@
       "exclude_patterns": [
         "*.bak"
       ]
-    }
+    },
+    "congu_sha256": "cc4085e730ce261bcb73636af9e9cb44b2d904da13e004d8b38638229524f562"
   },
   {
     "id": "hotline_miami",
@@ -277,7 +280,8 @@
         "%APPDATA%/Goldberg SteamEmu Saves/219150/achievements.json",
         "%PUBLIC%/Documents/Steam/CODEX/219150/achievements.ini"
       ]
-    }
+    },
+    "congu_sha256": "a74f18671b5e0cf3fafd53252adbeb0a98b9af585a91e4d8e0435bef0c6e6b75"
   },
   {
     "id": "ror2",
@@ -470,7 +474,8 @@
         "%APPDATA%/Goldberg SteamEmu Saves/38420/achievements.json",
         "%PUBLIC%/Documents/Steam/CODEX/38420/achievements.ini"
       ]
-    }
+    },
+    "congu_sha256": "f3a18b5439940c84f48cdaa0db75cdaf0c72cd2103c8b56a1c956413593c4052"
   },
   {
     "id": "loop_hero",
@@ -537,7 +542,8 @@
       "exclude_patterns": [
         "*.bak"
       ]
-    }
+    },
+    "congu_sha256": "1b8d48f621f182f1ab25df3db4116e536c6ea2b350662521faad5e80173105c1"
   },
   {
     "id": "witcher3",
@@ -618,7 +624,8 @@
         "%APPDATA%/Goldberg SteamEmu Saves/292030/achievements.json",
         "%PUBLIC%/Documents/Steam/CODEX/292030/achievements.ini"
       ]
-    }
+    },
+    "congu_sha256": "f74a91d936c10a8cee5850f785be15a4c7cf2532acc8246561964322406254b6"
   },
   {
     "id": "forever_ago",
@@ -696,7 +703,8 @@
         "%APPDATA%/Goldberg SteamEmu Saves/1215940/achievements.json",
         "%PUBLIC%/Documents/Steam/CODEX/1215940/achievements.ini"
       ]
-    }
+    },
+    "congu_sha256": "c4a6d584e1b79c5769dd3629c79f2233ac06af786d197ae326c539d00658892a"
   },
   {
     "id": "erra_exordium",
@@ -767,7 +775,8 @@
         "%APPDATA%/Goldberg SteamEmu Saves/1224030/achievements.json",
         "%PUBLIC%/Documents/Steam/CODEX/1224030/achievements.ini"
       ]
-    }
+    },
+    "congu_sha256": "140353677c8733f8b7ddc4fcccb00dab118bb2f26d2d7d827aa0250cfb4332e0"
   },
   {
     "id": "ravenous_devils",
@@ -839,7 +848,8 @@
         "%APPDATA%/Goldberg SteamEmu Saves/1615290/achievements.json",
         "%PUBLIC%/Documents/Steam/CODEX/1615290/achievements.ini"
       ]
-    }
+    },
+    "congu_sha256": "05ae859871346c0222d6c3981cbf8ecbe366d28f3093404ad670feac16c78323"
   },
   {
     "id": "rivage",
@@ -935,7 +945,7 @@
         }
       ]
     },
-    "congu_sha256": "0c71c419c98d29a4c5259d6ab1fcaee2d24996743a7017b9790e1805c8bb4d48",
+    "congu_sha256": "d5d3ef5c1fc6d31b0eeeaecfd4e39afd30743775d8deabe4e2802886ef948233",
     "cloud_sync": {
       "save_paths": [
         "%DOCUMENTS%/Rivage",
@@ -1617,7 +1627,7 @@
         "target": "FFRS/Content/Paks/~mods/FFRS-Windows_Vietnamese_P.pak"
       }
     ],
-    "congu_sha256": "dd360d7328f797d0ee93fc5875b3e0692b72e5855756215a27b4993c2464064c"
+    "congu_sha256": "addf16fa118f0aad497a07e1cebcec8f6217264b59d95d63d935d635a8fdba42"
   },
   {
     "id": "the_walking_dead",
@@ -2502,5 +2512,171 @@
     ],
     "congu_sha256": "68e599420dd0aeb81b57a38d4fa3e207ce6532967937fbf4436a3daac23b60a8",
     "mod_size": "~9.5 MB"
+  },
+  {
+    "id": "mhrise",
+    "steam_appid": "1446780",
+    "title": "Monster Hunter Rise",
+    "vietnamese_title": "Monster Hunter Rise: Sunbreak",
+    "developer": "CAPCOM Co., Ltd.",
+    "engine": "RE Engine (MSG v539100710, PAK KPKA v4.0)",
+    "genre": "Hành động nhập vai (Action RPG), Săn quái vật, Co-op",
+    "description": "Monster Hunter Rise đưa người chơi đến Làng Kamura thơ mộng và Vương quốc Elgado hoa lệ để đối đầu với Thảm Họa Diệt Vong và Rồng Cổ Đại. Bản Việt hóa hoàn chỉnh 100% toàn bộ hội thoại, nhiệm vụ, kỹ năng, ghi chú thợ săn và bản đồ mở rộng Sunbreak.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "52,772 mục (47,565 chuỗi dịch + 5,207 chuỗi hệ thống bảo vệ)",
+      "status": "Hoàn thành 100% (Base Game + Sunbreak DLC)",
+      "version": "v1.0.0 (Bản Chuẩn RE Engine)",
+      "author": "Antigravity Localization Team",
+      "font": "Be Vietnam Pro + Ký hiệu đầy đủ chuẩn OFT",
+      "last_updated": "03/11/2026",
+      "mod_size": "~69.5 MB"
+    },
+    "mod_subfolder": "mhrise",
+    "mod_type": "pak",
+    "mod_file": "re_chunk_000.pak.patch_002.pak",
+    "relative_install_path": "",
+    "target_pak_name": "re_chunk_000.pak.patch_002.pak",
+    "executable_name": "MonsterHunterRise.exe",
+    "default_folder_names": [
+      "MonsterHunterRise",
+      "Monster Hunter Rise"
+    ],
+    "install_steps": [
+      {
+        "action": "copy_file",
+        "source": "re_chunk_000.pak.patch_002.pak",
+        "destination": "re_chunk_000.pak.patch_002.pak",
+        "backup": false
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "delete",
+        "target": "re_chunk_000.pak.patch_002.pak"
+      }
+    ],
+    "assets": {
+      "poster": "/assets/mhrise/library_600x900.jpg",
+      "banner": "/assets/mhrise/library_hero.jpg",
+      "logo": "/assets/mhrise/logo.png",
+      "header": "/assets/mhrise/header.jpg"
+    },
+    "versions": [
+      {
+        "version": "v1.0.0 (Bản Chuẩn RE Engine)",
+        "release_date": "03/11/2026",
+        "changelog": "Bản Việt hóa chính thức 100% Monster Hunter Rise và DLC Sunbreak. Tích hợp 6 font OFT Việt hóa sắc nét, đồng bộ toàn diện thuật ngữ 14 loại vũ khí và quái thú.",
+        "is_latest": true
+      }
+    ],
+    "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/mods-v1/MonsterHunterRise.congu",
+    "mod_size": "~69.5 MB",
+    "congu_sha256": "2e7283f19f4f68147e14d83d3c0682e54dd08133943ee7870ff6c033b23206cb"
+  },
+  {
+    "id": "the_genesis_order",
+    "steam_appid": "the_genesis_order",
+    "title": "The Genesis Order",
+    "vietnamese_title": "The Genesis Order (Việt Hóa 18+)",
+    "developer": "NLT Media",
+    "engine": "RPG Maker MV (v1.6.2) + NW.js",
+    "genre": "Trinh thám, Phiêu lưu, Visual Novel 18+, Point & Click",
+    "description": "The Genesis Order là phần tiếp nối trong vũ trụ trinh thám kỳ bí của NLT Media. Vào vai William - thám tử tập sự điều tra các vụ án bí ẩn, các dị giáo cổ đại, khám phá kho báu và tương tác với các nhân vật nữ quyến rũ khắp thành phố North Santiva.",
+    "translation_stats": {
+      "progress": 100,
+      "total_lines": "44.514 chuỗi (32.167 chuỗi độc bản)",
+      "status": "Hoàn thành 100% hội thoại, gợi ý Arianna, vật phẩm và giao diện",
+      "version": "v1.0.0",
+      "author": "Antigravity Localization Team",
+      "font": "11 Font Việt hóa chuẩn 134 ký tự có dấu"
+    },
+    "mod_source": "dist_mods/the_genesis_order.congu",
+    "congu_sha256": "f1ecc0952dac62fd925fcb23bfb3815bc6448b9b59843346385a91d17194c85e",
+    "congu_size": 5183704,
+    "version": "v1.0.0",
+    "executable_name": "Game.exe",
+    "default_folder_names": [
+      "The Genesis Order",
+      "TheGenesisOrder",
+      "the_genesis_order"
+    ],
+    "icon": "static/icons/the_genesis_order.png",
+    "poster": "static/posters/the_genesis_order.png",
+    "detection": {
+      "executable": "Game.exe",
+      "extra_signatures": [
+        "www/data/System.json",
+        "package.json"
+      ]
+    },
+    "install_steps": [
+      {
+        "action": "copy_folder",
+        "source": "www/fonts",
+        "destination": "www/fonts"
+      },
+      {
+        "action": "copy_file",
+        "source": "www/data/Items.json",
+        "destination": "www/data/Items.json"
+      },
+      {
+        "action": "copy_file",
+        "source": "www/data/Actors.json",
+        "destination": "www/data/Actors.json"
+      },
+      {
+        "action": "copy_file",
+        "source": "www/data/MapInfos.json",
+        "destination": "www/data/MapInfos.json"
+      },
+      {
+        "action": "copy_file",
+        "source": "www/data/System.json",
+        "destination": "www/data/System.json"
+      },
+      {
+        "action": "copy_file",
+        "source": "www/data/CommonEvents.json",
+        "destination": "www/data/CommonEvents.json"
+      },
+      {
+        "action": "copy_folder",
+        "source": "www/data",
+        "destination": "www/data"
+      },
+      {
+        "action": "copy_file",
+        "source": "www/js/plugins.js",
+        "destination": "www/js/plugins.js"
+      }
+    ],
+    "uninstall_steps": [
+      {
+        "action": "restore_backup",
+        "target": "www/data/Items.json"
+      },
+      {
+        "action": "restore_backup",
+        "target": "www/data/Actors.json"
+      },
+      {
+        "action": "restore_backup",
+        "target": "www/data/MapInfos.json"
+      },
+      {
+        "action": "restore_backup",
+        "target": "www/data/System.json"
+      },
+      {
+        "action": "restore_backup",
+        "target": "www/data/CommonEvents.json"
+      },
+      {
+        "action": "restore_backup",
+        "target": "www/js/plugins.js"
+      }
+    ]
   }
 ]

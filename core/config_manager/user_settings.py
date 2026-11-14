@@ -31,11 +31,21 @@ DEFAULT_USER_CONFIG = {
         "scan_epic": True,
         "scan_gog": True
     },
+    "in_game": {
+        "game_booster_enabled": True,
+        "auto_minimize_on_launch": True,
+        "quick_checkpoint_enabled": True,
+        "checkpoint_sound": True,
+        "show_session_summary": True,
+        "hotkey_save": "Ctrl+F5",
+        "hotkey_load": "Ctrl+F9"
+    },
     "downloader": {
         "preferred_source": "github_cdn",
         "keep_congu_cache": False,
         "max_concurrent_downloads": 3,
-        "max_download_limit_kb": 0
+        "max_download_limit_kb": 0,
+        "pause_on_gameplay": True
     },
     "cloud_save": {
         "cloud_id": "",
@@ -43,6 +53,12 @@ DEFAULT_USER_CONFIG = {
         "auto_sync_on_exit": True,
         "track_playtime": True,
         "offline_achievements_scan": True
+    },
+    "controller": {
+        "enabled": True,
+        "vibration": True,
+        "sound_effects": True,
+        "deadzone": 0.15
     }
 }
 
@@ -89,6 +105,7 @@ def _normalize_nested_config(cfg: dict) -> bool:
         for p in cfg["custom_library_paths"]:
             if p not in cfg["scanner"]["custom_library_paths"]:
                 cfg["scanner"]["custom_library_paths"].append(p)
+    cfg['custom_library_paths'] = list(cfg['scanner']['custom_library_paths'])
 
     return changed
 
@@ -533,13 +550,15 @@ def save_covers_cache(cache: dict) -> bool:
 
 
 def get_unified_settings() -> dict:
-    """Lấy cấu hình hợp nhất 4 tab (General, Scanner, Downloader, Cloud Save)."""
+    """L?y c?u h?nh h?p nh?t 6 tab (General, Scanner, In-Game, Downloader, Cloud Save, Controller)."""
     cfg = load_user_config()
     return {
         "general": dict(cfg.get("general", DEFAULT_USER_CONFIG["general"])),
         "scanner": dict(cfg.get("scanner", DEFAULT_USER_CONFIG["scanner"])),
+        "in_game": dict(cfg.get("in_game", DEFAULT_USER_CONFIG["in_game"])),
         "downloader": dict(cfg.get("downloader", DEFAULT_USER_CONFIG["downloader"])),
         "cloud_save": dict(cfg.get("cloud_save", DEFAULT_USER_CONFIG["cloud_save"])),
+        "controller": dict(cfg.get("controller", DEFAULT_USER_CONFIG["controller"])),
     }
 
 
@@ -550,7 +569,7 @@ def update_unified_settings(new_config: dict) -> dict:
         if not isinstance(new_config, dict):
             return {"success": False, "message": "Dữ liệu cấu hình không hợp lệ."}
 
-        for section in ["general", "scanner", "downloader", "cloud_save"]:
+        for section in ["general", "scanner", "in_game", "downloader", "cloud_save", "controller"]:
             if section in new_config and isinstance(new_config[section], dict):
                 if section not in cfg or not isinstance(cfg[section], dict):
                     cfg[section] = {}

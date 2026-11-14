@@ -145,26 +145,32 @@ def find_game_install_path(
 def verify_and_resolve_game_path(game_def: Dict[str, Any], input_path: str) -> Tuple[bool, str, str]:
     """
     Intelligently verify if input_path is a valid game directory for game_def.
-    Auto-resolves if user selected parent or child directory.
+    Auto-resolves if user selected parent or child directory or a .exe file directly.
     Returns: (is_valid: bool, resolved_path: str, message: str)
     """
     if not input_path or not os.path.exists(input_path):
         return False, "", "Thư mục không tồn tại trên máy tính!"
 
-    clean_path = os.path.normpath(input_path)
-    exe_name = game_def.get("executable_name", "").lower()
+    # Nếu người dùng chọn trực tiếp file thực thi (.exe), tự động trỏ về thư mục cha
+    if os.path.isfile(input_path):
+        clean_path = os.path.dirname(os.path.normpath(input_path))
+    else:
+        clean_path = os.path.normpath(input_path)
+
+    raw_exe = game_def.get("executable_name") or (game_def.get("detection", {}).get("executable") if isinstance(game_def.get("detection"), dict) else None) or ""
+    exe_name = raw_exe.lower()
     folder_names = [f.lower() for f in game_def.get("default_folder_names", [])]
     game_title = game_def.get("title", "").lower()
     gid = game_def.get("id", "").lower()
     viet_title = game_def.get("vietnamese_title", "tựa game này")
-    expected_exe = os.path.basename(game_def.get("executable_name", "file chạy game"))
+    expected_exe = os.path.basename(raw_exe) if raw_exe else "file chạy game (.exe)"
     
     def check_folder(dir_path: str) -> bool:
         if not os.path.isdir(dir_path):
             return False
         # 1. Direct executable check
         if exe_name:
-            if os.path.exists(os.path.join(dir_path, game_def.get("executable_name", ""))):
+            if os.path.exists(os.path.join(dir_path, raw_exe)):
                 return True
             base_exe = os.path.basename(exe_name)
             if os.path.exists(os.path.join(dir_path, base_exe)):
@@ -176,7 +182,12 @@ def verify_and_resolve_game_path(game_def: Dict[str, Any], input_path: str) -> T
             except Exception:
                 pass
                 
-        # 2. Check engine-specific folders
+        # 2. Check engine-specific signatures or folders
+        signatures = game_def.get("detection", {}).get("extra_signatures", []) if isinstance(game_def.get("detection"), dict) else []
+        for sig in signatures:
+            if sig and os.path.exists(os.path.join(dir_path, sig)):
+                return True
+
         rel_install = game_def.get("relative_install_path", "")
         if rel_install:
             first_part = rel_install.split("/")[0].split("\\")[0]

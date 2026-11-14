@@ -27,6 +27,51 @@ from datetime import datetime, timezone
 VAULT_VERSION = "2.0"
 VAULT_MAGIC_HEADER = "CONGU_SAVE_VAULT"
 
+# Thư mục con trong save game chứa cache/tài nguyên khổng lồ - không bao giờ pack.
+SKIP_SAVE_DIR_KEYWORDS = {"packedsongs", "shader", "webcache", "crashdumps", "gpu_cache"}
+# File save thực tế không bao giờ là gói tài nguyên > 25MB.
+MAX_PACKABLE_SAVE_FILE_BYTES = 25 * 1024 * 1024
+
+# File tạm còn sót lại khi đóng gói vault bị gián đoạn (crash/mất điện).
+STALE_TEMP_PATTERNS = ("*.congu_save_tmp", "congu-save-*.zip*")
+
+
+def cleanup_stale_vault_temp(dirs=None, min_age_seconds: int = 600) -> dict:
+    """
+    Dọn các file tạm còn sót từ lần đóng gói vault/upload bị gián đoạn.
+
+    Chỉ xóa file cũ hơn ``min_age_seconds`` để không đụng vào file tạm của
+    tiến trình đang chạy. Trả về {"removed": int, "freed_bytes": int, "freed_mb": float}.
+    """
+    import glob
+    removed = 0
+    freed_bytes = 0
+    now = time.time()
+    seen = set()
+    for directory in dirs or ():
+        if not directory or not os.path.isdir(directory):
+            continue
+        for pattern in STALE_TEMP_PATTERNS:
+            for path in glob.glob(os.path.join(directory, pattern)):
+                try:
+                    real = os.path.abspath(path)
+                    if real in seen or not os.path.isfile(real):
+                        continue
+                    seen.add(real)
+                    st = os.stat(real)
+                    if now - st.st_mtime < max(0, min_age_seconds):
+                        continue
+                    os.remove(real)
+                    removed += 1
+                    freed_bytes += st.st_size
+                except OSError:
+                    continue
+    return {
+        "removed": removed,
+        "freed_bytes": freed_bytes,
+        "freed_mb": round(freed_bytes / (1024 * 1024), 1),
+    }
+
 
 def _safe_restore_destination(base_dir: str, relative_path: str, label: str) -> str:
     """Trả về đường dẫn restore nằm dưới base, kể cả khi có symlink/junction.
@@ -360,7 +405,7 @@ class ConguSaveVault:
     # ==========================================
     # 3. TRÍCH XUẤT CẤU HÌNH VỊ TRÍ SAVE & THÀNH TỰU TỪ GAME CONFIG
     # ==========================================
-    def _extract_game_locations(self, game_config: dict) -> tuple:
+    def _extract_game_locations(self, game_config: dict, game_root: str = "") -> tuple:
         """
         Chuẩn hóa vị trí lưu save và thành tựu từ games.json:
         Tương thích cả 'vault_config' lẫn 'cloud_sync'/'achievement_sources'.
@@ -394,11 +439,66 @@ class ConguSaveVault:
                     "path": a
                 })
 
+                # 3. Smart Auto-Save Detector: Dò tìm mọi vị trí save thực tế (Steam Emu, Windows Saved Games, LocalLow, UE, Unity...)
+        if not save_locs:
+            try:
+                from core.cloud_save.auto_save_detector import detect_game_save_locations
+                detected = detect_game_save_locations(game_config, game_root)
+                if detected:
+                    save_locs.extend(detected)
+                    if not exclude_patterns:
+                        exclude_patterns = ["*.bak", "*.tmp", "*.congu_bak", "*.log", "CrashReport*"]
+            except Exception as e:
+                print(f"[ConguSaveVault] Auto-save detector error: {e}")
+
         return save_locs, ach_locs, exclude_patterns
 
     # ==========================================
     # 4. ĐÓNG GÓI NGUYÊN TỬ VÀO 1 FILE (.congu_save)
     # ==========================================
+    def _compute_game_save_fingerprint(self, save_locs: list, game_root: str,
+                                       exclude_patterns: list) -> str:
+        """
+        Fingerprint rẻ (relpath|size|mtime_ns) của đúng tập file sẽ được pack.
+
+        Dùng để bỏ qua việc nén lại toàn bộ vault khi người dùng chỉ mở game
+        rồi thoát mà không save gì. Chỉ đọc metadata, không đọc nội dung file.
+        """
+        hasher = hashlib.sha256()
+        exclude_list = [str(p).lower() for p in (exclude_patterns or [])]
+        for save_loc in save_locs or []:
+            slot = save_loc.get("slot", "main_saves")
+            real_path = self.resolve_macro_path(save_loc.get("path", ""), game_root)
+            hasher.update(f"slot:{slot}\n".encode("utf-8"))
+            if not real_path or not os.path.exists(real_path):
+                hasher.update(b"<missing>\n")
+                continue
+            if os.path.isfile(real_path):
+                try:
+                    st = os.stat(real_path)
+                    hasher.update(
+                        f"F:{os.path.basename(real_path)}|{st.st_size}|{st.st_mtime_ns}\n".encode("utf-8")
+                    )
+                except OSError:
+                    hasher.update(b"<stat-error>\n")
+                continue
+            for root, dirs, files in os.walk(real_path):
+                dirs[:] = [d for d in dirs if not any(k in d.lower() for k in SKIP_SAVE_DIR_KEYWORDS)]
+                for f in sorted(files):
+                    f_lower = f.lower()
+                    if any(f_lower.endswith(ext.replace("*", "").lower()) for ext in exclude_list):
+                        continue
+                    full_p = os.path.join(root, f)
+                    try:
+                        st = os.stat(full_p)
+                    except OSError:
+                        continue
+                    if st.st_size > MAX_PACKABLE_SAVE_FILE_BYTES:
+                        continue
+                    rel_p = os.path.relpath(full_p, real_path).replace("\\", "/")
+                    hasher.update(f"D:{rel_p}|{st.st_size}|{st.st_mtime_ns}\n".encode("utf-8"))
+        return hasher.hexdigest()
+
     def pack_game_to_vault(self, game_config: dict, game_root: str = "", added_playtime_sec: int = 0) -> dict:
         """
         Gom toàn bộ file save, thành tựu và cộng giờ chơi của game đưa vào file .congu_save.
@@ -406,7 +506,7 @@ class ConguSaveVault:
         """
         with self.lock:
             game_id = game_config["id"]
-            save_locs, ach_locs, exclude_patterns = self._extract_game_locations(game_config)
+            save_locs, ach_locs, exclude_patterns = self._extract_game_locations(game_config, game_root)
             manifest = self.read_manifest()
 
             game_stat = manifest["games"].get(game_id, {
@@ -455,6 +555,33 @@ class ConguSaveVault:
                 if os.path.exists(real_ach_path):
                     unlocked_set.update(self._parse_achievements_file(real_ach_path))
             game_stat["unlocked_achievements"] = sorted(list(unlocked_set))
+
+            # 2.5. Bỏ qua viết lại vault nếu save + thành tựu không đổi
+            # (mở game rồi thoát ngay). Đây là tối ưu lớn nhất: thay vì giải nén
+            # + nén lại toàn bộ vault, chỉ đọc metadata và trả về ngay.
+            try:
+                save_fingerprint = self._compute_game_save_fingerprint(
+                    save_locs, game_root, exclude_patterns
+                )
+            except Exception as e:
+                save_fingerprint = ""
+                print(f"[ConguSaveVault] Save fingerprint warning: {e}")
+
+            if (
+                save_fingerprint
+                and not added_playtime_sec
+                and game_stat.get("save_fingerprint") == save_fingerprint
+                and set(game_stat.get("unlocked_achievements") or []) == unlocked_set
+            ):
+                return {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "save_unchanged",
+                    "game_id": game_id,
+                    "files_packed": int(game_stat.get("file_count") or 0),
+                    "total_bytes": int(game_stat.get("save_size_bytes") or 0),
+                    "stat": game_stat,
+                }
 
             # 3. Tạo file ZIP tạm cùng thư mục với Vault
             vault_dir = os.path.dirname(self.vault_path)
@@ -525,15 +652,26 @@ class ConguSaveVault:
                             total_bytes += os.path.getsize(real_save_path)
                             files_packed += 1
                         elif os.path.isdir(real_save_path):
-                            for root, _, files in os.walk(real_save_path):
+                            # Bỏ qua các thư mục con chứa cache / gói tài nguyên / crash dump khổng lồ
+                            skip_dir_keywords = SKIP_SAVE_DIR_KEYWORDS
+                            for root, dirs, files in os.walk(real_save_path):
+                                dirs[:] = [d for d in dirs if not any(k in d.lower() for k in skip_dir_keywords)]
                                 for f in files:
-                                    if any(f.endswith(ext.replace("*", "")) for ext in exclude_patterns):
+                                    f_lower = f.lower()
+                                    if any(f_lower.endswith(ext.replace("*", "").lower()) for ext in exclude_patterns):
                                         continue
                                     full_p = os.path.join(root, f)
+                                    try:
+                                        f_size = os.path.getsize(full_p)
+                                    except Exception:
+                                        continue
+                                    # Bỏ qua tệp tin quá lớn (> 25MB) - file save thực tế không bao giờ là gói tài nguyên khổng lồ
+                                    if f_size > MAX_PACKABLE_SAVE_FILE_BYTES:
+                                        continue
                                     rel_p = os.path.relpath(full_p, real_save_path).replace("\\", "/")
                                     arcname = f"{game_id}/saves/{slot}/{rel_p}"
                                     new_zf.write(full_p, arcname)
-                                    total_bytes += os.path.getsize(full_p)
+                                    total_bytes += f_size
                                     files_packed += 1
 
                     # Đóng gói file gốc của Thành Tựu
@@ -574,6 +712,7 @@ class ConguSaveVault:
                     except Exception as e:
                         print(f"[Vault] Revisions metadata warning: {e}")
 
+                    game_stat["save_fingerprint"] = save_fingerprint
                     manifest["games"][game_id] = game_stat
                     manifest["updated_at"] = int(time.time())
                     manifest.setdefault("profile_version", "1.0")
@@ -1376,7 +1515,7 @@ class ConguSaveVault:
     # 7. HỖ TRỢ ĐỌC THÀNH TỰU TỰ ĐỘNG
     # ==========================================
     def _parse_achievements_file(self, filepath: str) -> list:
-        """Đọc danh sách ID thành tựu từ Goldberg JSON hoặc CODEX/RUNE INI."""
+        """Đọc danh sách ID thành tựu từ Goldberg JSON, TENOKE user_stats.ini, hoặc CODEX/RUNE/FLT INI."""
         unlocked = []
         try:
             if filepath.endswith(".json"):
@@ -1384,19 +1523,38 @@ class ConguSaveVault:
                     data = json.load(f)
                     if isinstance(data, dict):
                         for ach_id, info in data.items():
-                            if isinstance(info, dict) and info.get("earned", False):
+                            if isinstance(info, dict) and (info.get("earned") is True or info.get("unlocked") is True):
                                 unlocked.append(ach_id)
+                            elif isinstance(info, (int, float)) and info > 0:
+                                unlocked.append(ach_id)
+                            elif info is True:
+                                unlocked.append(ach_id)
+                    elif isinstance(data, list):
+                        for item in data:
+                            if isinstance(item, dict):
+                                aid = item.get("name") or item.get("id")
+                                if aid and (item.get("earned") is True or item.get("unlocked") is True):
+                                    unlocked.append(aid)
             elif filepath.endswith(".ini"):
                 with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-                    current_section = None
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("[") and line.endswith("]"):
-                            current_section = line[1:-1]
-                        elif "=" in line and current_section and current_section != "SteamAchievements":
-                            k, v = [x.strip().lower() for x in line.split("=", 1)]
-                            if k in ("achieved", "unlocked") and v in ("1", "true"):
-                                unlocked.append(current_section)
+                    text = f.read()
+                # 1. Hỗ trợ Tenoke format: "ach_id" = {unlocked = true, ...}
+                import re
+                for match in re.finditer(r'"([^"]+)"\s*=\s*\{[^}]*unlocked\s*=\s*true', text, re.I):
+                    unlocked.append(match.group(1))
+                # 2. Hỗ trợ chuẩn INI thông thường (CODEX, RUNE, FLT, OnlineFix)
+                lines = text.splitlines()
+                current_section = None
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("[") and line.endswith("]"):
+                        current_section = line[1:-1]
+                    elif "=" in line and current_section and current_section != "SteamAchievements":
+                        parts = line.split("=", 1)
+                        k = parts[0].strip().lower()
+                        v = parts[1].strip().lower()
+                        if k in ("achieved", "unlocked", "state") and v in ("1", "true"):
+                            unlocked.append(current_section)
         except Exception:
             pass
-        return unlocked
+        return list(dict.fromkeys(unlocked))

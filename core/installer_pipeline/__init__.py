@@ -35,9 +35,11 @@ from .install_ops import (
     uninstall_mod,
     emergency_restore_game,
     cleanup_cache_after_install,
+    verify_mod_integrity,
 )
 
 __all__ = [
+    "verify_mod_integrity",
     "calculate_sha256",
     "get_running_processes",
     "get_running_process_names",

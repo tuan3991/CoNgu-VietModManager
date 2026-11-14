@@ -1,0 +1,36 @@
+/* Cổ Ngữ Minimalist Dark — Modern Minimal (v1.1)
+   Chỉ tinh chỉnh nhẹ trên nền giao diện Modern Minimal của ứng dụng. */
+
+body[data-theme="minimalist_dark"] ::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+body[data-theme="minimalist_dark"] ::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
+}
+body[data-theme="minimalist_dark"] ::-webkit-scrollbar-thumb {
+  background: #2a2a31 !important;
+  border: none !important;
+  border-radius: 999px !important;
+}
+body[data-theme="minimalist_dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #3f3f47 !important;
+}
+
+body[data-theme="minimalist_dark"] h1,
+body[data-theme="minimalist_dark"] h2,
+body[data-theme="minimalist_dark"] h3,
+body[data-theme="minimalist_dark"] h4 {
+  text-shadow: none !important;
+}
+
+body[data-theme="minimalist_dark"] .pixel-card:hover {
+  transform: translateY(-6px) !important;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.75) !important;
+}
+
+body[data-theme="minimalist_dark"] #searchInput:focus {
+  border-color: rgba(16, 185, 129, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12) !important;
+}

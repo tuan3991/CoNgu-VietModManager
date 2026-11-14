@@ -168,6 +168,8 @@ def is_any_exe_running_in_folder(game_dir: str) -> bool:
     Kiểm tra xem có bất kỳ file .exe nào nằm trong thư mục `game_dir` đang chạy không.
     Giải quyết triệt để trường hợp Launcher gọi tiến trình con (-Win64-Shipping.exe) rồi tự tắt.
     Tự động bỏ qua các tiến trình phụ trợ (Crash Reporter, Trình gỡ cài đặt, DirectX Setup).
+    Đặc biệt hỗ trợ nhận diện cả TIẾN TRÌNH CHẠY QUYỀN ADMINISTRATOR (Elevated Process)
+    khi OpenProcess bị từ chối truy cập (Access Denied / NULL handle).
     """
     if not game_dir or not os.path.isdir(game_dir) or sys.platform != "win32" or not kernel32:
         return False
@@ -175,6 +177,15 @@ def is_any_exe_running_in_folder(game_dir: str) -> bool:
     target_root = os.path.normcase(os.path.realpath(game_dir))
     if not target_root.endswith(os.sep):
         target_root += os.sep
+
+    # Thu thập danh sách tên các file .exe có trong thư mục game để đối chiếu dự phòng
+    folder_exes = set()
+    try:
+        for f in os.listdir(game_dir):
+            if f.lower().endswith(".exe") and f.lower() not in EXCLUDED_HELPER_EXES:
+                folder_exes.add(f.lower())
+    except Exception:
+        pass
 
     h_snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
     if not h_snap or h_snap == INVALID_HANDLE_VALUE or h_snap == -1:
@@ -192,6 +203,7 @@ def is_any_exe_running_in_folder(game_dir: str) -> bool:
         while True:
             pid = pe32.th32ProcessID
             if pid > 4:
+                exe_name = str(pe32.szExeFile).lower()
                 h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
                 if h_proc:
                     try:
@@ -207,6 +219,11 @@ def is_any_exe_running_in_folder(game_dir: str) -> bool:
                         pass
                     finally:
                         kernel32.CloseHandle(h_proc)
+                else:
+                    # h_proc là NULL thường do tiến trình game chạy quyền Elevated (Run As Administrator)
+                    # Trong khi Cổ Ngữ chạy quyền user thường. Ta đối chiếu pe32.szExeFile với danh sách .exe của game!
+                    if exe_name in folder_exes:
+                        return True
 
             if not kernel32.Process32NextW(h_snap, ctypes.byref(pe32)):
                 break

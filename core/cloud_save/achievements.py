@@ -249,8 +249,12 @@ class AchievementManager:
                                 icongray_val = item.get("icongray", item.get("icon_gray", ""))
                                 if icon_val and not icon_val.startswith("http") and os.path.exists(os.path.join(os.path.dirname(path), icon_val)):
                                     icon_val = os.path.abspath(os.path.join(os.path.dirname(path), icon_val))
+                                elif icon_val and not icon_val.startswith("http") and appid:
+                                    icon_val = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{icon_val}"
                                 if icongray_val and not icongray_val.startswith("http") and os.path.exists(os.path.join(os.path.dirname(path), icongray_val)):
                                     icongray_val = os.path.abspath(os.path.join(os.path.dirname(path), icongray_val))
+                                elif icongray_val and not icongray_val.startswith("http") and appid:
+                                    icongray_val = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{icongray_val}"
 
                                 schema_list.append({
                                     "id": ach_id,
@@ -263,6 +267,44 @@ class AchievementManager:
                                 })
                             if schema_list:
                                 break
+                    except Exception:
+                        pass
+                if schema_list:
+                    break
+
+        # 1.5. Nguồn 1.5: Quét file tenoke.ini có sẵn trong game (TENOKE Emulator)
+        if not schema_list and game_dir and os.path.isdir(game_dir):
+            for t_pat in ["*tenoke*.ini", "**/*tenoke*.ini"]:
+                for t_path in glob.glob(os.path.join(game_dir, t_pat), recursive=True):
+                    try:
+                        import configparser
+                        cp = configparser.ConfigParser(strict=False)
+                        cp.read(t_path, encoding="utf-8")
+                        tenoke_achs = [s for s in cp.sections() if s.startswith("ACHIEVEMENTS.") and "." not in s[13:]]
+                        for sec in tenoke_achs:
+                            ach_id = sec.split(".", 1)[-1]
+                            name_sec = f"{sec}.name"
+                            desc_sec = f"{sec}.desc"
+                            t_title = cp.get(name_sec, "english", fallback=ach_id).strip("\"'") if cp.has_section(name_sec) else ach_id
+                            t_desc = cp.get(desc_sec, "english", fallback="").strip("\"'") if cp.has_section(desc_sec) else ""
+                            t_icon = cp.get(sec, "icon", fallback="").strip("\"'")
+                            t_icongray = cp.get(sec, "icon_gray", fallback="").strip("\"'")
+                            t_hidden = cp.get(sec, "hidden", fallback="0").strip("\"'") in ("1", "true")
+                            if t_icon and not t_icon.startswith("http") and appid:
+                                t_icon = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{t_icon}"
+                            if t_icongray and not t_icongray.startswith("http") and appid:
+                                t_icongray = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{t_icongray}"
+                            schema_list.append({
+                                "id": ach_id,
+                                "title": t_title,
+                                "description": t_desc,
+                                "icon": t_icon,
+                                "icongray": t_icongray,
+                                "hidden": t_hidden,
+                                "group": ""
+                            })
+                        if schema_list:
+                            break
                     except Exception:
                         pass
                 if schema_list:
@@ -309,6 +351,10 @@ class AchievementManager:
                                         desc = a.get("description") or ""
                                         icon_url = a.get("icon_achieved") or ""
                                         icongray_url = a.get("icon_unachieved") or icon_url
+                                        if icon_url and not icon_url.startswith("http") and not icon_url.startswith("/"):
+                                            icon_url = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{icon_url}"
+                                        if icongray_url and not icongray_url.startswith("http") and not icongray_url.startswith("/"):
+                                            icongray_url = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{appid}/{icongray_url}"
                                         is_hidden = bool(a.get("hidden", False))
                                         schema_list.append({
                                             "id": ach_id,
@@ -422,6 +468,23 @@ class AchievementManager:
         if not effective_appid and game_id:
             effective_appid = self._resolve_appid_from_metadata(game_id)
 
+        # Tự động đồng bộ ngược steam_appid vào custom_games.json nếu vừa phát hiện được
+        if effective_appid and game_id and game_id.startswith("custom_"):
+            try:
+                from core.config_manager import load_custom_games, save_custom_games
+                c_games = load_custom_games()
+                updated = False
+                for cg in c_games:
+                    if cg.get("id") == game_id and not cg.get("steam_appid"):
+                        cg["steam_appid"] = effective_appid
+                        updated = True
+                        break
+                if updated:
+                    save_custom_games(c_games)
+                    _internal_log(f"Auto-linked Steam AppID {effective_appid} for {game_id}")
+            except Exception as e:
+                _internal_log(f"Auto-link steam_appid warning: {e}")
+
         schema = self.get_or_fetch_schema(effective_appid, game_dir, game_id)
         unlocked_map = self.scan_unlocked_achievements(effective_appid, game_dir) if (effective_appid or game_dir) else {}
 
@@ -457,11 +520,16 @@ class AchievementManager:
                 except Exception:
                     unlock_str = "Đã mở khóa"
 
+            raw_icon = ach.get("icon") if is_unlocked else (ach.get("icongray") or ach.get("icon"))
+            icon_val = raw_icon
+            if icon_val and effective_appid and not str(icon_val).startswith("http") and not str(icon_val).startswith("/") and not os.path.isabs(str(icon_val)):
+                icon_val = f"https://shared.akamai.steamstatic.com/community_assets/images/apps/{effective_appid}/{icon_val}"
+
             items.append({
                 "id": ach_id,
                 "title": ach.get("title_vi") or ach.get("title") or ach_id,
                 "description": ach.get("description_vi") or ach.get("description") or "",
-                "icon": ach.get("icon") if is_unlocked else (ach.get("icongray") or ach.get("icon")),
+                "icon": icon_val,
                 "unlocked": is_unlocked,
                 "unlock_ts": unlock_ts or 0,
                 "unlock_time_str": unlock_str,
@@ -538,11 +606,42 @@ class AchievementManager:
                         "title": title,
                         "description": desc,
                         "icon": icon,
-                        "unlock_ts": ts
+                        "unlock_ts": ts,
+                        "overlay_played": True
                     }
                     new_items.append(item_info)
                     self.newly_unlocked_queue.append(item_info)
                     _internal_log(f"[AchievementTracker] 🏆 Chúc mừng! Mở khóa thành tựu mới: '{title}' ({ach_id})!")
+
+                    # Hiển thị thông báo thành tựu trực tiếp trên màn hình game (chuẩn Steam In-Game Overlay)
+                    try:
+                        from .overlay_toast import show_in_game_achievement_notification
+                        game_disp_title = ""
+                        if game_id:
+                            if pu._CUSTOM_GAMES_GETTER:
+                                for cg in pu._CUSTOM_GAMES_GETTER():
+                                    if cg.get("id") == game_id:
+                                        game_disp_title = cg.get("vietnamese_title") or cg.get("title") or ""
+                                        break
+                            if not game_disp_title and pu._GAMES_JSON_PATH_GETTER:
+                                p_games = pu._GAMES_JSON_PATH_GETTER()
+                                if p_games and os.path.exists(p_games):
+                                    with open(p_games, "r", encoding="utf-8") as f_g:
+                                        for g in json.load(f_g):
+                                            if g.get("id") == game_id:
+                                                game_disp_title = g.get("vietnamese_title") or g.get("title") or ""
+                                                break
+                        if not game_disp_title:
+                            game_disp_title = re.sub(r"[_\-]+", " ", str(game_id or "")).title()
+
+                        show_in_game_achievement_notification(
+                            title=title,
+                            description=desc,
+                            icon_path=icon if (icon and os.path.isfile(icon)) else "",
+                            game_title=game_disp_title
+                        )
+                    except Exception as e_overlay:
+                        _internal_log(f"[AchievementOverlay] Lỗi hiển thị: {e_overlay}")
 
             self.unlocked_cache[cache_key] = current_unlocked
 

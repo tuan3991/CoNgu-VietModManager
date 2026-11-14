@@ -6,11 +6,12 @@
       --font-mono: var(--font-sans);
 
       /* 4 Core Neon Colors */
-      --neon-cyan: #00F0FF;
-      --neon-magenta: #00F0FF;
+      --neon-cyan: #FF2A55;
+      --neon-red: #FF2A55;
+      --neon-magenta: #FF2A55;
       --neon-amber: #FBBF24;
       --neon-green: #34D399;
-      --neon-crimson: #F87171;
+      --neon-crimson: #FF2A55;
 
       --bg-deep: #0A0E1A;
       --bg-night: #0F1522;
@@ -23,15 +24,15 @@
          CUSTOM THEMES (Theme Studio) — 9 biến chuẩn + lớp wallpaper
          Giá trị mặc định trùng khớp theme builtin cyberpunk_default.
          Palette: Cyberpunk Neon (tweakcn preset) — accent neon cyan
-         #00F0FF đồng bộ với màu thương hiệu, nền xanh đen sâu.
+         #FF2A55 đồng bộ với màu thương hiệu, nền xanh đen sâu.
          ========================================================= */
       --bg-primary: #0a0e1a;
       --bg-secondary: rgba(20, 27, 46, 0.85);
       --text-primary: #f2f6fc;
       --text-muted: #8b9bb4;
-      --accent-color: #00f0ff;
-      --accent-hover: #66f5ff;
-      --border-color: rgba(0, 240, 255, 0.22);
+      --accent-color: #FF2A55;
+      --accent-hover: #FF6685;
+      --border-color: rgba(255, 42, 85, 0.22);
       --card-radius: 12px;
       --glass-blur: 12px;
 
@@ -92,8 +93,8 @@
       --surface-2: #151c2c;
       --surface-3: #1c2536;
       --surface-4: #2a3548;
-      --accent-tint: #0c1b24;
-      --accent-tint-hover: #12303d;
+      --accent-tint: #240C12;
+      --accent-tint-hover: #3D121B;
       --success: #34d399;
       --success-tint: #0a1f16;
       --warning: #fbbf24;
@@ -103,7 +104,7 @@
     body {
       font-family: var(--font-sans);
       background:
-        radial-gradient(1000px 600px at 50% -20%, rgba(0, 240, 255, 0.045), transparent 65%),
+        radial-gradient(1000px 600px at 50% -20%, rgba(255, 42, 85, 0.045), transparent 65%),
         var(--background);
       background-attachment: fixed;
       color: var(--foreground);
@@ -244,7 +245,7 @@
        Nền neutral + một CTA cyan; destructive giữ màu semantic.
        ============================================================= */
     .pixel-btn {
-      border-radius: 9999px !important;
+      border-radius: 4px !important;
       box-shadow: none !important;
       border: 1px solid rgba(255, 255, 255, 0.06) !important;
       background: rgba(255, 255, 255, 0.06) !important;
@@ -272,29 +273,95 @@
       color: var(--primary-foreground) !important;
       border: 1px solid var(--accent-color) !important;
       font-weight: 700 !important;
-      box-shadow: 0 8px 20px -10px rgba(0, 240, 255, 0.35) !important;
+      box-shadow: 0 8px 20px -10px rgba(255, 42, 85, 0.35) !important;
     }
     .btn-neon-green:hover {
       background: var(--accent-hover) !important;
       color: var(--primary-foreground) !important;
       border-color: var(--accent-hover) !important;
-      box-shadow: 0 10px 24px -10px rgba(0, 240, 255, 0.45) !important;
+      box-shadow: 0 10px 24px -10px rgba(255, 42, 85, 0.45) !important;
+    }
+
+    /* NÚT KÊU GỌI HÀNH ĐỘNG CHÍNH (CÀI ĐẶT VIỆT HÓA - RÕ RÀNG, NỔI BẬT, TO HƠN) */
+    .btn-cta-install {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800 !important;
+      border-radius: 6px;
+      letter-spacing: 0.025em;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .btn-cta-main {
+      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 50%, #D97706 100%) !important;
+      color: #060911 !important;
+      border: 1px solid rgba(254, 243, 199, 0.6) !important;
+      box-shadow: 0 4px 18px rgba(245, 158, 11, 0.42), 0 0 0 1px rgba(245, 158, 11, 0.25) !important;
+    }
+    .btn-cta-main:hover {
+      background: linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #F59E0B 100%) !important;
+      color: #000000 !important;
+      box-shadow: 0 6px 24px rgba(245, 158, 11, 0.6), 0 0 12px rgba(251, 191, 36, 0.4) !important;
+      transform: translateY(-1px) scale(1.02);
+    }
+    .btn-cta-main:active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3) !important;
+    }
+
+    .btn-cta-update {
+      background: linear-gradient(135deg, #34D399 0%, #10B981 50%, #059669 100%) !important;
+      color: #060911 !important;
+      border: 1px solid rgba(167, 243, 208, 0.6) !important;
+      box-shadow: 0 4px 18px rgba(16, 185, 129, 0.42) !important;
+    }
+    .btn-cta-update:hover {
+      background: linear-gradient(135deg, #6EE7B7 0%, #34D399 50%, #10B981 100%) !important;
+      color: #000000 !important;
+      box-shadow: 0 6px 24px rgba(16, 185, 129, 0.6) !important;
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    .btn-cta-restore {
+      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 50%, #D97706 100%) !important;
+      color: #060911 !important;
+      border: 1px solid rgba(254, 243, 199, 0.6) !important;
+      box-shadow: 0 4px 18px rgba(245, 158, 11, 0.42) !important;
     }
 
     .btn-arcade-amber {
-      background: rgba(255, 255, 255, 0.05) !important;
-      color: var(--text-primary) !important;
-      border: 1px solid rgba(255, 255, 255, 0.07) !important;
-      font-weight: 600 !important;
-      box-shadow: none !important;
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
+      color: #060911 !important;
+      border: 1px solid rgba(251, 191, 36, 0.5) !important;
+      font-weight: 700 !important;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3) !important;
     }
     .btn-arcade-amber:hover {
-      background: rgba(255, 255, 255, 0.10) !important;
+      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
+      color: #000000 !important;
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5) !important;
+    }
+
+    .btn-arcade-red,
+    .btn-arcade-cyan {
+      background: linear-gradient(135deg, #FF2A55 0%, #DC2626 100%) !important;
       color: #FFFFFF !important;
-      box-shadow: none !important;
+      border: 1px solid rgba(255, 68, 102, 0.5) !important;
+      font-weight: 700 !important;
+      box-shadow: 0 4px 14px rgba(255, 42, 85, 0.35) !important;
+    }
+    .btn-arcade-red:hover,
+    .btn-arcade-cyan:hover {
+      background: linear-gradient(135deg, #FF5E7E 0%, #FF2A55 100%) !important;
+      color: #FFFFFF !important;
+      box-shadow: 0 6px 20px rgba(255, 42, 85, 0.55) !important;
     }
 
     .btn-cyber-magenta,
+    .btn-neon-red,
     .btn-neon-cyan {
       background: rgba(255, 255, 255, 0.045) !important;
       color: #D4D4D8 !important;
@@ -329,7 +396,7 @@
        Bo tròn 16px, không viền sáng, nổi nhẹ bằng shadow khi hover.
        ============================================================= */
     .pixel-card {
-      border-radius: 16px !important;
+      border-radius: 6px !important;
       background: rgba(24, 24, 27, 0.55) !important;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
@@ -352,7 +419,7 @@
     /* Hero Banner — bo 24px, viền mờ, hoà vào nền */
     .hero-arcade-frame {
       position: relative;
-      border-radius: 24px !important;
+      border-radius: 6px !important;
       border: 1px solid rgba(255, 255, 255, 0.06) !important;
       outline: none !important;
       box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.85) !important;
@@ -374,14 +441,14 @@
       height: 100%;
     }
     .pixel-exp-seg.active-amber,
-    .pixel-exp-seg.active-cyan {
+    .pixel-exp-seg.active-red {
       background: var(--accent-color);
       box-shadow: none;
     }
 
     /* Segmented Tabs — dạng viên thuốc, không viền sáng */
     .pixel-tab {
-      border-radius: 9999px !important;
+      border-radius: 4px !important;
       background: transparent !important;
       border: 1px solid transparent !important;
       color: #A1A1AA !important;
@@ -473,17 +540,17 @@
     }
     .fav-heart-btn:hover .fav-heart-icon {
       color: var(--accent-color);
-      fill: rgba(0, 240, 255, 0.12);
+      fill: rgba(255, 42, 85, 0.12);
     }
 
     .fav-heart-btn.is-favorite .fav-heart-icon {
       color: var(--accent-color);
       fill: var(--accent-color);
       stroke: var(--accent-color);
-      filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.35));
+      filter: drop-shadow(0 0 4px rgba(255, 42, 85, 0.35));
     }
     .fav-heart-btn.is-favorite:hover .fav-heart-icon {
-      filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
+      filter: drop-shadow(0 0 6px rgba(255, 42, 85, 0.5));
     }
 
     /* Chỉ nút tim vừa được bấm mới nảy nhẹ (class do render gắn 1 lần, tránh blink hàng loạt) */
@@ -504,7 +571,7 @@
       border-color: var(--accent-color);
     }
     .fav-heart-badge.is-favorite {
-      border-color: rgba(0, 240, 255, 0.55);
+      border-color: rgba(255, 42, 85, 0.55);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
     }
 
@@ -526,35 +593,38 @@
       position: relative;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.55rem 0.7rem;
+      gap: 0.45rem;
+      padding: 0.38rem 0.8rem;
       font-size: 0.8125rem;
       font-weight: 500;
-      color: #A1A1AA;
+      color: #94A3B8;
+      border-radius: 4px;
       white-space: nowrap;
       background: transparent;
-      border: none;
+      border: 1px solid transparent;
       cursor: pointer;
-      transition: color .18s ease;
+      transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .ui-tab-nav:hover { color: #FFFFFF; }
-    .ui-tab-nav.is-active { color: #FFFFFF; font-weight: 600; }
+    .ui-tab-nav:hover {
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .ui-tab-nav.is-active {
+      color: #FF2A55 !important;
+      font-weight: 600;
+      background: rgba(255, 42, 85, 0.08) !important;
+      border-color: rgba(255, 42, 85, 0.25) !important;
+      box-shadow: none !important;
+    }
     .ui-tab-nav.is-active::after {
-      content: "";
-      position: absolute;
-      left: 0.7rem;
-      right: 0.7rem;
-      bottom: -1px;
-      height: 2px;
-      border-radius: 2px;
-      background: var(--accent-color);
-      box-shadow: none;
+      display: none !important;
     }
 
     /* Segmented nhỏ kiểu PS5 | PC */
     .ui-seg {
       padding: 0.32rem 0.7rem;
-      border-radius: 9999px;
+      border-radius: 4px;
       font-size: 0.75rem;
       font-weight: 500;
       color: #A1A1AA;
@@ -594,12 +664,12 @@
     }
 
     /* Nút viên thuốc trên header */
-    .ui-pill { border-radius: 9999px !important; }
+    .ui-pill { border-radius: 4px !important; }
 
     /* Ô thể loại nhanh */
     .ui-genre-chip {
       padding: 0.42rem 0.9rem;
-      border-radius: 9999px;
+      border-radius: 4px;
       font-size: 0.75rem;
       font-weight: 500;
       color: #A1A1AA;
@@ -622,7 +692,7 @@
       align-items: center;
       gap: 0.45rem;
       padding: 0.45rem 0.9rem;
-      border-radius: 9999px;
+      border-radius: 4px;
       font-size: 0.8125rem;
       font-weight: 500;
       color: #A1A1AA;
@@ -646,7 +716,7 @@
       justify-content: center;
       width: 2.25rem;
       height: 2.25rem;
-      border-radius: 9999px;
+      border-radius: 4px;
       color: #A1A1AA;
       background: transparent;
       border: none;
@@ -658,13 +728,9 @@
     .ui-icon-btn:hover { background: rgba(255, 255, 255, 0.08); color: #FFFFFF; }
     .ui-icon-btn:active { transform: scale(0.96); }
 
-    /* Ép nút Đám Mây luôn là icon tròn dù JS ghi đè className */
+    /* Nút neo trạng thái Đám Mây cho JS - luôn ẩn hoàn toàn */
     #btnCommunityCloud {
-      width: 2.25rem !important;
-      height: 2.25rem !important;
-      padding: 0 !important;
-      border-radius: 9999px !important;
-      justify-content: center !important;
+      display: none !important;
     }
     /* Badge ON/OFF chữ nhỏ được thay bằng trạng thái trong menu xổ xuống */
     #communityCloudBadge { display: none !important; }
@@ -795,7 +861,7 @@
       background-color: transparent !important;
       border-color: transparent !important;
       color: var(--text-muted) !important;
-      border-radius: 9999px !important;
+      border-radius: 4px !important;
     }
 
     body[data-theme]:not([data-theme="cyberpunk_default"]) .pixel-tab:hover {
@@ -811,12 +877,14 @@
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
     }
 
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-red,
     body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-cyan {
       background-color: var(--bg-secondary) !important;
       color: var(--accent-color) !important;
       border-color: var(--accent-color) !important;
     }
 
+    body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-red:hover,
     body[data-theme]:not([data-theme="cyberpunk_default"]) .btn-neon-cyan:hover {
       background-color: var(--accent-color) !important;
       color: #05050a !important;
@@ -956,19 +1024,30 @@
     /* Settings Modal Navigation Tabs — pill kính, accent chỉ ở chấm/nền nhẹ */
     .settings-nav-btn {
       border: 1px solid transparent;
-      border-radius: 12px !important;
-      color: #A1A1AA;
-      transition: background-color .18s ease, color .18s ease;
+      border-radius: 8px !important;
+      color: #94A3B8;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+    .settings-nav-btn i, .settings-nav-btn svg {
+      color: #64748B;
+      transition: color .18s ease, filter .18s ease;
     }
     .settings-nav-btn:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.05);
+      color: #F8FAFC;
+    }
+    .settings-nav-btn:hover i, .settings-nav-btn:hover svg {
+      color: #E2E8F0;
     }
     .settings-nav-btn.is-active {
-      background: rgba(255, 255, 255, 0.10) !important;
+      background: rgba(255, 42, 85, 0.08) !important;
       color: #FFFFFF !important;
-      border-color: rgba(255, 255, 255, 0.10) !important;
+      border-color: rgba(255, 42, 85, 0.25) !important;
       box-shadow: none !important;
+    }
+    .settings-nav-btn.is-active i, .settings-nav-btn.is-active svg {
+      color: #FF2A55 !important;
+      filter: drop-shadow(0 0 6px rgba(255, 42, 85, 0.45));
     }
 
     /* =============================================================
@@ -991,15 +1070,15 @@
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
-    #settingsModal [class*="border-[#00F0FF]"] { border-color: rgba(255, 255, 255, 0.08) !important; }
-    #settingsModal [class*="text-[#00F0FF]"] { color: #E4E4E7 !important; }
-    #settingsModal [class*="bg-[#00F0FF]"] { background-color: rgba(255, 255, 255, 0.06) !important; }
+    #settingsModal [class*="border-[#FF2A55]"] { border-color: rgba(255, 255, 255, 0.08) !important; }
+    #settingsModal [class*="text-[#FF2A55]"] { color: #E4E4E7 !important; }
+    #settingsModal [class*="bg-[#FF2A55]"] { background-color: rgba(255, 255, 255, 0.06) !important; }
     #settingsModal [class*="bg-[#0F1522]"] { background-color: rgba(255, 255, 255, 0.06) !important; }
-    #settingsModal .text-cyan-400,
-    #settingsModal .text-cyan-400,
+    #settingsModal .text-red-400,
+    #settingsModal .text-red-400,
     #settingsModal .text-amber-400,
-    #settingsModal .text-cyan-300,
-    #settingsModal .text-[#00F0FF] { color: #A1A1AA !important; }
+    #settingsModal .text-red-300,
+    #settingsModal .text-[#FF2A55] { color: #A1A1AA !important; }
     #settingsModal [class*="rounded-[6px]"] { border-radius: 16px !important; }
     #settingsModal .font-mono { font-family: var(--font-sans) !important; }
 
@@ -1151,7 +1230,7 @@
     }
     .ui-icon-btn:active { transform: scale(0.90); }
     .ui-tab-nav {
-      transition: color .18s ease, transform .12s var(--ios-ease);
+      transition: all .2s cubic-bezier(0.16, 1, 0.3, 1), transform .12s var(--ios-ease);
     }
     .ui-tab-nav:active { transform: scale(0.94); }
     .pixel-card {
@@ -1166,7 +1245,7 @@
     #mainNav.ios-pill-track { position: relative; }
     #mainNav.ios-pill-track .ui-tab-nav { position: relative; z-index: 1; }
     #mainNav.ios-pill-track .ui-tab-nav.is-active::after { display: none; }
-    .ios-nav-pill {
+    .ios-nav-pill { display: none !important;
       position: absolute;
       top: 3px;
       bottom: 3px;
@@ -1307,3 +1386,33 @@
     @media (prefers-reduced-motion: reduce) {
       .ios-reveal-pending { opacity: 1; }
     }
+
+/* =============================================================
+   CYBER / STEAM DESIGN SYSTEM STANDARDIZATION (4px / 6px)
+   ============================================================= */
+.cyber-card {
+  background-color: #0D1322 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 6px !important;
+}
+
+.cyber-stat-box {
+  background-color: #131B2E !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 4px !important;
+}
+.cyber-stat-box:hover {
+  border-color: rgba(255, 42, 85, 0.3) !important;
+}
+
+.cyber-btn-subtle {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #94A3B8 !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+}
+.cyber-btn-subtle:hover {
+  color: #FF2A55 !important;
+  border-color: rgba(255, 42, 85, 0.4) !important;
+}

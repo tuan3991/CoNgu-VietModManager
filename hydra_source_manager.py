@@ -9,13 +9,13 @@ from difflib import SequenceMatcher
 from typing import List, Dict, Any, Optional
 
 DEFAULT_HYDRA_SOURCES = [
-    "https://hydralinks.cloud/sources/fitgirl.json",
-    "https://hydralinks.cloud/sources/dodi.json",
-    "https://hydralinks.cloud/sources/gog.json",
-    "https://hydralinks.cloud/sources/onlinefix.json",
-    "https://hydralinks.cloud/sources/tinyrepacks.json",
-    "https://hydralinks.cloud/sources/xatab.json",
-    "https://hydralinks.cloud/sources/steamrip.json"
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/steamrip.json",
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/gog.json",
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/fitgirl.json",
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/dodi.json",
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/onlinefix.json",
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/tinyrepacks.json",
+    "https://raw.githubusercontent.com/ArnamentGames/HydraLinks/main/xatab.json"
 ]
 
 

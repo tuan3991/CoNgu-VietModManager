@@ -272,10 +272,12 @@ class ControllerEngine:
                         type_label = "Tay cầm Generic DirectInput / USB"
                         icon = "gamepad-2"
 
+                        has_gyro_hardware = False
                         if mid == 0x054C or "dualshock" in pname.lower() or "dualsense" in pname.lower() or "wireless controller" in pname.lower():
                             ctype = "playstation"
                             type_label = "Sony PlayStation (DualShock 4 / DualSense)"
                             icon = "playstation"
+                            has_gyro_hardware = True
                         elif mid == 0x045E or "xbox" in pname.lower():
                             ctype = "xbox"
                             type_label = "Microsoft Xbox Controller"
@@ -284,6 +286,7 @@ class ControllerEngine:
                             ctype = "switch"
                             type_label = "Nintendo Switch Pro Controller"
                             icon = "gamepad"
+                            has_gyro_hardware = True
 
                         # Tránh duplicate nếu XInput đã nhận
                         is_dup = False
@@ -303,7 +306,8 @@ class ControllerEngine:
                                 "product_id": hex(pid),
                                 "is_xinput_native": False,
                                 "buttons_count": caps.wNumButtons,
-                                "axes_count": caps.wNumAxes
+                                "axes_count": caps.wNumAxes,
+                                "has_gyro": has_gyro_hardware
                             })
             except Exception as e:
                 print(f"[Detect Controllers WinMM Warning]: {e}")
@@ -332,8 +336,79 @@ class ControllerEngine:
                 print(f"[Test Vibration Error]: {e}")
         return False
 
+    def _known_wrapper_dll_sizes(self) -> set:
+        """Kích thước các file xinput1_3.dll (x86/x64) do VietModHub quản lý."""
+        sizes = set()
+        for arch in ("x86", "x64"):
+            p = os.path.join(self.gamepad_tools_dir, arch, "xinput1_3.dll")
+            if os.path.isfile(p):
+                try:
+                    sizes.add(os.path.getsize(p))
+                except OSError:
+                    pass
+        return sizes
+
+    def _resolve_target_architecture(self, game_dir: str, candidate_exe: str = "") -> str:
+        """
+        Xác định kiến trúc thực tế của tiến trình game (x64 hay x86).
+        Tránh nhầm lẫn khi `candidate_exe` là launcher x86 (vd: FitGirl-Launcher.exe)
+        nhưng game thật bên trong (vd: MonsterHunterWilds.exe qua ColdClientLoader.ini) là x64.
+        """
+        # 1. Ưu tiên đọc ColdClientLoader.ini nếu game dùng Goldberg ColdClient
+        cold_ini = os.path.join(game_dir, "ColdClientLoader.ini")
+        if os.path.isfile(cold_ini):
+            try:
+                import configparser
+                cp = configparser.ConfigParser(strict=False)
+                cp.read(cold_ini, encoding="utf-8", errors="ignore")
+                real_exe = cp.get("SteamClient", "Exe", fallback="").strip().strip("\"'")
+                if real_exe:
+                    real_exe_path = real_exe if os.path.isabs(real_exe) else os.path.join(game_dir, real_exe)
+                    if os.path.isfile(real_exe_path):
+                        return get_pe_architecture(real_exe_path)
+            except Exception:
+                pass
+
+        arch = get_pe_architecture(candidate_exe) if (candidate_exe and os.path.isfile(candidate_exe)) else "x64"
+        if arch == "x64":
+            return "x64"
+
+        # 2. Nếu candidate_exe là x86, kiểm tra dấu hiệu game x64 thực tế trong thư mục
+        x64_markers = [
+            os.path.join(game_dir, "steam_api64.dll"),
+            os.path.join(game_dir, "steamclient64.dll"),
+            os.path.join(game_dir, "coldclient", "steamclient64.dll"),
+            os.path.join(game_dir, "steamclient_loader_x64.exe"),
+        ]
+        if any(os.path.isfile(m) for m in x64_markers):
+            return "x64"
+
+        # 3. Kiểm tra file .exe lớn nhất (không phải uninstaller/crash/tool) trong thư mục game
+        skip_tokens = ("unins", "crash", "installer", "setup", "redist", "x360ce", "watchdog")
+        try:
+            best_exe = None
+            best_size = 0
+            for fn in os.listdir(game_dir):
+                if not fn.lower().endswith(".exe"):
+                    continue
+                if any(tok in fn.lower() for tok in skip_tokens):
+                    continue
+                fp = os.path.join(game_dir, fn)
+                if os.path.isfile(fp):
+                    sz = os.path.getsize(fp)
+                    if sz > best_size:
+                        best_size = sz
+                        best_exe = fp
+            if best_exe and os.path.abspath(best_exe) != os.path.abspath(candidate_exe or ""):
+                return get_pe_architecture(best_exe)
+        except Exception:
+            pass
+
+        return arch
+
     def _cleanup_game_dir_wrappers(self, game_dir: str, candidate_exe: str = ""):
         """Dọn dẹp triệt để các file DLL và INI giả lập cũ khỏi thư mục game."""
+        known_sizes = self._known_wrapper_dll_sizes()
         for fn in ["xinput1_3.dll", "xinput1_4.dll", "x360ce.ini"]:
             fp = os.path.join(game_dir, fn)
             if os.path.exists(fp):
@@ -344,55 +419,292 @@ class ControllerEngine:
                         if "VietModHub" in c or "x360ce" in c or "PromptOnInit" in c:
                             os.remove(fp)
                     else:
-                        arch = get_pe_architecture(candidate_exe) if candidate_exe else "x64"
-                        src_dll = os.path.join(self.gamepad_tools_dir, arch, "xinput1_3.dll")
-                        if os.path.exists(src_dll) and os.path.getsize(fp) == os.path.getsize(src_dll):
+                        if os.path.getsize(fp) in known_sizes:
                             os.remove(fp)
                 except Exception as e:
                     print(f"[Cleanup Wrapper Warning]: {e}")
 
-    def get_universal_x360ce_ini_content(self) -> str:
-        """Tạo nội dung file cấu hình x360ce.ini ánh xạ vạn năng cho mọi tay cầm, triệt tiêu hoàn toàn popup cảnh báo."""
-        return """[Options]
-UseInitBeep=0
-Log=0
-Console=0
-DebugMode=0
-InternetDatabaseUrl=
-InternetFeatures=0
-InternetAutodefer=0
-InternetCheckVersion=0
-Version=1
-PromptOnInit=0
+    def enumerate_dinput_devices(self) -> List[Dict[str, Any]]:
+        """Liệt kê các tay cầm DirectInput8 đang kết nối cùng InstanceGUID và ProductGUID chính xác cho x360ce v3.4."""
+        devices: List[Dict[str, Any]] = []
+        try:
+            class _GUID(ctypes.Structure):
+                _fields_ = [
+                    ("Data1", wintypes.DWORD),
+                    ("Data2", wintypes.WORD),
+                    ("Data3", wintypes.WORD),
+                    ("Data4", ctypes.c_ubyte * 8),
+                ]
+                def to_str(self) -> str:
+                    b = bytes(self.Data4)
+                    return (
+                        f"{self.Data1:08x}-{self.Data2:04x}-{self.Data3:04x}-"
+                        f"{b[0]:02x}{b[1]:02x}-{b[2]:02x}{b[3]:02x}{b[4]:02x}{b[5]:02x}{b[6]:02x}{b[7]:02x}"
+                    )
 
-[InputHook]
-HookMode=1
+            class _DIDEVICEINSTANCEW(ctypes.Structure):
+                _fields_ = [
+                    ("dwSize", wintypes.DWORD),
+                    ("guidInstance", _GUID),
+                    ("guidProduct", _GUID),
+                    ("dwDevType", wintypes.DWORD),
+                    ("tszInstanceName", wintypes.WCHAR * 260),
+                    ("tszProductName", wintypes.WCHAR * 260),
+                    ("guidFFDriver", _GUID),
+                    ("wUsagePage", wintypes.WORD),
+                    ("wUsage", wintypes.WORD),
+                ]
 
-[PAD1]
-AutoSelectController=1
-ControllerType=1
-DInput=1
-PassThrough=0
-A=1
-B=2
-X=3
-Y=4
-Left Shoulder=5
-Right Shoulder=6
-Back=7
-Start=8
-Left Thumb=9
-Right Thumb=10
-DPad=POV 1
-Left Motor Period=100
-Right Motor Period=100
-Left Trigger=a-3
-Right Trigger=a+3
-Left Analog X=1
-Left Analog Y=-2
-Right Analog X=3
-Right Analog Y=-6
-"""
+            iid_di8w = _GUID(
+                0xBF798031, 0x483A, 0x4DA2,
+                (ctypes.c_ubyte * 8)(0xAA, 0x99, 0x5D, 0x64, 0xED, 0x36, 0x97, 0x00)
+            )
+            dinput8 = ctypes.WinDLL("dinput8.dll")
+            k32 = ctypes.WinDLL("kernel32.dll")
+            k32.GetModuleHandleW.restype = ctypes.c_void_p
+            k32.GetModuleHandleW.argtypes = [ctypes.c_wchar_p]
+            hinst = k32.GetModuleHandleW(None)
+
+            di_ptr = ctypes.c_void_p()
+            hr = dinput8.DirectInput8Create(
+                ctypes.c_void_p(hinst),
+                wintypes.DWORD(0x0800),
+                ctypes.byref(iid_di8w),
+                ctypes.byref(di_ptr),
+                None,
+            )
+            if hr != 0 or not di_ptr.value:
+                return devices
+
+            vtbl = ctypes.cast(
+                ctypes.cast(di_ptr, ctypes.POINTER(ctypes.c_void_p))[0],
+                ctypes.POINTER(ctypes.c_void_p),
+            )
+            enum_fn = ctypes.WINFUNCTYPE(
+                ctypes.c_long, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD
+            )(vtbl[4])
+            release_fn = ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)(vtbl[2])
+
+            cb_type = ctypes.WINFUNCTYPE(wintypes.BOOL, ctypes.POINTER(_DIDEVICEINSTANCEW), ctypes.c_void_p)
+
+            def _cb(lpddi, _pv):
+                d = lpddi.contents
+                vid = d.guidProduct.Data1 & 0xFFFF
+                pid = (d.guidProduct.Data1 >> 16) & 0xFFFF
+                devices.append({
+                    "product_name": str(d.tszProductName or "Controller"),
+                    "instance_name": str(d.tszInstanceName or "Controller"),
+                    "instance_guid": d.guidInstance.to_str(),
+                    "product_guid": d.guidProduct.to_str(),
+                    "vid": vid,
+                    "pid": pid,
+                })
+                return 1
+
+            cb_inst = cb_type(_cb)
+            try:
+                enum_fn(di_ptr, 4, cb_inst, None, 1)  # DI8DEVCLASS_GAMECTRL=4, DIEDFL_ATTACHEDONLY=1
+            finally:
+                release_fn(di_ptr)
+        except Exception as e:
+            print(f"[DirectInput8 Enum Warning]: {e}")
+        return devices
+
+    def _lookup_sdl_mapping(self, vid: int, pid: int) -> Dict[str, str]:
+        """Tra cứu ánh xạ nút chuẩn Windows từ gamecontrollerdb.txt theo VID/PID."""
+        db_path = os.path.join(self.gamepad_tools_dir, "gamecontrollerdb.txt")
+        if not os.path.isfile(db_path) or not vid or not pid:
+            return {}
+        prefix = f"03000000{vid & 0xFF:02x}{(vid >> 8) & 0xFF:02x}0000{pid & 0xFF:02x}{(pid >> 8) & 0xFF:02x}0000"
+        try:
+            with open(db_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    ll = line.strip()
+                    if not ll or ll.startswith("#"):
+                        continue
+                    if ll.lower().startswith(prefix) and "platform:windows" in ll.lower():
+                        mapping = {}
+                        for part in ll.split(",")[2:]:
+                            if ":" in part:
+                                k, v = part.split(":", 1)
+                                mapping[k.strip().lower()] = v.strip().lower()
+                        return mapping
+        except Exception:
+            pass
+        return {}
+
+    def _sdl_to_x360ce_mapping(self, vid: int, pid: int) -> Dict[str, str]:
+        """Chuyển đổi mapping SDL2 sang khóa chuẩn x360ce.ini (hỗ trợ PS4/PS5, Switch Pro, DirectInput)."""
+        sdl = self._lookup_sdl_mapping(vid, pid)
+
+        def _btn(tok: str, fallback: str) -> str:
+            if tok.startswith("b") and tok[1:].isdigit():
+                return str(int(tok[1:]) + 1)
+            return fallback
+
+        def _axis(tok: str, invert: bool, fallback: str) -> str:
+            if tok.startswith("a") and tok[1:].isdigit():
+                idx = int(tok[1:]) + 1
+                return f"-{idx}" if invert else str(idx)
+            return fallback
+
+        def _trigger(tok: str, fallback: str) -> str:
+            if tok.startswith("a") and tok[1:].isdigit():
+                return f"a{int(tok[1:]) + 1}"
+            if tok.startswith("b") and tok[1:].isdigit():
+                return str(int(tok[1:]) + 1)
+            return fallback
+
+        if sdl:
+            res = {
+                "A": _btn(sdl.get("a", ""), "2"),
+                "B": _btn(sdl.get("b", ""), "3"),
+                "X": _btn(sdl.get("x", ""), "1"),
+                "Y": _btn(sdl.get("y", ""), "4"),
+                "Left Shoulder": _btn(sdl.get("leftshoulder", ""), "5"),
+                "Right Shoulder": _btn(sdl.get("rightshoulder", ""), "6"),
+                "Back": _btn(sdl.get("back", ""), "9"),
+                "Start": _btn(sdl.get("start", ""), "10"),
+                "Left Thumb": _btn(sdl.get("leftstick", ""), "11"),
+                "Right Thumb": _btn(sdl.get("rightstick", ""), "12"),
+                "Left Analog X": _axis(sdl.get("leftx", ""), False, "1"),
+                "Left Analog Y": _axis(sdl.get("lefty", ""), True, "-2"),
+                "Right Analog X": _axis(sdl.get("rightx", ""), False, "3"),
+                "Right Analog Y": _axis(sdl.get("righty", ""), True, "-6"),
+                "Left Trigger": _trigger(sdl.get("lefttrigger", ""), "a4"),
+                "Right Trigger": _trigger(sdl.get("righttrigger", ""), "a5"),
+            }
+            if "guide" in sdl and sdl["guide"].startswith("b") and sdl["guide"][1:].isdigit():
+                res["GuideButton"] = str(int(sdl["guide"][1:]) + 1)
+            if sdl.get("dpup", "").startswith("h"):
+                res.update({
+                    "D-pad POV": "1",
+                    "D-pad Up": "UP",
+                    "D-pad Down": "DOWN",
+                    "D-pad Left": "LEFT",
+                    "D-pad Right": "RIGHT",
+                })
+            elif sdl.get("dpup", "").startswith("b"):
+                res.update({
+                    "D-pad POV": "0",
+                    "D-pad Up": _btn(sdl.get("dpup", ""), "UP"),
+                    "D-pad Down": _btn(sdl.get("dpdown", ""), "DOWN"),
+                    "D-pad Left": _btn(sdl.get("dpleft", ""), "LEFT"),
+                    "D-pad Right": _btn(sdl.get("dpright", ""), "RIGHT"),
+                })
+            return res
+
+        # Fallback theo hãng sản xuất nếu không có trong DB
+        if vid == 0x054C:  # Sony PlayStation (DualShock 4 / DualSense)
+            return {
+                "A": "2", "B": "3", "X": "1", "Y": "4",
+                "Left Shoulder": "5", "Right Shoulder": "6",
+                "Back": "9", "Start": "10",
+                "Left Thumb": "11", "Right Thumb": "12",
+                "GuideButton": "13",
+                "D-pad POV": "1", "D-pad Up": "UP", "D-pad Down": "DOWN", "D-pad Left": "LEFT", "D-pad Right": "RIGHT",
+                "Left Analog X": "1", "Left Analog Y": "-2",
+                "Right Analog X": "3", "Right Analog Y": "-6",
+                "Left Trigger": "a4", "Right Trigger": "a5",
+            }
+        if vid == 0x057E:  # Nintendo Switch Pro
+            return {
+                "A": "1", "B": "2", "X": "3", "Y": "4",
+                "Left Shoulder": "5", "Right Shoulder": "6",
+                "Back": "9", "Start": "10",
+                "Left Thumb": "11", "Right Thumb": "12",
+                "GuideButton": "13",
+                "D-pad POV": "1", "D-pad Up": "UP", "D-pad Down": "DOWN", "D-pad Left": "LEFT", "D-pad Right": "RIGHT",
+                "Left Analog X": "1", "Left Analog Y": "-2",
+                "Right Analog X": "3", "Right Analog Y": "-4",
+                "Left Trigger": "7", "Right Trigger": "8",
+            }
+        return {
+            "A": "1", "B": "2", "X": "3", "Y": "4",
+            "Left Shoulder": "5", "Right Shoulder": "6",
+            "Back": "7", "Start": "8",
+            "Left Thumb": "9", "Right Thumb": "10",
+            "D-pad POV": "1", "D-pad Up": "UP", "D-pad Down": "DOWN", "D-pad Left": "LEFT", "D-pad Right": "RIGHT",
+            "Left Analog X": "1", "Left Analog Y": "-2",
+            "Right Analog X": "3", "Right Analog Y": "-4",
+            "Left Trigger": "a5", "Right Trigger": "a6",
+        }
+
+    def get_universal_x360ce_ini_content(self, deadzone: float = 0.15, vibration: bool = True) -> str:
+        """
+        Tạo nội dung file cấu hình x360ce.ini chuẩn v3.4 với đầy đủ [Mappings] + InstanceGUID/ProductGUID
+        thực tế của các tay cầm DirectInput đang cắm (PS4/PS5/Switch/Generic), triệt tiêu lỗi 1167.
+        """
+        di_devices = self.enumerate_dinput_devices()
+        has_xinput = any(c.get("is_xinput_native", False) for c in self.detect_controllers())
+        non_native_devs = [
+            d for d in di_devices
+            if not (has_xinput and (d["vid"] == 0x045E or "xbox" in d["product_name"].lower()))
+        ]
+
+        dz_val = max(0, min(16000, int(float(deadzone) * 32767)))
+        ffb_flag = 1 if vibration else 0
+
+        lines = [
+            "; VietModHub Controller Engine - x360ce v3.4",
+            "[Options]",
+            "UseInitBeep=0",
+            "FileLog=0",
+            "SystemLog=0",
+            "Version=2",
+            "Disable=0",
+            "CombineEnabled=0",
+            "",
+            "[InputHook]",
+            "HookMode=0",
+            "",
+        ]
+
+        if not non_native_devs:
+            lines.extend([
+                "[PAD1]",
+                "ControllerType=1",
+                "PassThrough=0",
+                "A=2", "B=3", "X=1", "Y=4",
+                "Left Shoulder=5", "Right Shoulder=6",
+                "Back=9", "Start=10",
+                "Left Thumb=11", "Right Thumb=12",
+                "D-pad POV=1", "D-pad Up=UP", "D-pad Down=DOWN", "D-pad Left=LEFT", "D-pad Right=RIGHT",
+                "Left Analog X=1", "Left Analog Y=-2",
+                "Right Analog X=3", "Right Analog Y=-6",
+                "Left Trigger=a4", "Right Trigger=a5",
+            ])
+            return "\n".join(lines) + "\n"
+
+        mappings_lines = ["[Mappings]"]
+        pad_sections: List[str] = []
+        for idx, dev in enumerate(non_native_devs[:4], start=1):
+            sec_name = "IG_" + dev["instance_guid"].replace("-", "")
+            mappings_lines.append(f"PAD{idx}={sec_name}")
+            m = self._sdl_to_x360ce_mapping(dev["vid"], dev["pid"])
+            sec_lines = [
+                f"[{sec_name}]",
+                f"ProductName={dev['product_name']}",
+                f"ProductGUID={dev['product_guid']}",
+                f"InstanceGUID={dev['instance_guid']}",
+                "ControllerType=1",
+                "PassThrough=0",
+                f"UseForceFeedback={ffb_flag}",
+                "LeftMotorPeriod=120",
+                "RightMotorPeriod=60",
+                f"Left Analog X DeadZone={dz_val}",
+                f"Left Analog Y DeadZone={dz_val}",
+                f"Right Analog X DeadZone={dz_val}",
+                f"Right Analog Y DeadZone={dz_val}",
+            ]
+            for k, v in m.items():
+                sec_lines.append(f"{k}={v}")
+            pad_sections.append("\n".join(sec_lines))
+
+        lines.extend(mappings_lines)
+        lines.append("")
+        lines.extend(pad_sections)
+        return "\n".join(lines) + "\n"
 
     def prepare_game_launch(self, game_id: str, candidate_exe: str, custom_env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
@@ -406,6 +718,23 @@ Right Analog Y=-6
         game_dir = os.path.dirname(os.path.abspath(candidate_exe))
         cfg = self.get_game_gamepad_config(game_id)
         
+        # Khởi động Motion Gyro nếu cấu hình bật
+        if cfg.get("gyro_enabled", False):
+            try:
+                from core.motion_gyro import MOTION_GYRO
+                gyro_m = cfg.get("gyro_mode", "aiming_l2")
+                MOTION_GYRO.start({
+                    "aiming_enabled": gyro_m in ("aiming_l2", "aiming_always"),
+                    "aiming_mode": "l2" if gyro_m == "aiming_l2" else "always",
+                    "sensitivity": float(cfg.get("gyro_sensitivity", 1.0)),
+                    "deadzone": float(cfg.get("gyro_deadzone", 2.0)),
+                    "invert_y": bool(cfg.get("gyro_invert_y", False)),
+                    "dsu_enabled": gyro_m == "dsu_server"
+                })
+                print(f"[ControllerEngine] Đã kích hoạt Motion Gyro ({gyro_m}) cho game '{game_id}'")
+            except Exception as e:
+                print(f"[ControllerEngine Gyro Launch Error]: {e}")
+
         # 1. Nếu tính năng TẮT: Tự động dọn dẹp các file wrapper cũ (nếu có) để game chạy nguyên bản 100%
         if not cfg.get("enabled", False):
             self._cleanup_game_dir_wrappers(game_dir, candidate_exe)
@@ -435,34 +764,32 @@ Right Analog Y=-6
         mode = cfg.get("mode", "xinput_wrapper")
         injected_files = []
 
-        # Chế độ XInput Wrapper (cho game Unity, Unreal, C++)
+        # Chế độ XInput Wrapper (cho game Unity, Unreal, C++, RE Engine)
         if mode == "xinput_wrapper":
-            arch = get_pe_architecture(candidate_exe)
+            arch = self._resolve_target_architecture(game_dir, candidate_exe)
             source_dir = os.path.join(self.gamepad_tools_dir, arch)
+            known_sizes = self._known_wrapper_dll_sizes()
 
             source_dll = os.path.join(source_dir, "xinput1_3.dll")
             if os.path.exists(source_dll):
                 source_size = os.path.getsize(source_dll)
 
-                # Copy / Track xinput1_3.dll
-                target_1_3 = os.path.join(game_dir, "xinput1_3.dll")
-                if not os.path.exists(target_1_3):
-                    shutil.copy2(source_dll, target_1_3)
-                    injected_files.append(target_1_3)
-                elif os.path.getsize(target_1_3) == source_size:
-                    injected_files.append(target_1_3)
+                for dll_name in ("xinput1_3.dll", "xinput1_4.dll"):
+                    target_dll = os.path.join(game_dir, dll_name)
+                    if not os.path.exists(target_dll):
+                        shutil.copy2(source_dll, target_dll)
+                        injected_files.append(target_dll)
+                    elif os.path.getsize(target_dll) in known_sizes:
+                        if os.path.getsize(target_dll) != source_size:
+                            shutil.copy2(source_dll, target_dll)
+                        injected_files.append(target_dll)
 
-                # Copy / Track xinput1_4.dll
-                target_1_4 = os.path.join(game_dir, "xinput1_4.dll")
-                if not os.path.exists(target_1_4):
-                    shutil.copy2(source_dll, target_1_4)
-                    injected_files.append(target_1_4)
-                elif os.path.getsize(target_1_4) == source_size:
-                    injected_files.append(target_1_4)
-
-                # Tạo / Track x360ce.ini
+                # Tạo / Cập nhật x360ce.ini với GUID thực tế của tay cầm đang cắm
                 target_ini = os.path.join(game_dir, "x360ce.ini")
-                ini_content = self.get_universal_x360ce_ini_content()
+                ini_content = self.get_universal_x360ce_ini_content(
+                    deadzone=float(cfg.get("deadzone", 0.15)),
+                    vibration=bool(cfg.get("vibration", True)),
+                )
                 if not os.path.exists(target_ini):
                     with open(target_ini, "w", encoding="utf-8") as f:
                         f.write(ini_content)
@@ -470,8 +797,11 @@ Right Analog Y=-6
                 else:
                     try:
                         with open(target_ini, "r", encoding="utf-8", errors="ignore") as f:
-                            if "VietModHub" in f.read() or "x360ce" in f.read():
-                                injected_files.append(target_ini)
+                            existing = f.read()
+                        if "VietModHub" in existing or "PromptOnInit" in existing or "x360ce" in existing:
+                            with open(target_ini, "w", encoding="utf-8") as f:
+                                f.write(ini_content)
+                            injected_files.append(target_ini)
                     except Exception:
                         pass
 
@@ -512,6 +842,13 @@ Right Analog Y=-6
         Hook hậu thoát game: Tự động dọn dẹp sạch sẽ toàn bộ file DLL/INI wrapper đã inject
         và dừng luồng Virtual Keyboard Mapper.
         """
+        # 0. Dừng Motion Gyro nếu đang chạy
+        try:
+            from core.motion_gyro import MOTION_GYRO
+            MOTION_GYRO.stop()
+        except Exception:
+            pass
+
         # 1. Dừng mapper nếu đang chạy cho game này
         if self.active_game_id == game_id:
             self.stop_keyboard_mapper()
@@ -685,14 +1022,32 @@ Right Analog Y=-6
     # 4. TÍCH HỢP LƯU VÀO .congu_save (VAULT INTEGRATION)
     # ========================================================
     def get_game_gamepad_config(self, game_id: str) -> Dict[str, Any]:
-        """Đọc cấu hình tay cầm của game từ file PlayerProfile.congu_save."""
+        """Đọc cấu hình tay cầm của game từ Hồ Sơ (.congu_save), kế thừa cài đặt toàn cục nếu chưa có tùy chỉnh riêng."""
+        global_enabled = True
+        global_vibration = True
+        global_deadzone = 0.15
+        try:
+            from core.config_manager.user_settings import load_user_config
+            ctrl_cfg = load_user_config().get("controller", {})
+            if isinstance(ctrl_cfg, dict):
+                global_enabled = ctrl_cfg.get("enabled", True) is not False
+                global_vibration = ctrl_cfg.get("vibration", True) is not False
+                global_deadzone = float(ctrl_cfg.get("deadzone", 0.15))
+        except Exception:
+            pass
+
         default_cfg = {
-            "enabled": False,  # Mặc định TẮT! Chỉ bật khi người chơi cần giả lập cho tay cầm PS4/PS5/DInput
+            "enabled": global_enabled,  # Kế thừa Settings -> Tay cầm (Smart Guard vẫn chỉ kích hoạt khi có tay cầm non-XInput)
             "mode": "xinput_wrapper",  # "xinput_wrapper" | "keyboard_mapper"
             "preset": "platformer",    # "platformer" | "rpg_vn" | "custom"
-            "vibration": True,
-            "deadzone": 0.15,
-            "custom_mappings": {}
+            "vibration": global_vibration,
+            "deadzone": global_deadzone,
+            "custom_mappings": {},
+            "gyro_enabled": False,
+            "gyro_mode": "aiming_l2",  # "aiming_l2" | "aiming_always" | "dsu_server"
+            "gyro_sensitivity": 1.0,
+            "gyro_deadzone": 2.0,
+            "gyro_invert_y": False
         }
         if self.vault_getter:
             try:
@@ -757,3 +1112,14 @@ Right Analog Y=-6
             }
         except Exception as e:
             return {"success": False, "error": f"Lỗi khi lưu cấu hình tay cầm: {e}"}
+
+    def cleanup_all(self):
+        """Dọn dẹp sạch sẽ toàn bộ session, wrapper, mapper và con quay khi thoát ứng dụng."""
+        self.stop_keyboard_mapper()
+        for gid in list(self.active_sessions.keys()):
+            self.handle_game_exit(gid)
+        try:
+            from core.motion_gyro import MOTION_GYRO
+            MOTION_GYRO.stop()
+        except Exception:
+            pass
