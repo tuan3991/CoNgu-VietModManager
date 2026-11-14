@@ -5,7 +5,7 @@ Core Config Manager - Paths & System Constants
 import os
 import sys
 
-CURRENT_VERSION = "2.0.3"
+CURRENT_VERSION = "2.0.4"
 GITHUB_REPO = "tuan3991/CoNgu-VietModManager"
 REMOTE_CATALOG_URLS = [
     f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/games.json",

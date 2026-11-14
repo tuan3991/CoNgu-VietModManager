@@ -13,7 +13,7 @@ import subprocess
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DIST_DIR = os.path.join(ROOT_DIR, "dist", "VietModHub")
 PORTABLE_DIR = os.path.join(ROOT_DIR, "VietModHub_Portable")
-ZIP_NAME = "CoNgu_v2.0.3_Portable.zip"
+ZIP_NAME = "CoNgu_v2.0.4_Portable.zip"
 ZIP_PATH = os.path.join(ROOT_DIR, ZIP_NAME)
 
 def sync_portable():
