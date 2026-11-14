@@ -1,19 +1,18 @@
 {
-  "version": "2.0.5",
-  "name": "// CỔ NGỮ PRO v2.0.5",
+  "version": "2.0.6",
+  "name": "// CỔ NGỮ PRO v2.0.6",
   "release_date": "2026-11-14",
   "min_required_version": "2.0.0",
   "download_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/latest",
-  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/v2.0.5/CoNgu_v2.0.5_Portable.zip",
-  "portable_zip_sha256": "FBF84BAC0AE0317BB5327ED5EDBFD700AADA8B6388055A6E10012605586BF155",
+  "portable_zip_url": "https://github.com/tuan3991/CoNgu-VietModManager/releases/download/v2.0.6/CoNgu_v2.0.6_Portable.zip",
+  "portable_zip_sha256": "2B532AA423FF4A1752E111445A5F3E56C2FA038BF43D11CFA8F1D2EA501B8EEC",
   "changelog": [
-    "Màn hình chào mừng lần đầu mở app: người dùng tự đặt tên hồ sơ trên máy mới, không còn lấy tên tài khoản Windows (dễ trùng tên cũ như 'Kaiz') làm tên mặc định.",
-    "Gói Portable không còn kèm dữ liệu cá nhân của máy build (user_config.json, PlayerProfile.congu_save, account_profiles, save_backups...).",
-    "Tối ưu Save Game: bỏ qua đóng gói lại PlayerProfile.congu_save khi save + thành tựu không thay đổi (fingerprint size/mtime).",
-    "Đẩy Cloud Sync lên trước bước đóng gói vault: save được upload Google Drive song song, không phải chờ nén xong.",
-    "Tự dọn file tạm *.congu_save_tmp / congu-save-*.zip* còn sót khi khởi động.",
-    "Hỗ trợ lấy Poster dọc 600x900 (2x) nét căng chính thức từ Steam với mã hash chuẩn cho mọi game mới & cũ.",
-    "Bộ lọc Glassmorphism tự động dựng Poster dọc cho các game/demo chỉ có ảnh ngang, giữ nguyên 100% logo không bị cắt chữ.",
-    "Tối ưu hóa đa luồng ThreadPoolExecutor tìm kiếm siêu tốc đa nguồn và khắc phục triệt để lỗi hiển thị danh sách game."
+    "Thư viện Steam-like trên PC mới: toàn bộ game lẻ bạn từng thêm được lưu trong Hồ Sơ .congu_save và tự hiện lại khi nạp hồ sơ ở máy khác.",
+    "Chỉ cần bấm 'Thêm Thư Mục' cho game Ghost: Cổ Ngữ tự bung save đã lưu về đúng vị trí và bạn chơi tiếp ngay.",
+    "Hồ Sơ lưu vị trí save dạng macro ({GAME_ROOT}, {APPDATA}, {LOCALAPPDATA}...) nên save tự tìm đúng chỗ dù ổ đĩa/tên user khác nhau.",
+    "Game đã xóa khỏi thư viện sẽ không tự hiện lại dưới dạng Ghost.",
+    "Màn hình chào mừng lần đầu mở app: người dùng tự đặt tên hồ sơ trên máy mới (không lấy tên tài khoản Windows).",
+    "Gói Portable không kèm dữ liệu cá nhân của máy build (user_config.json, PlayerProfile.congu_save, account_profiles...).",
+    "Tối ưu Save Game: bỏ qua đóng gói lại vault khi save không đổi; upload Cloud chạy song song; tự dọn file tạm khi khởi động."
   ]
 }

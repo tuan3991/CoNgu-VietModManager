@@ -554,11 +554,14 @@ def merge_vault_custom_games() -> int:
         if not isinstance(stored, dict) or not stored:
             return 0
 
+        deleted = manifest.get("deleted_custom_games")
+        deleted_set = {str(x) for x in deleted} if isinstance(deleted, list) else set()
+
         c_games = load_custom_games()
         existing_ids = {str(g.get("id")) for g in c_games if isinstance(g, dict)}
         added = 0
         for cg_id, info in stored.items():
-            if not isinstance(info, dict) or str(cg_id) in existing_ids:
+            if not isinstance(info, dict) or str(cg_id) in existing_ids or str(cg_id) in deleted_set:
                 continue
             c_games.append({
                 "id": cg_id,
@@ -579,6 +582,51 @@ def merge_vault_custom_games() -> int:
         return added
     except Exception as e:
         print(f"[LocalizationRequest] merge_vault_custom_games warning: {e}")
+        return 0
+
+
+def sync_custom_games_to_vault() -> int:
+    """
+    Đồng bộ danh sách game lẻ hiện có vào Hồ Sơ .congu_save để mang sang PC khác.
+    Chỉ ghi khi có thay đổi (tránh viết lại vault mỗi lần khởi động).
+    """
+    try:
+        vault = get_vault_instance()
+        manifest = vault.read_manifest() or {}
+        stored = manifest.get("custom_games")
+        if not isinstance(stored, dict):
+            stored = {}
+        deleted = manifest.get("deleted_custom_games")
+        deleted_set = {str(x) for x in deleted} if isinstance(deleted, list) else set()
+
+        changed = 0
+        for cg in load_custom_games():
+            gid = str(cg.get("id") or "")
+            if not gid or gid in deleted_set:
+                continue
+            entry = {
+                "title": cg.get("title") or cg.get("vietnamese_title") or gid,
+                "steam_appid": str(cg.get("steam_appid") or ""),
+                "executable_name": cg.get("executable_name", ""),
+                "engine": cg.get("engine", ""),
+                "last_known_root": (cg.get("game_root") or "").replace("\\", "/"),
+                "vault_config": cg.get("vault_config") or {},
+            }
+            if stored.get(gid) != entry:
+                stored[gid] = entry
+                changed += 1
+
+        if changed:
+            manifest["custom_games"] = stored
+            manifest["updated_at"] = int(time.time())
+            res = vault.update_manifest_only(manifest)
+            if res.get("success"):
+                log_startup(f"[Library] Đã đồng bộ {changed} game lẻ vào Hồ Sơ (.congu_save).")
+            else:
+                print(f"[Library] Sync custom games failed: {res.get('error')}")
+        return changed
+    except Exception as e:
+        print(f"[Library] sync_custom_games_to_vault warning: {e}")
         return 0
 
 
@@ -1127,6 +1175,7 @@ def _make_vault_ghost_game(gid: str, meta: dict, favorites: set) -> dict:
             "vi_patch_info": meta.get("vi_patch_info") or {},
             "cover_thumb": thumb,
         },
+        "vault_config": meta.get("vault_config") or {},
         "user_rating": 5,
         "user_comment": "",
         "is_favorite": gid in favorites,
@@ -1251,6 +1300,8 @@ class ModManagerAPI:
         except Exception:
             vault_manifest, vault_mtime = {}, 0
         vault_games_meta = vault_manifest.get("games") if isinstance(vault_manifest.get("games"), dict) else {}
+        _vault_deleted = vault_manifest.get("deleted_custom_games")
+        deleted_custom_set = {str(x) for x in _vault_deleted} if isinstance(_vault_deleted, list) else set()
 
         def _apply_vault_metadata(game_obj, gid, game_root):
             meta = vault_games_meta.get(gid)
@@ -1718,7 +1769,7 @@ class ModManagerAPI:
         # Game chỉ còn trong .congu_save (delisted/đổi id) -> vẫn giữ trong Ghost Library
         known_ids = {str(g.get("id")) for g in games}
         for gid, meta in vault_games_meta.items():
-            if str(gid) in known_ids or not isinstance(meta, dict):
+            if str(gid) in known_ids or str(gid) in deleted_custom_set or not isinstance(meta, dict):
                 continue
             has_history = (
                 int(meta.get("file_count") or 0) > 0
@@ -2071,68 +2122,161 @@ class ModManagerAPI:
         return {"success": True, "message": "Đã lưu Link Google Drive cho tựa game này thành công!", "games": self.get_games()}
 
     def select_folder(self, game_id):
-        """Open native folder picker dialog for user to select game directory"""
+        """
+        Chọn/trỏ lại thư mục cài đặt game.
+        Hỗ trợ cả game Ghost chỉ còn trong Hồ Sơ (.congu_save): sau khi trỏ đúng
+        thư mục, Save đã lưu sẽ được bung ra máy này để chơi tiếp ngay.
+        """
         if hasattr(self, "_dialog_lock") and not self._dialog_lock.acquire(blocking=False):
             return {"success": False, "message": "Hộp thoại chọn thư mục đang được mở."}
         try:
-            with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
-                games_map = {gm["id"]: gm for gm in json.load(f)}
-            g_target = games_map.get(game_id, {})
-            g_title = g_target.get("title") or game_id
+            # 1. Tìm cấu hình: catalog -> game lẻ -> Hồ Sơ (ghost)
+            g_target = {}
+            in_catalog = False
+            try:
+                with open(get_active_games_json_path(), "r", encoding="utf-8") as f:
+                    games_map = {gm["id"]: gm for gm in json.load(f)}
+                g_target = games_map.get(game_id, {}) or {}
+                in_catalog = bool(g_target)
+            except Exception:
+                games_map = {}
+
+            c_games = load_custom_games()
+            c_target = next((g for g in c_games if g.get("id") == game_id), None)
+            if not g_target and c_target:
+                g_target = c_target
+
+            vault = get_vault_instance()
+            vault_manifest = vault.read_manifest() or {}
+            vault_meta = (vault_manifest.get("games") or {}).get(game_id) or {}
+            vault_cfg = vault_meta.get("vault_config") if isinstance(vault_meta.get("vault_config"), dict) else {}
+            if not g_target and vault_meta:
+                g_target = {
+                    "id": game_id,
+                    "title": vault_meta.get("title") or game_id,
+                    "steam_appid": str(vault_meta.get("steam_appid") or ""),
+                    "vault_config": vault_cfg,
+                }
+
+            g_title = g_target.get("title") or g_target.get("vietnamese_title") or game_id
 
             chosen_dir = pick_folder(
                 title=f"Chọn thư mục cài đặt game: {g_title}",
                 parent_window=self.window
             )
 
-            if chosen_dir and os.path.exists(chosen_dir):
-                if os.path.isfile(chosen_dir):
-                    chosen_dir = os.path.dirname(chosen_dir)
-                is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g_target, chosen_dir)
-                if is_valid:
-                    cfg = load_user_config()
-                    cfg[f"{game_id}_path"] = resolved_path
-                    save_user_config(cfg)
+            if not (chosen_dir and os.path.exists(chosen_dir)):
+                return {"success": False, "message": "Không có thư mục nào được chọn."}
+            if os.path.isfile(chosen_dir):
+                chosen_dir = os.path.dirname(chosen_dir)
 
-                    # Tự động nhận diện metadata và poster cho game lẻ (4 Lớp)
-                    try:
-                        meta = fetch_game_metadata_and_avatar(
-                            resolved_path, 
-                            g_target.get("executable_name", ""), 
-                            g_target.get("title", ""), 
-                            game_id
-                        )
-                        if meta:
-                            c_cache = load_covers_cache()
-                            c_cache[game_id] = meta
-                            save_covers_cache(c_cache)
-                    except Exception as e:
-                        print(f"[!] Metadata extraction error: {e}")
-
-                    # Early Write Permission Check (Program Files / UAC restriction)
-                    is_admin = is_running_as_admin()
-                    is_writable = is_admin or check_directory_writable(resolved_path)
-                    is_in_pf = "program files" in (resolved_path or "").lower()
-                    requires_admin = (not is_writable) and is_in_pf
-
-                    msg = val_msg
-                    if requires_admin:
-                        msg = (
-                            f"Thư mục '{os.path.basename(resolved_path)}' hợp lệ nhưng nằm trong thư mục hệ thống (Program Files). "
-                            f"Windows yêu cầu quyền Administrator để ghi tệp."
-                        )
-                    return {
-                        "success": True,
-                        "path": resolved_path,
-                        "message": msg,
-                        "is_writable": is_writable,
-                        "requires_admin": requires_admin,
-                        "games": self.get_games()
-                    }
+            is_valid, resolved_path, val_msg = verify_and_resolve_game_path(g_target, chosen_dir)
+            if not is_valid:
+                # Game ghost / game lẻ: chấp nhận thư mục có ít nhất 1 file .exe
+                found_exe = self._dnd_find_exe_in_folder(chosen_dir)
+                if found_exe:
+                    is_valid = True
+                    resolved_path = chosen_dir
+                    val_msg = f"Đã liên kết thư mục game: {os.path.basename(chosen_dir)}"
+                    if not g_target.get("executable_name"):
+                        g_target["executable_name"] = os.path.basename(found_exe)
                 else:
                     return {"success": False, "path": chosen_dir, "message": val_msg}
-            
-            return {"success": False, "message": "Không có thư mục nào được chọn."}
+
+            cfg = load_user_config()
+            cfg[f"{game_id}_path"] = resolved_path
+            save_user_config(cfg)
+
+            # 2. Game ghost từ Hồ Sơ -> tạo thẻ game lẻ để có thể Chơi & quản lý
+            try:
+                if not in_catalog and not c_target:
+                    exe_name = g_target.get("executable_name") or ""
+                    if not exe_name or not os.path.isfile(os.path.join(resolved_path, exe_name)):
+                        found_exe = self._dnd_find_exe_in_folder(resolved_path)
+                        exe_name = os.path.basename(found_exe) if found_exe else exe_name
+                    new_game = {
+                        "id": game_id,
+                        "title": g_title,
+                        "steam_appid": str(g_target.get("steam_appid") or ""),
+                        "executable_name": exe_name,
+                        "engine": g_target.get("engine") or "PC Game",
+                        "game_root": resolved_path.replace("\\", "/"),
+                        "vault_config": g_target.get("vault_config") or vault_cfg or {},
+                        "is_custom_game": True,
+                        "restored_from_vault": True,
+                    }
+                    c_games.append(new_game)
+                    save_custom_games(c_games)
+            except Exception as cg_err:
+                print(f"[select_folder] Restore custom game warning: {cg_err}")
+
+            # 3. Bung Save đã lưu trong Hồ Sơ về đúng vị trí trên máy này
+            vault_restore = None
+            try:
+                if int(vault_meta.get("file_count") or 0) > 0:
+                    restore_cfg = {
+                        "id": game_id,
+                        "title": g_title,
+                        "vault_config": g_target.get("vault_config") or vault_cfg or {},
+                    }
+                    if vault.has_local_save_data(restore_cfg, resolved_path):
+                        vault_restore = {"restored": False, "reason": "local_save_exists"}
+                    else:
+                        res = vault.unpack_game_from_vault(restore_cfg, resolved_path, backup_existing=True)
+                        vault_restore = {
+                            "restored": bool(res.get("success")),
+                            "unpacked_saves": int(res.get("unpacked_saves") or 0),
+                            "unpacked_achs": int(res.get("unpacked_achs") or 0),
+                            "error": res.get("error", ""),
+                        }
+            except Exception as restore_err:
+                vault_restore = {"restored": False, "error": str(restore_err)}
+                print(f"[select_folder] Vault restore warning: {restore_err}")
+
+            # 4. Tự động nhận diện metadata và poster cho game lẻ (4 Lớp)
+            try:
+                meta = fetch_game_metadata_and_avatar(
+                    resolved_path,
+                    g_target.get("executable_name", ""),
+                    g_target.get("title", ""),
+                    game_id
+                )
+                if meta:
+                    c_cache = load_covers_cache()
+                    c_cache[game_id] = meta
+                    save_covers_cache(c_cache)
+            except Exception as e:
+                print(f"[!] Metadata extraction error: {e}")
+
+            # 5. Early Write Permission Check (Program Files / UAC restriction)
+            is_admin = is_running_as_admin()
+            is_writable = is_admin or check_directory_writable(resolved_path)
+            is_in_pf = "program files" in (resolved_path or "").lower()
+            requires_admin = (not is_writable) and is_in_pf
+
+            msg = val_msg
+            if vault_restore and vault_restore.get("restored"):
+                msg = (
+                    f"{val_msg} Đã khôi phục {vault_restore.get('unpacked_saves', 0)} tệp save "
+                    f"từ Hồ Sơ — bạn có thể chơi tiếp ngay!"
+                )
+            elif vault_restore and vault_restore.get("reason") == "local_save_exists":
+                msg = f"{val_msg} (Giữ nguyên save đang có trên máy, không ghi đè.)"
+
+            if requires_admin:
+                msg = (
+                    f"Thư mục '{os.path.basename(resolved_path)}' hợp lệ nhưng nằm trong thư mục hệ thống (Program Files). "
+                    f"Windows yêu cầu quyền Administrator để ghi tệp."
+                )
+            return {
+                "success": True,
+                "path": resolved_path,
+                "message": msg,
+                "is_writable": is_writable,
+                "requires_admin": requires_admin,
+                "vault_restore": vault_restore,
+                "games": self.get_games()
+            }
         except Exception as e:
             print(f"[select_folder] Error: {e}")
             return {"success": False, "message": f"Lỗi chọn thư mục: {str(e)}"}
@@ -3980,6 +4124,30 @@ class ModManagerAPI:
             def _async_vault_pack():
                 try:
                     vault = get_vault_instance()
+                    # Lưu định nghĩa game lẻ vào Hồ Sơ để PC mới hiện lại thẻ game
+                    # kể cả khi game chưa có save/giờ chơi.
+                    try:
+                        manifest = vault.read_manifest() or {}
+                        cg_store = manifest.get("custom_games")
+                        if not isinstance(cg_store, dict):
+                            cg_store = {}
+                        cg_store[gid] = {
+                            "title": game_data.get("title") or gid,
+                            "steam_appid": str(game_data.get("steam_appid") or ""),
+                            "executable_name": game_data.get("executable_name", ""),
+                            "engine": game_data.get("engine", ""),
+                            "last_known_root": (game_data.get("game_root") or "").replace("\\", "/"),
+                            "vault_config": game_data.get("vault_config") or {},
+                        }
+                        manifest["custom_games"] = cg_store
+                        deleted = manifest.get("deleted_custom_games")
+                        if isinstance(deleted, list) and gid in deleted:
+                            manifest["deleted_custom_games"] = [x for x in deleted if x != gid]
+                        manifest["updated_at"] = int(time.time())
+                        vault.update_manifest_only(manifest)
+                    except Exception as meta_err:
+                        print(f"[CustomGames Vault Metadata Warning]: {meta_err}")
+
                     vault.pack_game_to_vault(game_data, game_data.get("game_root", ""))
                 except Exception as e:
                     print(f"[CustomGames Vault Warning]: {e}")
@@ -4006,6 +4174,28 @@ class ModManagerAPI:
             cfg = load_user_config()
             cfg.pop(f"{game_id}_path", None)
             save_user_config(cfg)
+
+            def _async_vault_remove():
+                try:
+                    vault = get_vault_instance()
+                    manifest = vault.read_manifest() or {}
+                    cg_store = manifest.get("custom_games")
+                    if isinstance(cg_store, dict):
+                        cg_store.pop(game_id, None)
+                        manifest["custom_games"] = cg_store
+                    deleted = manifest.get("deleted_custom_games")
+                    if not isinstance(deleted, list):
+                        deleted = []
+                    if game_id not in deleted:
+                        deleted.append(game_id)
+                    manifest["deleted_custom_games"] = deleted
+                    manifest["updated_at"] = int(time.time())
+                    vault.update_manifest_only(manifest)
+                except Exception as e:
+                    print(f"[CustomGames Vault Remove Warning]: {e}")
+
+            threading.Thread(target=_async_vault_remove, daemon=True).start()
+
             return {
                 "success": True,
                 "message": "Đã xóa game khỏi thư viện CỔ NGỮ!",
@@ -5150,6 +5340,11 @@ try:
     merge_vault_custom_games()
 except Exception as _merge_err:
     print(f"[LocalizationRequest] Startup merge skipped: {_merge_err}")
+try:
+    # Backfill: game lẻ đã thêm trước bản cập nhật này cũng được đưa vào Hồ Sơ.
+    sync_custom_games_to_vault()
+except Exception as _sync_cg_err:
+    print(f"[Library] Startup custom games sync skipped: {_sync_cg_err}")
 try:
     merge_vault_bookmarks()
 except Exception as _bm_merge_err:

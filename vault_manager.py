@@ -586,6 +586,32 @@ class ConguSaveVault:
                     unlocked_set.update(self._parse_achievements_file(real_ach_path))
             game_stat["unlocked_achievements"] = sorted(list(unlocked_set))
 
+            # 2.4. Lưu vị trí save dạng MACRO vào Hồ Sơ để PC mới tự bung đúng chỗ,
+            # kể cả khi game là game lẻ/ghost không còn cấu hình trên máy mới.
+            try:
+                portable_save_locs = []
+                for save_loc in save_locs:
+                    real_p = self.resolve_macro_path(save_loc.get("path", ""), game_root)
+                    portable_save_locs.append({
+                        "slot": save_loc.get("slot", "main_saves"),
+                        "path": self.path_to_macro(real_p, game_root) if real_p else save_loc.get("path", ""),
+                    })
+                portable_ach_locs = []
+                for ach_loc in ach_locs:
+                    real_p = self.resolve_macro_path(ach_loc.get("path", ""), game_root)
+                    portable_ach_locs.append({
+                        "emu": ach_loc.get("emu", "generic"),
+                        "path": self.path_to_macro(real_p, game_root) if real_p else ach_loc.get("path", ""),
+                    })
+                if portable_save_locs or portable_ach_locs:
+                    game_stat["vault_config"] = {
+                        "save_locations": portable_save_locs,
+                        "achievement_locations": portable_ach_locs,
+                        "exclude_patterns": exclude_patterns,
+                    }
+            except Exception as e:
+                print(f"[ConguSaveVault] Vault config metadata warning: {e}")
+
             # 2.5. Bỏ qua viết lại vault nếu save + thành tựu không đổi
             # (mở game rồi thoát ngay). Đây là tối ưu lớn nhất: thay vì giải nén
             # + nén lại toàn bộ vault, chỉ đọc metadata và trả về ngay.
@@ -888,8 +914,47 @@ class ConguSaveVault:
         with self.lock:
             game_id = game_config["id"]
             save_locs, ach_locs, _ = self._extract_game_locations(game_config)
+            if not ach_locs:
+                # Game ghost / game lẻ vừa trỏ lại thư mục: dùng vị trí thành tựu
+                # đã lưu trong Hồ Sơ (nếu có).
+                vc = game_config.get("vault_config") or {}
+                if isinstance(vc, dict):
+                    ach_locs = vc.get("achievement_locations") or []
             if not os.path.exists(self.vault_path):
                 return {"success": False, "error": "Tệp Vault không tồn tại"}
+
+            # Bổ sung các slot save CHỈ có trong vault (game ghost / game lẻ chưa
+            # có cấu hình trên máy mới) bằng macro_path đã lưu trong _meta.json.
+            try:
+                configured_slots = {str(sl.get("slot") or "main_saves") for sl in save_locs}
+                with zipfile.ZipFile(self.vault_path, "r") as zf_probe:
+                    probe_names = zf_probe.namelist()
+                    prefix = f"{game_id}/saves/"
+                    vault_slots = set()
+                    for name in probe_names:
+                        if not name.startswith(prefix):
+                            continue
+                        rest = name[len(prefix):]
+                        if "/" in rest and rest.split("/", 1)[0]:
+                            vault_slots.add(rest.split("/", 1)[0])
+                    for slot in sorted(vault_slots - configured_slots):
+                        meta_name = f"{prefix}{slot}/_meta.json"
+                        if meta_name not in probe_names:
+                            continue
+                        try:
+                            meta = json.loads(zf_probe.read(meta_name).decode("utf-8"))
+                        except Exception:
+                            continue
+                        macro_path = str((meta or {}).get("macro_path") or "")
+                        if not macro_path:
+                            continue
+                        # Chỉ chấp nhận macro hoặc đường dẫn tương đối; từ chối
+                        # đường dẫn tuyệt đối lạ đến từ file vault không tin cậy.
+                        if os.path.isabs(macro_path) and not macro_path.startswith("{"):
+                            continue
+                        save_locs.append({"slot": slot, "path": macro_path})
+            except Exception as e:
+                print(f"[ConguSaveVault] Bổ sung slot từ vault warning: {e}")
 
             plan = []
             save_entries = 0

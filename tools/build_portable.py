@@ -13,7 +13,7 @@ import subprocess
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DIST_DIR = os.path.join(ROOT_DIR, "dist", "VietModHub")
 PORTABLE_DIR = os.path.join(ROOT_DIR, "VietModHub_Portable")
-ZIP_NAME = "CoNgu_v2.0.5_Portable.zip"
+ZIP_NAME = "CoNgu_v2.0.6_Portable.zip"
 ZIP_PATH = os.path.join(ROOT_DIR, ZIP_NAME)
 
 # Dữ liệu cá nhân của máy build TUYỆT ĐỐI không được đóng gói phát hành.

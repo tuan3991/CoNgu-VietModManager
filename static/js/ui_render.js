@@ -1119,14 +1119,18 @@
 
       // Ghost Library: game từng có trong Hồ Sơ nhưng máy này chưa cài
       if (game.is_ghost) {
+        const hasSteamApp = !!(game.steam_appid && String(game.steam_appid).trim());
+        const steamBtn = hasSteamApp
+          ? `<button onclick="event.stopPropagation(); installGhostGame('${game.id}')" class="pixel-btn w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[0_2px_8px_rgba(0,0,0,0.35)] bg-[#061c24] border border-[#FF2A55]/60 text-[#FF2A55] hover:bg-[#082b36]">
+               <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i>
+               <span>Cài Đặt</span>
+             </button>`
+          : '';
         return `<div class="w-full flex flex-col gap-1.5">
-                     <button onclick="event.stopPropagation(); installGhostGame('${game.id}')" class="pixel-btn w-full py-2 px-3 text-xs flex items-center justify-center space-x-2 font-bold shadow-[0_2px_8px_rgba(0,0,0,0.35)] bg-[#061c24] border border-[#FF2A55]/60 text-[#FF2A55] hover:bg-[#082b36]">
-                       <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i>
-                       <span>Cài Đặt</span>
-                     </button>
-                     <button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn w-full py-1.5 px-2 text-[11px] flex items-center justify-center space-x-1.5 font-bold shadow-[0_2px_8px_rgba(0,0,0,0.35)] bg-[#1C2536] border border-white/15 text-slate-300 hover:text-white">
+                     ${steamBtn}
+                     <button onclick="event.stopPropagation(); openGameModal('${game.id}')" class="pixel-btn w-full py-2 px-2 text-xs flex items-center justify-center space-x-1.5 font-bold shadow-[0_2px_8px_rgba(0,0,0,0.35)] bg-[#1C2536] border border-white/15 text-slate-200 hover:text-white hover:border-[#FF2A55]/60">
                        <i data-lucide="folder-search" class="w-3.5 h-3.5"></i>
-                       <span>Chọn Thư Mục Cài Sẵn</span>
+                       <span>Thêm Thư Mục</span>
                      </button>
                    </div>`;
       }
