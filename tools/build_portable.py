@@ -13,8 +13,71 @@ import subprocess
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DIST_DIR = os.path.join(ROOT_DIR, "dist", "VietModHub")
 PORTABLE_DIR = os.path.join(ROOT_DIR, "VietModHub_Portable")
-ZIP_NAME = "CoNgu_v2.0.4_Portable.zip"
+ZIP_NAME = "CoNgu_v2.0.5_Portable.zip"
 ZIP_PATH = os.path.join(ROOT_DIR, ZIP_NAME)
+
+# Dữ liệu cá nhân của máy build TUYỆT ĐỐI không được đóng gói phát hành.
+PERSONAL_FILES = [
+    "PlayerProfile.congu_save",
+    "user_config.json",
+    "user_data.json",
+    "accounts_index.json",
+    ".congu_playtime.json",
+    "playtime.json",
+    "achievements_progress.json",
+    "community_requests.json",
+    "custom_games.json",
+    "active_downloads.json",
+    "startup.log",
+]
+PERSONAL_DIRS = [
+    "account_profiles",
+    "save_backups",
+    "quick_checkpoints",
+    "webview2_profile",
+    "cache",
+    "temp",
+]
+PERSONAL_GLOBS = ["*.congu_save", "*.congu_save_tmp", "*.log", "congu-save-*.zip*"]
+
+
+def purge_personal_data():
+    """Xóa mọi dữ liệu cá nhân còn sót trong thư mục portable trước khi nén."""
+    import glob
+
+    removed = []
+    for name in PERSONAL_FILES:
+        target = os.path.join(PORTABLE_DIR, name)
+        if os.path.isfile(target):
+            try:
+                os.remove(target)
+                removed.append(name)
+            except OSError as e:
+                print(f"    [!] Không thể xóa dữ liệu cá nhân {name}: {e}")
+
+    for name in PERSONAL_DIRS:
+        target = os.path.join(PORTABLE_DIR, name)
+        if os.path.isdir(target):
+            try:
+                shutil.rmtree(target)
+                removed.append(name + "/")
+            except OSError as e:
+                print(f"    [!] Không thể xóa thư mục cá nhân {name}: {e}")
+
+    for pattern in PERSONAL_GLOBS:
+        for target in glob.glob(os.path.join(PORTABLE_DIR, pattern)):
+            try:
+                if os.path.isfile(target):
+                    os.remove(target)
+                    removed.append(os.path.basename(target))
+            except OSError:
+                pass
+
+    if removed:
+        print(f"    [AN TOÀN] Đã loại bỏ dữ liệu cá nhân: {', '.join(sorted(set(removed)))}")
+    else:
+        print("    [AN TOÀN] Không có dữ liệu cá nhân trong thư mục portable.")
+    return removed
 
 def sync_portable():
     print(f"[*] Đồng bộ từ {DIST_DIR} -> {PORTABLE_DIR}...")
@@ -23,6 +86,8 @@ def sync_portable():
         return False
 
     os.makedirs(PORTABLE_DIR, exist_ok=True)
+    # Dọn dữ liệu cá nhân còn sót từ lần build trước trước khi copy bản mới.
+    purge_personal_data()
 
     # 1. Copy VietModHub.exe
     exe_src = os.path.join(DIST_DIR, "VietModHub.exe")
@@ -88,13 +153,18 @@ def create_zip():
 
     ignored_exts = {".pyc", ".tmp", ".log"}
     ignored_names = {"security.py", "__pycache__"}
+    # Chặn cứng dữ liệu cá nhân, kể cả khi file lọt vào thư mục portable.
+    blocked_files = set(PERSONAL_FILES)
+    blocked_dirs = set(PERSONAL_DIRS) | {"__pycache__"}
 
     with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         for root, dirs, files in os.walk(PORTABLE_DIR):
             # Lọc bỏ thư mục không cần thiết
-            dirs[:] = [d for d in dirs if d not in ignored_names]
+            dirs[:] = [d for d in dirs if d not in ignored_names and d not in blocked_dirs]
             for file in files:
-                if file in ignored_names or any(file.endswith(ext) for ext in ignored_exts):
+                if file in ignored_names or file in blocked_files:
+                    continue
+                if any(file.endswith(ext) for ext in ignored_exts):
                     continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, PORTABLE_DIR)

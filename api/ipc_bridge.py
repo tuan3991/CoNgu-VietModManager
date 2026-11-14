@@ -1757,7 +1757,6 @@ class ModManagerAPI:
                 bookmarks=get_bookmarked_games(),
                 loc_requests=LOCALIZATION_REQ_MGR.get_my_history(),
             )
-
             unlock_map = overview.pop("_badge_unlock_map", {})
             newly_unlocked = overview.pop("_newly_unlocked", [])
             if newly_unlocked:
@@ -1797,11 +1796,48 @@ class ModManagerAPI:
                 overview["player"]["name"] = community_id
                 overview["player"]["initial"] = community_id[:1].upper()
 
+            overview["needs_setup"] = self._profile_needs_setup(manifest)
             overview["success"] = True
             return overview
         except Exception as e:
             print(f"[Profile] Lỗi tổng hợp Hồ Sơ: {e}")
             return {"success": False, "message": f"Không thể tải Hồ Sơ: {e}"}
+
+    @staticmethod
+    def _profile_needs_setup(manifest: dict = None) -> bool:
+        """
+        Có cần mời người dùng tự tạo hồ sơ trên MÁY NÀY không?
+
+        Cờ được lưu trong user_config.json (theo từng máy), KHÔNG lưu trong
+        .congu_save — nhờ vậy PC mới không kế thừa tên cũ đồng bộ từ Google Drive.
+        Bản cũ đã có tên do người dùng tự đặt (khác tên tài khoản Windows) được
+        coi là đã thiết lập để không làm phiền.
+        """
+        try:
+            cfg = load_user_config() or {}
+            if cfg.get("profile_setup_done_local"):
+                return False
+            name = str((cfg.get("profile") or {}).get("player_name") or "").strip()
+            if name and name != os.environ.get("USERNAME", ""):
+                return False
+            return True
+        except Exception:
+            return False
+
+    def get_profile_setup_status(self):
+        """Trạng thái khởi tạo hồ sơ cho màn hình chào mừng lần đầu mở app."""
+        try:
+            vault = get_vault_instance()
+            manifest = vault.read_manifest() or {}
+            return {
+                "success": True,
+                "needs_setup": self._profile_needs_setup(manifest),
+                "player_name": str(manifest.get("player_name") or "").strip(),
+            }
+        except Exception as e:
+            print(f"[Profile] Lỗi kiểm tra khởi tạo hồ sơ: {e}")
+            return {"success": False, "needs_setup": False, "error": str(e)}
+
 
 
     def update_profile_settings(self, data: dict) -> dict:
@@ -1813,8 +1849,11 @@ class ModManagerAPI:
             vault = get_vault_instance()
             manifest = vault.read_manifest() or {}
 
-            if "player_name" in data and str(data["player_name"]).strip():
-                manifest["player_name"] = str(data["player_name"]).strip()
+            new_name = str(data.get("player_name") or "").strip()
+            if new_name:
+                manifest["player_name"] = new_name
+                # Người dùng đã chủ động đặt tên -> đánh dấu hồ sơ đã thiết lập
+                manifest["profile_setup_done"] = True
             if "avatar_url" in data:
                 manifest["avatar_url"] = str(data["avatar_url"]).strip()
             if "cover_url" in data:
@@ -1831,6 +1870,9 @@ class ModManagerAPI:
             for k in ("player_name", "avatar_url", "cover_url", "bio"):
                 if k in manifest:
                     profile_cfg[k] = manifest[k]
+            if new_name:
+                # Đánh dấu máy này đã hoàn tất khởi tạo hồ sơ.
+                cfg["profile_setup_done_local"] = True
             save_user_config(cfg)
 
             # Đồng bộ lên Cloud nếu đang đăng nhập
@@ -4821,7 +4863,7 @@ class ModManagerAPI:
         except Exception as e:
             return {"status": "error", "message": f"Tệp .congu_save bị hỏng hoặc sai định dạng: {e}"}
 
-        player = manifest.get("player_name") or os.environ.get("USERNAME", "Game Thủ Cổ Ngữ")
+        player = manifest.get("player_name") or "Game Thủ Cổ Ngữ"
         games_count = len(manifest.get("games") or {})
         return {
             "status": "confirm",

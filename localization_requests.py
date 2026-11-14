@@ -246,7 +246,7 @@ class LocalizationRequestManager:
         if not manifest.get("player_id"):
             manifest["player_id"] = "usr_" + secrets.token_hex(8)
         if not manifest.get("player_name"):
-            manifest["player_name"] = os.environ.get("USERNAME", "Game Thủ Cổ Ngữ")
+            manifest["player_name"] = "Game Thủ Cổ Ngữ"
         return manifest["player_id"]
 
     def _sync_drive_async(self, vault):

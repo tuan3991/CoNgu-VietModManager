@@ -271,7 +271,10 @@ class ConguSaveVault:
                     "magic": VAULT_MAGIC_HEADER,
                     "created_at": int(time.time()),
                     "updated_at": int(time.time()),
-                    "player_name": os.environ.get("USERNAME", "Game Thủ CỔ NGỮ"),
+                    # Không lấy tên tài khoản Windows làm tên hồ sơ: PC mới sẽ
+                    # hiện màn hình chào mừng để người dùng tự đặt tên.
+                    "player_name": "",
+                    "profile_setup_done": False,
                     "total_playtime_seconds": 0,
                     "total_achievements_count": 0,
                     "games": {}
@@ -295,7 +298,8 @@ class ConguSaveVault:
                 "vault_version": VAULT_VERSION,
                 "magic": VAULT_MAGIC_HEADER,
                 "updated_at": int(time.time()),
-                "player_name": os.environ.get("USERNAME", "Game Thủ CỔ NGỮ"),
+                "player_name": "",
+                "profile_setup_done": False,
                 "games": {}
             }
 
@@ -348,6 +352,32 @@ class ConguSaveVault:
                         os.remove(temp_zip_path)
                     except OSError:
                         pass
+
+    def set_player_profile(self, name: str, avatar_url: str = None,
+                           cover_url: str = None, bio: str = None) -> dict:
+        """
+        Đặt tên hồ sơ do người dùng tự nhập và đánh dấu đã hoàn tất khởi tạo.
+        Dùng cho màn hình chào mừng lần đầu mở app trên máy mới.
+        """
+        name = str(name or "").strip()
+        if not name:
+            return {"success": False, "error": "Tên hồ sơ không được để trống"}
+
+        manifest = self.read_manifest() or {}
+        manifest["player_name"] = name
+        manifest["profile_setup_done"] = True
+        if avatar_url is not None:
+            manifest["avatar_url"] = str(avatar_url).strip()
+        if cover_url is not None:
+            manifest["cover_url"] = str(cover_url).strip()
+        if bio is not None:
+            manifest["bio"] = str(bio).strip()
+        manifest["updated_at"] = int(time.time())
+
+        res = self.update_manifest_only(manifest)
+        if not res.get("success"):
+            return res
+        return {"success": True, "player_name": name}
 
     def get_vault_info(self) -> dict:
         """Lấy thông số chi tiết của file Vault hiện tại để hiển thị trên UI."""

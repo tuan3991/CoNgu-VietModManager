@@ -1043,6 +1043,30 @@ def api_profile_overview():
     return json.dumps(api_instance.get_profile_overview(), ensure_ascii=False)
 
 
+@server_app.route("/api/profile/setup-status", method="GET")
+def api_profile_setup_status():
+    """Cho biết máy này có cần mời người dùng tự tạo hồ sơ hay không."""
+    response.content_type = "application/json"
+    try:
+        return json.dumps(api_instance.get_profile_setup_status(), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "needs_setup": False, "error": str(e)}, ensure_ascii=False)
+
+
+@server_app.route("/api/profile/save", method="POST")
+def api_profile_save():
+    """Lưu tên/avatar/cover/bio hồ sơ (dùng cho cả màn hình chào mừng và trang Hồ Sơ)."""
+    response.content_type = "application/json"
+    try:
+        data = request.json or {}
+        return json.dumps(api_instance.update_profile_settings(data), ensure_ascii=False)
+    except Exception as e:
+        response.status = 500
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+
+
 # ==============================================================================
 # HỆ THỐNG ĐỔI TÀI KHOẢN & KÍCH DỮ LIỆU CŨ (MULTI-ACCOUNT)
 # ==============================================================================

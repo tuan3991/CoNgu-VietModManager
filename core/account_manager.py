@@ -396,6 +396,7 @@ class AccountManager:
         # 4. Cập nhật hồ sơ tài khoản mới
         cfg = self.config_getter() or {}
         cfg["profile"]["player_name"] = name
+        cfg["profile_setup_done_local"] = True
         self.config_saver(cfg)
 
         new_acc = {
@@ -533,6 +534,7 @@ class AccountManager:
         # Cập nhật tên hiển thị trong profile
         cfg = self.config_getter() or {}
         cfg["profile"]["player_name"] = cloud_id
+        cfg["profile_setup_done_local"] = True
         self.config_saver(cfg)
 
         return {
